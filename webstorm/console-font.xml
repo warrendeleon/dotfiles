@@ -1,0 +1,8 @@
+<application>
+  <component name="ConsoleFont">
+    <option name="VERSION" value="1" />
+    <option name="FONT_FAMILY" value="MesloLGS NF" />
+    <option name="FONT_SIZE" value="13" />
+    <option name="FONT_SIZE_2D" value="13.0" />
+  </component>
+</application>

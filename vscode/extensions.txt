@@ -1,0 +1,9 @@
+dbaeumer.vscode-eslint
+esbenp.prettier-vscode
+eamodio.gitlens
+msjsdiag.vscode-react-native
+dsznajder.es7-react-js-snippets
+bradlc.vscode-tailwindcss
+formulahendry.auto-rename-tag
+christian-kohler.path-intellisense
+editorconfig.editorconfig

@@ -507,32 +507,7 @@ echo "Spotlight Cmd+Space disabled (Raycast will claim it on first launch)"
 #   Ctrl+Option+C           → Centre
 #   Ctrl+Option+F           → Fullscreen
 
-# ===========================================================================
-# WebStorm (free Ctrl+Option+Arrow for Raycast window management)
-# ===========================================================================
-# Find the latest WebStorm config directory
-WEBSTORM_DIR=$(ls -1d ~/Library/Application\ Support/JetBrains/WebStorm* 2>/dev/null | sort -V | tail -1)
-
-if [[ -n "$WEBSTORM_DIR" ]]; then
-  KEYMAP_DIR="$WEBSTORM_DIR/keymaps"
-  mkdir -p "$KEYMAP_DIR"
-
-  cat > "$KEYMAP_DIR/Raycast Compatible.xml" << 'WSEOF'
-<keymap name="Raycast Compatible" parent="Mac OS X 10.5+" version="1">
-  <!-- Remove Ctrl+Option+Arrow: free for Raycast window management -->
-  <action id="ResizeToolWindowLeft"/>
-  <action id="ResizeToolWindowRight"/>
-  <action id="ResizeToolWindowUp"/>
-  <action id="ResizeToolWindowDown"/>
-  <action id="GotoNextElementUnderCaretUsage"/>
-  <action id="GotoPrevElementUnderCaretUsage"/>
-</keymap>
-WSEOF
-
-  echo "WebStorm: 'Raycast Compatible' keymap created (select it in Settings > Keymap)"
-else
-  echo "WebStorm not installed yet — keymap will be created after first launch"
-fi
+# WebStorm keymap and fonts configured in setup.sh (Step 17)
 
 # ===========================================================================
 # Xcode

@@ -533,6 +533,21 @@ if ask "Install custom fonts (MesloLGS NF for Powerlevel10k, Font Awesome)?"; th
         warn "Failed to download ${font}"
     done
   fi
+
+  # JetBrains Mono (WebStorm/VS Code editor font with ligatures)
+  if [[ ! -f "${FONT_DIR}/JetBrainsMono-Regular.ttf" ]]; then
+    info "Downloading JetBrains Mono font..."
+    JB_MONO_URL="https://github.com/JetBrains/JetBrainsMono/releases/latest/download/JetBrainsMono-2.304.zip"
+    JB_MONO_TMP=$(mktemp -d)
+    curl -fsSL "$JB_MONO_URL" -o "$JB_MONO_TMP/jbmono.zip" 2>/dev/null && \
+      unzip -qo "$JB_MONO_TMP/jbmono.zip" -d "$JB_MONO_TMP" 2>/dev/null && \
+      cp "$JB_MONO_TMP"/fonts/ttf/*.ttf "$FONT_DIR/" 2>/dev/null && \
+      success "JetBrains Mono installed" || \
+      warn "Failed to download JetBrains Mono"
+    rm -rf "$JB_MONO_TMP"
+  else
+    success "JetBrains Mono already installed"
+  fi
 fi
 
 # ===========================================================================
@@ -882,8 +897,60 @@ if ask "Configure iTerm2 (font, scrollback, colours)?"; then
   defaults write com.googlecode.iterm2 OnlyWhenMoreTabs -bool false
 
   success "iTerm2 preferences set"
-  info "Verify font is 'MesloLGS NF' in: Preferences → Profiles → Text"
-  info "For Solarized Dark: Preferences → Profiles → Colors → Color Presets → Solarized Dark"
+fi
+
+# ---------------------------------------------------------------------------
+# VS Code Configuration
+# ---------------------------------------------------------------------------
+VSCODE_USER_DIR="$HOME/Library/Application Support/Code/User"
+
+if [[ -d "/Applications/Visual Studio Code.app" ]] || command -v code &>/dev/null; then
+  if ask "Configure VS Code (settings, extensions)?"; then
+    mkdir -p "$VSCODE_USER_DIR"
+
+    # Back up existing settings
+    if [[ -f "$VSCODE_USER_DIR/settings.json" ]]; then
+      cp "$VSCODE_USER_DIR/settings.json" "$VSCODE_USER_DIR/settings.json.backup.$(date +%Y%m%d_%H%M%S)"
+    fi
+    cp "${DOTFILES_DIR}/vscode/settings.json" "$VSCODE_USER_DIR/settings.json"
+    success "VS Code settings installed"
+
+    # Install extensions
+    if command -v code &>/dev/null; then
+      while IFS= read -r ext; do
+        [[ -z "$ext" ]] && continue
+        code --install-extension "$ext" --force 2>/dev/null || warn "Failed to install $ext"
+      done < "${DOTFILES_DIR}/vscode/extensions.txt"
+      success "VS Code extensions installed"
+    else
+      info "Install 'code' CLI: VS Code → Cmd+Shift+P → 'Shell Command: Install'"
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# WebStorm Configuration
+# ---------------------------------------------------------------------------
+WEBSTORM_DIR=$(ls -1d "$HOME/Library/Application Support/JetBrains/WebStorm"* 2>/dev/null | sort -V | tail -1)
+
+if [[ -n "$WEBSTORM_DIR" ]]; then
+  if ask "Configure WebStorm (fonts, keymap)?"; then
+    # Editor font (JetBrains Mono with ligatures)
+    cp "${DOTFILES_DIR}/webstorm/editor-font.xml" "$WEBSTORM_DIR/options/editor-font.xml"
+    success "WebStorm editor font set to JetBrains Mono 13pt"
+
+    # Terminal font (MesloLGS NF for Powerlevel10k)
+    cp "${DOTFILES_DIR}/webstorm/console-font.xml" "$WEBSTORM_DIR/options/console-font.xml"
+    success "WebStorm terminal font set to MesloLGS NF"
+
+    # Raycast Compatible keymap (frees Ctrl+Option+Arrow)
+    mkdir -p "$WEBSTORM_DIR/keymaps"
+    cp "${DOTFILES_DIR}/webstorm/Raycast Compatible.xml" "$WEBSTORM_DIR/keymaps/Raycast Compatible.xml"
+    success "WebStorm 'Raycast Compatible' keymap installed"
+    info "Select it in: Settings → Keymap → Raycast Compatible"
+  fi
+else
+  info "WebStorm not installed yet — run this again after first launch"
 fi
 
 # ===========================================================================

@@ -1,0 +1,9 @@
+<keymap name="Raycast Compatible" parent="Mac OS X 10.5+" version="1">
+  <!-- Remove Ctrl+Option+Arrow: free for Raycast window management -->
+  <action id="ResizeToolWindowLeft"/>
+  <action id="ResizeToolWindowRight"/>
+  <action id="ResizeToolWindowUp"/>
+  <action id="ResizeToolWindowDown"/>
+  <action id="GotoNextElementUnderCaretUsage"/>
+  <action id="GotoPrevElementUnderCaretUsage"/>
+</keymap>
