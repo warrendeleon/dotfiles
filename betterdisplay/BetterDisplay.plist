@@ -61,11 +61,11 @@
 	<key>collapseToolsMenuToIconRow</key>
 	<true/>
 	<key>combinedBrightness-BetterDummy.Combined@1:BetterDummy.Display:37D8832A-2D66-02CA-B9F7-8F30A301B230-</key>
-	<real>0.58255332708358765</real>
+	<real>0.6</real>
 	<key>combinedBrightness-BetterDummy.Combined@1:BetterDummy.Display:B67A4C2E-1E17-4553-9B7F-66EAA742F7B8-</key>
-	<real>0.80156248807907104</real>
+	<real>0.8</real>
 	<key>combinedBrightness-BetterDummy.Combined@1:BetterDummy.Display:F30A9FF0-BD3F-4225-92F7-BFDCDB91953C-</key>
-	<real>0.80412948131561279</real>
+	<real>0.8</real>
 	<key>ddcShowCustomControlSettings@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
 	<true/>
 	<key>ddcShowCustomInputSourceSettings@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
@@ -77,11 +77,11 @@
 	<key>forceDDCBrightnessWithHDR@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
 	<true/>
 	<key>hardwareBrightness-BetterDummy.Apple@1:BetterDummy.Display:37D8832A-2D66-02CA-B9F7-8F30A301B230-</key>
-	<real>0.48340976238250732</real>
+	<real>0.6</real>
 	<key>hardwareBrightness-BetterDummy.DDC@1:BetterDummy.Display:B67A4C2E-1E17-4553-9B7F-66EAA742F7B8-</key>
-	<real>0.60312497615814209</real>
+	<real>0.8</real>
 	<key>hardwareBrightness-BetterDummy.DDC@1:BetterDummy.Display:F30A9FF0-BD3F-4225-92F7-BFDCDB91953C-</key>
-	<real>0.60825896263122559</real>
+	<real>0.8</real>
 	<key>hideHeaderWithOneDevice</key>
 	<true/>
 	<key>hideSettingsBlock@1:BetterDummy.Display:41B2FDDD-0925-4494-9CBF-08B65F744545-</key>
