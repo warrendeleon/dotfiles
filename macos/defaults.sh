@@ -255,7 +255,7 @@ if command -v duti &>/dev/null; then
   )
 
   for ext in "${ARCHIVE_EXTENSIONS[@]}"; do
-    duti -s com.macpaw.site.theunarchiver ".$ext" all 2>/dev/null
+    duti -s cx.c3.theunarchiver ".$ext" all 2>/dev/null
   done
   echo "The Unarchiver set as default for archive formats"
 
