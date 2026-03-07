@@ -491,17 +491,27 @@ done
 echo "Removed unwanted login items (Spotify, Teams, Zoom, Slack, NordVPN, Notion, Rectangle)"
 
 # Add apps that should start at login
-for app in "Rocket" "Raycast" "Google Drive" "Tailscale" "1Password"; do
-  osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"/Applications/$app.app\", hidden:false}" 2>/dev/null || true
+for app in "Rocket" "Raycast" "Google Drive" "Tailscale" "1Password" "BetterDisplay" "Elgato Control Center" "Singlebox" "DisplayLink Manager"; do
+  osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"/Applications/$app.app\", hidden:true}" 2>/dev/null || true
 done
-echo "Added login items: Rocket, Raycast, Google Drive, Tailscale, 1Password"
+echo "Added login items (all hidden): Rocket, Raycast, Google Drive, Tailscale, 1Password, BetterDisplay, Elgato Control Center, Singlebox, DisplayLink Manager"
 
-# 1Password: start hidden (menu bar only, no Dock window)
+# 1Password: menu bar only, no main window
 defaults write com.1password.1password showInMenuBar -bool true
 defaults write com.1password.1password StartAtLogin -bool true
 defaults write com.1password.1password ShowMainWindowAtLogin -bool false
 
-echo "1Password: starts at login, menu bar only (no main window)"
+# Google Drive: menu bar only
+defaults write com.google.drivefs OpenAtLogin -bool true 2>/dev/null || true
+
+# BetterDisplay: menu bar only
+defaults write pro.betterdisplay.BetterDisplay launchAtLogin -bool true 2>/dev/null || true
+defaults write pro.betterdisplay.BetterDisplay showDockIcon -bool false 2>/dev/null || true
+
+# Singlebox: start minimised
+defaults write com.nickvdp.singlebox hideOnLaunch -bool true 2>/dev/null || true
+
+echo "All login items configured to start hidden or in menu bar"
 
 # ===========================================================================
 # Raycast (Spotlight replacement)
