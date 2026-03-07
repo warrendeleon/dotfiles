@@ -497,6 +497,10 @@ CLAUDEEOF
       [[ -f "$cmd" ]] && symlink "$cmd" "$HOME/.claude/commands/$(basename "$cmd")"
     done
   fi
+  # Symlink global docs
+  if [[ -d "${DOTFILES_DIR}/claude/docs" ]]; then
+    symlink "${DOTFILES_DIR}/claude/docs" "$HOME/.claude/docs"
+  fi
 
   success "All dotfiles linked"
 else
