@@ -30,6 +30,7 @@
     tags = tag -l --sort=-v:refname
     amend = commit --amend --no-edit
     fixup = commit --fixup
+    prune-merged = !git branch --merged main | grep -v 'main$' | xargs -r git branch -d
     aliases = !printf '\\n\
 ┌───────────────┬──────────────────────────────┬─────────────────────────┐\\n\
 │ Shortcut      │ Expands to                   │ Example                 │\\n\
@@ -71,6 +72,8 @@
 │ git amend     │ commit --amend --no-edit     │ git amend               │\\n\
 ├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
 │ git fixup     │ commit --fixup               │ git fixup abc123        │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git prune-m…  │ delete merged branches       │ git prune-merged        │\\n\
 └───────────────┴──────────────────────────────┴─────────────────────────┘\\n\\n'
 [pull]
     rebase = true

@@ -64,6 +64,20 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && . "/opt/homebrew/opt/nvm/nvm.sh"
 [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && . "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
 
+# Auto nvm use — switches Node version when entering a dir with .nvmrc
+autoload -U add-zsh-hook
+_auto_nvm_use() {
+  if [[ -f .nvmrc ]]; then
+    local wanted=$(cat .nvmrc)
+    local current=$(node -v 2>/dev/null)
+    if [[ "$current" != "v${wanted}"* && "$current" != "${wanted}"* ]]; then
+      nvm use --silent
+    fi
+  fi
+}
+add-zsh-hook chpwd _auto_nvm_use
+_auto_nvm_use  # run once on shell start
+
 # ---------------------------------------------------------------------------
 # pipx (Python CLI tools)
 # ---------------------------------------------------------------------------
@@ -89,7 +103,37 @@ command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
 # ---------------------------------------------------------------------------
 # Auto-ls after cd (show directory contents on every cd)
 # ---------------------------------------------------------------------------
-chpwd() { eza --icons --group-directories-first 2>/dev/null || ls }
+_auto_ls() { eza --icons --group-directories-first 2>/dev/null || ls }
+add-zsh-hook chpwd _auto_ls
+
+# ---------------------------------------------------------------------------
+# History (bigger, deduplicated, shared across tabs)
+# ---------------------------------------------------------------------------
+HISTSIZE=50000
+SAVEHIST=50000
+HISTFILE=~/.zsh_history
+setopt HIST_IGNORE_ALL_DUPS    # remove older duplicate
+setopt HIST_FIND_NO_DUPS       # don't show dupes when searching
+setopt HIST_REDUCE_BLANKS      # trim whitespace
+setopt SHARE_HISTORY           # share across all open terminals
+setopt APPEND_HISTORY          # append, don't overwrite
+
+# ---------------------------------------------------------------------------
+# Functions
+# ---------------------------------------------------------------------------
+# mkcd — create a directory and cd into it
+mkcd() { mkdir -p "$1" && cd "$1" }
+
+# killport — kill whatever is running on a given port
+killport() {
+  local pid
+  pid=$(lsof -ti :"$1" 2>/dev/null)
+  if [[ -n "$pid" ]]; then
+    kill -9 $pid && echo "Killed process $pid on port $1"
+  else
+    echo "Nothing running on port $1"
+  fi
+}
 
 # ---------------------------------------------------------------------------
 # Aliases
@@ -144,6 +188,9 @@ alias dcl="docker compose logs -f"
 alias gp="git push"
 alias gpl="git pull"
 alias gcm="git checkout main"
+
+# Shell
+alias reload="source ~/.zshrc && echo 'Reloaded .zshrc'"
 
 # Help table
 aliases() {
@@ -218,6 +265,12 @@ aliases() {
   printf '│ gpl        │ git pull                                         │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
   printf '│ gcm        │ git checkout main                                │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ reload     │ source ~/.zshrc                                  │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ mkcd       │ mkdir + cd in one step                           │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ killport   │ kill process on port (killport 3000)             │\n'
   printf '└────────────┴──────────────────────────────────────────────────┘\n'
   printf '\n  Git aliases: run "git aliases" for git-specific shortcuts\n\n'
 }
