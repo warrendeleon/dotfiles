@@ -64,7 +64,7 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 | 12 | **Clone Repos** | Project repositories |
 | 13 | **Android SDK** | SDK command-line tools + licence acceptance |
 | 14 | **iOS Development** | Verifies CocoaPods availability (installed via rbenv gem in Step 10) |
-| 15 | **SSH Key** | Pulled from 1Password CLI |
+| 15 | **SSH Key** | Copied from iCloud Drive (`iCloud Drive/ssh/id_rsa`) |
 | 16 | **GitHub CLI** | Authentication + SSH protocol + editor config |
 | 17 | **iTerm2** | Profile and preferences |
 | 18 | **macOS Defaults** | System preferences (Dock, Finder, keyboard, etc.) |

@@ -786,11 +786,12 @@ if command -v xcrun &>/dev/null && [[ -d "/Applications/Xcode.app" ]]; then
 fi
 
 # ===========================================================================
-# Step 15: SSH Key (from 1Password)
+# Step 15: SSH Key (from iCloud Drive)
 # ===========================================================================
 section "SSH Key"
 
 SSH_KEY="$HOME/.ssh/id_rsa"
+ICLOUD_SSH="$HOME/Library/Mobile Documents/com~apple~CloudDocs/ssh/id_rsa"
 
 if [[ -f "$SSH_KEY" ]]; then
   success "SSH key already exists (${SSH_KEY})"
@@ -798,47 +799,27 @@ else
   mkdir -p "$HOME/.ssh"
   chmod 700 "$HOME/.ssh"
 
-  if command -v op &>/dev/null; then
-    if ask "Retrieve SSH key from 1Password?"; then
-      info "Signing in to 1Password CLI..."
-      eval "$(op signin)" 2>/dev/null || {
-        warn "Sign in with: eval \"\$(op signin)\""
-        warn "Then re-run this step."
-      }
+  if [[ -f "$ICLOUD_SSH" ]]; then
+    info "Copying SSH key from iCloud Drive..."
+    cp "$ICLOUD_SSH" "$SSH_KEY"
+    chmod 600 "$SSH_KEY"
 
-      if op whoami &>/dev/null; then
-        info "Downloading private key from 1Password (Personal/id_rsa)..."
-        op read "op://Personal/id_rsa/private key" --out-file "$SSH_KEY" 2>/dev/null \
-          || op item get "id_rsa" --vault Personal --fields "notesPlain" > "$SSH_KEY" 2>/dev/null \
-          || {
-            warn "Could not auto-retrieve. Trying document download..."
-            op document get "id_rsa" --vault Personal --out-file "$SSH_KEY" 2>/dev/null || {
-              error "Could not retrieve SSH key automatically."
-              info "Open 1Password → Personal vault → 'id_rsa' → copy private key manually"
-              info "Then paste into: ${SSH_KEY}"
-              read -rp "Press ENTER after you've saved the key..." </dev/tty
-            }
-          }
+    # Derive public key from private key
+    ssh-keygen -y -f "$SSH_KEY" > "${SSH_KEY}.pub"
+    chmod 644 "${SSH_KEY}.pub"
 
-        if [[ -f "$SSH_KEY" ]]; then
-          chmod 600 "$SSH_KEY"
-          # Derive public key from private key
-          ssh-keygen -y -f "$SSH_KEY" > "${SSH_KEY}.pub"
-          chmod 644 "${SSH_KEY}.pub"
+    # Add to macOS keychain
+    eval "$(ssh-agent -s)"
+    ssh-add --apple-use-keychain "$SSH_KEY"
 
-          # Add to macOS keychain
-          eval "$(ssh-agent -s)"
-          ssh-add --apple-use-keychain "$SSH_KEY"
-
-          success "SSH key restored from 1Password and added to keychain"
-          echo ""
-          info "Public key:"
-          cat "${SSH_KEY}.pub"
-        fi
-      fi
-    fi
+    success "SSH key copied from iCloud Drive and added to keychain"
+    echo ""
+    info "Public key:"
+    cat "${SSH_KEY}.pub"
   else
-    warn "1Password CLI (op) not found. Install Homebrew packages first (Step 3)."
+    warn "SSH key not found in iCloud Drive (expected at: iCloud Drive/ssh/id_rsa)"
+    info "To set up: mkdir -p ~/Library/Mobile Documents/com~apple~CloudDocs/ssh"
+    info "           cp ~/.ssh/id_rsa ~/Library/Mobile Documents/com~apple~CloudDocs/ssh/id_rsa"
     echo ""
     if ask "Generate a new RSA SSH key instead?"; then
       GIT_EMAIL_FOR_SSH=$(git config --global user.email 2>/dev/null || echo "")
