@@ -25,7 +25,7 @@ cd ~/Developer/dotfiles
 ./setup.sh
 ```
 
-The script runs **27 steps** with a live progress widget pinned to the bottom of the terminal. Each step can be skipped individually.
+The script runs **28 steps** with a live progress widget pinned to the bottom of the terminal. Each step can be skipped individually.
 
 ## What's Inside
 
@@ -65,18 +65,19 @@ The script runs **27 steps** with a live progress widget pinned to the bottom of
 | 13 | **Android SDK** | SDK command-line tools + licence acceptance |
 | 14 | **iOS Development** | CocoaPods via Homebrew |
 | 15 | **SSH Key** | Pulled from 1Password CLI |
-| 16 | **iTerm2** | Profile and preferences |
-| 17 | **macOS Defaults** | System preferences (Dock, Finder, keyboard, etc.) |
-| 18 | **Docker** | Docker Desktop + daemon startup |
-| 19 | **Tailscale SSH** | Mesh VPN with SSH access |
-| 20 | **Fork** | Git client preferences |
-| 21 | **WebStorm** | JetBrains IDE settings |
-| 22 | **Touch ID for sudo** | Fingerprint authentication for `sudo` |
-| 23 | **Firewall & FileVault** | macOS firewall + disk encryption |
-| 24 | **Finder Sidebar** | Sidebar favourites configuration |
-| 25 | **Login Items** | Accessibility permissions + startup apps |
-| 26 | **Amphetamine** | Power Protect helper for closed-lid mode |
-| 27 | **RAG System** | Local semantic search for Claude Code |
+| 16 | **GitHub CLI** | Authentication + SSH protocol + editor config |
+| 17 | **iTerm2** | Profile and preferences |
+| 18 | **macOS Defaults** | System preferences (Dock, Finder, keyboard, etc.) |
+| 19 | **Docker** | Docker Desktop + daemon startup |
+| 20 | **Tailscale SSH** | Mesh VPN with SSH access |
+| 21 | **Fork** | Git client preferences |
+| 22 | **WebStorm** | JetBrains IDE settings |
+| 23 | **Touch ID for sudo** | Fingerprint authentication for `sudo` |
+| 24 | **Firewall & FileVault** | macOS firewall + disk encryption |
+| 25 | **Finder Sidebar** | Sidebar favourites configuration |
+| 26 | **Login Items** | Accessibility permissions + startup apps |
+| 27 | **Amphetamine** | Power Protect helper for closed-lid mode |
+| 28 | **RAG System** | Local semantic search for Claude Code |
 
 ### Brewfile Highlights
 
@@ -98,7 +99,7 @@ The script runs **27 steps** with a live progress widget pinned to the bottom of
 
 ```
 dotfiles/
-├── setup.sh                     # Main setup script (27 steps + progress widget)
+├── setup.sh                     # Main setup script (28 steps + progress widget)
 ├── Brewfile                     # Homebrew packages, casks, and MAS apps
 │
 ├── shell/

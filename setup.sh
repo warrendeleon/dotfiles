@@ -51,6 +51,7 @@ STEP_NAMES=(
   "Android SDK"
   "iOS Development"
   "SSH Key"
+  "GitHub CLI"
   "iTerm2"
   "macOS Defaults"
   "Docker"
@@ -788,7 +789,39 @@ else
 fi
 
 # ===========================================================================
-# Step 16: iTerm2 Configuration
+# Step 16: GitHub CLI
+# ===========================================================================
+section "GitHub CLI"
+
+if command -v gh &>/dev/null; then
+  if gh auth status &>/dev/null 2>&1; then
+    success "GitHub CLI already authenticated"
+  else
+    if ask "Authenticate GitHub CLI?"; then
+      info "Opening browser for GitHub authentication..."
+      gh auth login --hostname github.com --git-protocol ssh --web || {
+        warn "Browser auth failed. Try manually: gh auth login"
+      }
+
+      if gh auth status &>/dev/null 2>&1; then
+        success "GitHub CLI authenticated"
+      fi
+    fi
+  fi
+
+  # Set preferred defaults
+  if gh auth status &>/dev/null 2>&1; then
+    gh config set git_protocol ssh --host github.com 2>/dev/null
+    gh config set editor "code --wait" 2>/dev/null
+    gh config set pager "less" 2>/dev/null
+    success "GitHub CLI configured (SSH protocol, VS Code editor)"
+  fi
+else
+  warn "GitHub CLI (gh) not found. Install Homebrew packages first (Step 3)."
+fi
+
+# ===========================================================================
+# Step 17: iTerm2 Configuration
 # ===========================================================================
 section "iTerm2 Configuration"
 
@@ -821,7 +854,7 @@ if ask "Configure iTerm2 (font, scrollback, colours)?"; then
 fi
 
 # ===========================================================================
-# Step 17: macOS Defaults
+# Step 18: macOS Defaults
 # ===========================================================================
 section "macOS System Preferences"
 
@@ -838,7 +871,7 @@ if ask "Apply macOS preferences?"; then
 fi
 
 # ===========================================================================
-# Step 18: Colima (Docker)
+# Step 19: Colima (Docker)
 # ===========================================================================
 section "Docker (Colima)"
 
@@ -854,7 +887,7 @@ else
 fi
 
 # ===========================================================================
-# Step 19: Tailscale SSH
+# Step 20: Tailscale SSH
 # ===========================================================================
 section "Tailscale SSH"
 
@@ -886,7 +919,7 @@ else
 fi
 
 # ===========================================================================
-# Step 20: Fork Preferences + Singlebox
+# Step 21: Fork Preferences + Singlebox
 # ===========================================================================
 section "Fork Preferences"
 
@@ -939,7 +972,7 @@ else
 fi
 
 # ===========================================================================
-# Step 21: WebStorm Settings Sync
+# Step 22: WebStorm Settings Sync
 # ===========================================================================
 section "WebStorm Settings"
 
@@ -967,7 +1000,7 @@ if ask "Open WebStorm now to set up Settings Sync?"; then
 fi
 
 # ===========================================================================
-# Step 22: Touch ID for sudo
+# Step 23: Touch ID for sudo
 # ===========================================================================
 section "Touch ID for sudo"
 
@@ -987,7 +1020,7 @@ EOF'
 fi
 
 # ===========================================================================
-# Step 23: Firewall & FileVault
+# Step 24: Firewall & FileVault
 # ===========================================================================
 section "Firewall & FileVault"
 
@@ -1014,7 +1047,7 @@ else
 fi
 
 # ===========================================================================
-# Step 24: Finder Sidebar
+# Step 25: Finder Sidebar
 # ===========================================================================
 section "Finder Sidebar"
 
@@ -1042,7 +1075,7 @@ else
 fi
 
 # ===========================================================================
-# Step 25: Login Items
+# Step 26: Login Items
 # ===========================================================================
 section "Login Items"
 
@@ -1123,7 +1156,7 @@ if ask "Enable daily auto-updates for all apps (Homebrew + App Store)?"; then
 fi
 
 # ===========================================================================
-# Step 26: Amphetamine Power Protect
+# Step 27: Amphetamine Power Protect
 # ===========================================================================
 section "Amphetamine Power Protect"
 
@@ -1180,7 +1213,7 @@ fi
 fi  # end of "already installed" check
 
 # ===========================================================================
-# Step 27: RAG System (Local Semantic Search)
+# Step 28: RAG System (Local Semantic Search)
 # ===========================================================================
 section "RAG System"
 

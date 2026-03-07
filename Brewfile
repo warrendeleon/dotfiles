@@ -15,6 +15,7 @@ brew "git"
 brew "git-filter-repo"
 brew "wget"
 brew "ripgrep"
+brew "gh"                        # GitHub CLI
 brew "mas"                       # Mac App Store CLI
 brew "duti"                      # Set default apps per file type
 
