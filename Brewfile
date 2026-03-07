@@ -29,6 +29,10 @@ brew "fzf"                       # Fuzzy finder (history, file search)
 brew "tldr"                      # Simplified man pages
 brew "htop"                      # Interactive process viewer
 brew "trash"                     # Move to Trash instead of rm
+brew "zoxide"                    # Smarter cd (remembers directories)
+brew "git-delta"                 # Better git diff (syntax highlighting)
+brew "ncdu"                      # Interactive disk usage analyser
+brew "lazygit"                   # Terminal UI for git
 
 # ============================================================================
 # Shell

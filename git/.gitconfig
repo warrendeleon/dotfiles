@@ -5,12 +5,11 @@
     excludesfile = ~/.gitignore_global
     autocrlf = input
     safecrlf = false
-[difftool "sourcetree"]
-    cmd = opendiff "$LOCAL" "$REMOTE"
-    path =
-[mergetool "sourcetree"]
-    cmd = /Applications/Sourcetree.app/Contents/Resources/opendiff-w.sh "$LOCAL" "$REMOTE" -ancestor "$BASE" -merge "$MERGED"
-    trustExitCode = true
+    pager = delta
+[init]
+    defaultBranch = main
+[rerere]
+    enabled = true
 [credential]
     helper = osxkeychain
 [commit]
@@ -84,6 +83,13 @@
     autoStash = true
 [fetch]
     prune = true
+[interactive]
+    diffFilter = delta --color-only
+[delta]
+    navigate = true
+    side-by-side = true
+    line-numbers = true
+    syntax-theme = Dracula
 [diff]
     algorithm = histogram
     colorMoved = default

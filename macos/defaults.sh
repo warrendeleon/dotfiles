@@ -358,6 +358,9 @@ defaults write NSGlobalDomain InitialKeyRepeat -int 15
 # Disable auto-capitalise (keep auto-correct enabled)
 defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
 
+# Disable press-and-hold for accent characters (enables key repeat in all apps)
+defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
+
 # ===========================================================================
 # Sound
 # ===========================================================================
@@ -532,6 +535,28 @@ fi
 # ===========================================================================
 # Show build duration in toolbar
 defaults write com.apple.dt.Xcode ShowBuildOperationDuration -bool true
+
+# ===========================================================================
+# Firewall
+# ===========================================================================
+# Enable macOS firewall (off by default)
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null
+# Allow signed apps automatically
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setallowsigned on 2>/dev/null
+# Enable stealth mode (don't respond to pings)
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null
+
+echo "Firewall enabled with stealth mode"
+
+# ===========================================================================
+# FileVault (disk encryption)
+# ===========================================================================
+if fdesetup status | grep -q "FileVault is Off"; then
+  echo "⚠️  FileVault is OFF — enable it in System Settings > Privacy & Security > FileVault"
+  echo "   (Requires interactive setup with recovery key, cannot be fully automated)"
+else
+  echo "FileVault is already enabled"
+fi
 
 # ===========================================================================
 # Apply

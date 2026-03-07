@@ -75,8 +75,33 @@ export PATH="$PATH:$HOME/.local/bin"
 export PATH="/opt/homebrew/opt/ccache/libexec:$PATH"
 
 # ---------------------------------------------------------------------------
+# fzf (fuzzy finder — Ctrl+R history, Ctrl+T file search)
+# ---------------------------------------------------------------------------
+if command -v fzf &>/dev/null; then
+  source <(fzf --zsh 2>/dev/null) || true
+fi
+
+# ---------------------------------------------------------------------------
+# zoxide (smarter cd — use 'z' instead of 'cd')
+# ---------------------------------------------------------------------------
+command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
+
+# ---------------------------------------------------------------------------
 # Aliases
 # ---------------------------------------------------------------------------
+
+# Modern CLI replacements
+alias ls="eza --icons --group-directories-first"
+alias ll="eza --icons --group-directories-first -la"
+alias lt="eza --icons --tree --level=2"
+alias cat="bat --paging=never"
+alias find="fd"
+alias rm="trash"
+alias top="htop"
+alias man="tldr"
+alias diff="delta"
+alias lg="lazygit"
+alias du="ncdu"
 
 # Yarn / npm
 alias nr="yarn"
@@ -120,6 +145,24 @@ aliases() {
   printf '\n'
   printf '┌────────────┬──────────────────────────────────────────────────┐\n'
   printf '│ Shortcut   │ Expands to                                       │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ ls         │ eza --icons (modern ls)                          │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ ll         │ eza -la (detailed list)                          │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ lt         │ eza --tree (tree view, 2 levels)                 │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ cat        │ bat (syntax highlighting)                        │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ find       │ fd (modern find)                                 │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ rm         │ trash (move to Trash)                            │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ z          │ zoxide (smart cd, remembers dirs)                │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ lg         │ lazygit (terminal git UI)                        │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ du         │ ncdu (interactive disk usage)                    │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
   printf '│ nr         │ yarn                                             │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'

@@ -1,13 +1,19 @@
+# ===========================================================================
 # SSH Config — Warren de Leon
-# Copy to ~/.ssh/config and adjust as needed
+# Symlinked to ~/.ssh/config by setup.sh
+# ===========================================================================
 
-Host *
-  UseKeychain yes
-  AddKeysToAgent yes
-  IdentityFile ~/.ssh/id_rsa
-  HashKnownHosts yes
-  StrictHostKeyChecking ask
-
+# Tailscale hosts (access over private network)
 Host minipc
-  HostName ubuntu-minipc.local
-  User warren
+    HostName ubuntu-minipc
+    User warren
+
+# Defaults for all hosts
+Host *
+    AddKeysToAgent yes
+    UseKeychain yes
+    IdentityFile ~/.ssh/id_ed25519
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    HashKnownHosts yes
+    StrictHostKeyChecking ask
