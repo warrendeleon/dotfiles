@@ -936,6 +936,17 @@ if [[ -d "/Applications/Tailscale.app" ]]; then
       warn "Tailscale not connected. Sign in later via the menu bar icon."
     fi
   fi
+
+  # Set custom hostname on the tailnet
+  if "$TAILSCALE_CLI" status &>/dev/null 2>&1; then
+    CURRENT_TS_HOST=$("$TAILSCALE_CLI" status --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('Self',{}).get('DNSName','').split('.')[0])" 2>/dev/null)
+    info "Current Tailscale hostname: ${CURRENT_TS_HOST}"
+    read -rp "Enter new hostname (or press ENTER to keep '${CURRENT_TS_HOST}'): " TS_HOSTNAME </dev/tty
+    if [[ -n "$TS_HOSTNAME" ]]; then
+      "$TAILSCALE_CLI" set --hostname="$TS_HOSTNAME" || warn "Could not set hostname."
+      success "Tailscale hostname set to: ${TS_HOSTNAME}"
+    fi
+  fi
 else
   warn "Tailscale not found. Install from the Mac App Store (Step 3)."
 fi
