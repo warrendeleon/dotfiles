@@ -399,6 +399,17 @@ else
   [[ -d "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ]] && success "zsh-autosuggestions installed"
 fi
 
+# zsh-syntax-highlighting plugin
+if [[ -d "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" ]]; then
+  success "zsh-syntax-highlighting already installed"
+else
+  info "Installing zsh-syntax-highlighting..."
+  git clone https://github.com/zsh-users/zsh-syntax-highlighting "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" || {
+    warn "Failed to clone zsh-syntax-highlighting. Check network and retry."
+  }
+  [[ -d "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" ]] && success "zsh-syntax-highlighting installed"
+fi
+
 # Powerlevel10k theme
 if [[ -d "${ZSH_CUSTOM}/themes/powerlevel10k" ]]; then
   success "Powerlevel10k already installed"

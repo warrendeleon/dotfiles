@@ -39,7 +39,40 @@
       "Badge Text": "",
       "Title Components": 2,
 
-      "Custom Directory": "Recycle"
+      "Custom Directory": "Recycle",
+
+      "Ansi 0 Color": { "Red Component": 0.027, "Green Component": 0.212, "Blue Component": 0.259 },
+      "Ansi 1 Color": { "Red Component": 0.863, "Green Component": 0.196, "Blue Component": 0.184 },
+      "Ansi 2 Color": { "Red Component": 0.522, "Green Component": 0.600, "Blue Component": 0.000 },
+      "Ansi 3 Color": { "Red Component": 0.710, "Green Component": 0.537, "Blue Component": 0.000 },
+      "Ansi 4 Color": { "Red Component": 0.149, "Green Component": 0.545, "Blue Component": 0.824 },
+      "Ansi 5 Color": { "Red Component": 0.827, "Green Component": 0.212, "Blue Component": 0.510 },
+      "Ansi 6 Color": { "Red Component": 0.165, "Green Component": 0.631, "Blue Component": 0.596 },
+      "Ansi 7 Color": { "Red Component": 0.933, "Green Component": 0.910, "Blue Component": 0.835 },
+      "Ansi 8 Color": { "Red Component": 0.000, "Green Component": 0.169, "Blue Component": 0.212 },
+      "Ansi 9 Color": { "Red Component": 0.796, "Green Component": 0.294, "Blue Component": 0.086 },
+      "Ansi 10 Color": { "Red Component": 0.345, "Green Component": 0.431, "Blue Component": 0.459 },
+      "Ansi 11 Color": { "Red Component": 0.396, "Green Component": 0.482, "Blue Component": 0.514 },
+      "Ansi 12 Color": { "Red Component": 0.514, "Green Component": 0.580, "Blue Component": 0.588 },
+      "Ansi 13 Color": { "Red Component": 0.424, "Green Component": 0.443, "Blue Component": 0.769 },
+      "Ansi 14 Color": { "Red Component": 0.576, "Green Component": 0.631, "Blue Component": 0.631 },
+      "Ansi 15 Color": { "Red Component": 0.992, "Green Component": 0.965, "Blue Component": 0.890 },
+      "Background Color": { "Red Component": 0.000, "Green Component": 0.169, "Blue Component": 0.212 },
+      "Foreground Color": { "Red Component": 0.514, "Green Component": 0.580, "Blue Component": 0.588 },
+      "Bold Color": { "Red Component": 0.576, "Green Component": 0.631, "Blue Component": 0.631 },
+      "Cursor Color": { "Red Component": 0.514, "Green Component": 0.580, "Blue Component": 0.588 },
+      "Cursor Text Color": { "Red Component": 0.000, "Green Component": 0.169, "Blue Component": 0.212 },
+      "Selection Color": { "Red Component": 0.027, "Green Component": 0.212, "Blue Component": 0.259 },
+      "Selected Text Color": { "Red Component": 0.576, "Green Component": 0.631, "Blue Component": 0.631 },
+
+      "Key Mappings": [
+        { "Action": 25, "Text": " ", "Modifiers": ["Option"], "Key": "0x7f", "Comment": "Option+Backspace: delete word" },
+        { "Action": 10, "Text": "b", "Modifiers": ["Option"], "Key": "0xf702", "Comment": "Option+Left: jump word left" },
+        { "Action": 10, "Text": "f", "Modifiers": ["Option"], "Key": "0xf703", "Comment": "Option+Right: jump word right" },
+        { "Action": 10, "Text": "0x01", "Modifiers": ["Command"], "Key": "0xf702", "Comment": "Cmd+Left: jump to start of line" },
+        { "Action": 10, "Text": "0x05", "Modifiers": ["Command"], "Key": "0xf703", "Comment": "Cmd+Right: jump to end of line" },
+        { "Action": 10, "Text": "0x15", "Modifiers": ["Command"], "Key": "0x7f", "Comment": "Cmd+Backspace: delete to start of line" }
+      ]
     }
   ]
 }
