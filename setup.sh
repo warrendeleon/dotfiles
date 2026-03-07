@@ -1408,8 +1408,8 @@ if [[ -d "$RAG_DIR" ]]; then
       if [[ -f "$target" ]]; then
         launchctl unload "$target" 2>/dev/null || true
       fi
-      # Replace hardcoded username with current user's home directory
-      sed "s|/Users/warrendeleon|$HOME|g" "$plist" > "$target"
+      # Replace placeholder with current user's home directory
+      sed "s|__HOME__|$HOME|g" "$plist" > "$target"
       launchctl load "$target"
       success "Loaded $plist_name"
     done

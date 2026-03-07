@@ -319,7 +319,7 @@ else
 fi
 
 # Persist across reboots via launchd
-PLIST="/Library/LaunchDaemons/com.warrendeleon.gpu-wired-memory.plist"
+PLIST="/Library/LaunchDaemons/com.dotfiles.gpu-wired-memory.plist"
 if [[ ! -f "$PLIST" ]]; then
   sudo tee "$PLIST" > /dev/null << GPUEOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -327,7 +327,7 @@ if [[ ! -f "$PLIST" ]]; then
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.warrendeleon.gpu-wired-memory</string>
+    <string>com.dotfiles.gpu-wired-memory</string>
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>

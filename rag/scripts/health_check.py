@@ -150,7 +150,7 @@ def check_launchd() -> bool:
     print(f"\n{BOLD}launchd Services{NC}")
 
     all_ok = True
-    for label in ("com.warrendeleon.rag-watcher", "com.warrendeleon.rag-indexer"):
+    for label in ("com.dotfiles.rag-watcher", "com.dotfiles.rag-indexer"):
         result = subprocess.run(
             ["launchctl", "list", label],
             capture_output=True, text=True,

@@ -3,23 +3,23 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.warrendeleon.rag-watcher</string>
+    <string>com.dotfiles.rag-watcher</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/warrendeleon/.rag/venv/bin/python</string>
+        <string>__HOME__/.rag/venv/bin/python</string>
         <string>-m</string>
         <string>src.watcher</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/warrendeleon/Developer/dotfiles/rag</string>
+    <string>__HOME__/Developer/dotfiles/rag</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/Users/warrendeleon/.rag/logs/watcher.log</string>
+    <string>__HOME__/.rag/logs/watcher.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/warrendeleon/.rag/logs/watcher.err</string>
+    <string>__HOME__/.rag/logs/watcher.err</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
