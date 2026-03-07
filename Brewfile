@@ -118,6 +118,7 @@ cask "rocket"                    # Emoji picker
 cask "google-drive"              # Cloud storage
 cask "rectangle"                 # Window management (keyboard shortcuts)
 cask "the-unarchiver"            # Archive extraction (zip, rar, 7z, etc.)
+cask "notion"                    # Notes and project management
 
 # Media & Streaming
 cask "iina"                      # Video player (replaces VLC)

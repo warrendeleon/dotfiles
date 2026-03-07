@@ -52,9 +52,12 @@ defaults write com.apple.Safari IncludeDevelopMenu -bool true
 # ===========================================================================
 # Locale
 # ===========================================================================
-# British English
-defaults write NSGlobalDomain AppleLanguages -array "en-GB"
+# British English (primary), Spanish (Spain), Catalan (Catalonia)
+defaults write NSGlobalDomain AppleLanguages -array "en-GB" "es-ES" "ca-ES"
 defaults write NSGlobalDomain AppleLocale -string "en_GB"
+
+# Auto-detect language for spell checking (supports all three languages)
+defaults write NSGlobalDomain NSSpellCheckerAutomaticallyIdentifiesLanguages -bool true
 
 # ===========================================================================
 # App-specific
@@ -143,7 +146,6 @@ dock_add "/Applications/Google Chrome.app/"
 dock_add "/System/Applications/Notes.app/"
 dock_add "/System/Applications/Calendar.app/"
 dock_add "/Applications/Singlebox.app/"
-dock_add "/System/Applications/iPhone Mirroring.app/"
 dock_add "/Applications/iTerm.app/"
 
 # ===========================================================================
@@ -208,7 +210,81 @@ if command -v duti &>/dev/null; then
   # Sublime Text for Markdown files
   duti -s com.sublimetext.4 .md all 2>/dev/null
   duti -s com.sublimetext.4 .markdown all 2>/dev/null
+  # Sublime Text for plain text and config files
+  TEXT_EXTENSIONS=(
+    txt log json yaml yml xml csv
+    env conf cfg ini toml
+  )
+
+  for ext in "${TEXT_EXTENSIONS[@]}"; do
+    duti -s com.sublimetext.4 ".$ext" all 2>/dev/null
+  done
+  # Sublime Text for source code files
+  CODE_EXTENSIONS=(
+    js ts tsx jsx py rb sh bash zsh
+    css scss sass less sql swift kt
+    java c cpp h m mm rs go php
+  )
+
+  for ext in "${CODE_EXTENSIONS[@]}"; do
+    duti -s com.sublimetext.4 ".$ext" all 2>/dev/null
+  done
+  echo "Sublime Text set as default for source code files"
+
+  echo "Sublime Text set as default for text/config files"
+
   echo "Sublime Text set as default for .md files"
+
+  # The Unarchiver for archive formats
+  ARCHIVE_EXTENSIONS=(
+    zip rar 7z tar gz bz2 xz
+    tar.gz tgz tar.bz2 tbz2 tar.xz txz
+    cab lzh lha sit sitx
+  )
+
+  for ext in "${ARCHIVE_EXTENSIONS[@]}"; do
+    duti -s com.macpaw.site.theunarchiver ".$ext" all 2>/dev/null
+  done
+  echo "The Unarchiver set as default for archive formats"
+
+  # Google Chrome as default browser
+  duti -s com.google.Chrome http all 2>/dev/null
+  duti -s com.google.Chrome https all 2>/dev/null
+  duti -s com.google.Chrome .html all 2>/dev/null
+  duti -s com.google.Chrome .htm all 2>/dev/null
+  echo "Google Chrome set as default browser"
+
+  # IINA for audio files (avoids Music.app importing)
+  AUDIO_EXTENSIONS=(
+    mp3 flac aac wav ogg m4a wma alac
+    aiff aif opus ape wv
+  )
+
+  for ext in "${AUDIO_EXTENSIONS[@]}"; do
+    duti -s com.colliderli.iina ".$ext" all 2>/dev/null
+  done
+  # Preview for image files (explicit, prevents other apps claiming them)
+  IMAGE_EXTENSIONS=(
+    png jpg jpeg gif webp svg tiff tif
+    bmp ico heic heif raw cr2 nef
+  )
+
+  for ext in "${IMAGE_EXTENSIONS[@]}"; do
+    duti -s com.apple.Preview ".$ext" all 2>/dev/null
+  done
+  # Preview for PDFs (prevents Chrome/Adobe hijacking)
+  duti -s com.apple.Preview .pdf all 2>/dev/null
+  # DB Browser for SQLite database files
+  duti -s net.sourceforge.sqlitebrowser .db all 2>/dev/null
+  duti -s net.sourceforge.sqlitebrowser .sqlite all 2>/dev/null
+  duti -s net.sourceforge.sqlitebrowser .sqlite3 all 2>/dev/null
+  echo "DB Browser set as default for SQLite files"
+
+  echo "Preview set as default for PDFs"
+
+  echo "Preview set as default for image formats"
+
+  echo "IINA set as default for audio formats"
 
   echo "IINA set as default video player for all formats"
 else
@@ -285,15 +361,28 @@ defaults write NSGlobalDomain com.apple.sound.beep.feedback -int 1
 # ===========================================================================
 # Energy (prevent sleep when plugged in)
 # ===========================================================================
-# Disable display sleep when on power adapter (0 = never)
-sudo pmset -c displaysleep 0 2>/dev/null
-# Disable system sleep when on power adapter
+# Power adapter: display off at 15 min, system never sleeps
+sudo pmset -c displaysleep 15 2>/dev/null
 sudo pmset -c sleep 0 2>/dev/null
-# Keep default sleep on battery (5 min display, 10 min system)
+# Battery: display off at 5 min, system sleep at 10 min
 sudo pmset -b displaysleep 5 2>/dev/null
 sudo pmset -b sleep 10 2>/dev/null
 
-echo "Energy: never sleep when plugged in, normal sleep on battery"
+echo "Energy: OLED-safe sleep settings applied"
+
+# ===========================================================================
+# Screensaver (OLED burn-in protection)
+# ===========================================================================
+# Screensaver at 2 min (system-wide setting, protects OLED on both power sources)
+# Display sleep (pmset) handles the power-specific timeouts above
+defaults -currentHost write com.apple.screensaver idleTime -int 120
+# Show clock on screensaver
+defaults -currentHost write com.apple.screensaver showClock -bool true
+
+# Auto-hide menu bar (prevents OLED burn-in from static pixels)
+defaults write NSGlobalDomain _HIHideMenuBar -bool true
+
+echo "Screensaver: 2 min idle, clock enabled, menu bar auto-hides (OLED protection)"
 
 # ===========================================================================
 # Spotlight (exclude dev directories from indexing)
@@ -363,10 +452,26 @@ else
 fi
 
 # ===========================================================================
-# Spotify
+# Login Items
 # ===========================================================================
-# Disable Spotify auto-launch at login
-osascript -e 'tell application "System Events" to delete login item "Spotify"' 2>/dev/null || true
+# Remove unwanted auto-launchers
+for app in "Spotify" "Microsoft Teams" "Zoom" "Slack" "NordVPN" "Notion"; do
+  osascript -e "tell application \"System Events\" to delete login item \"$app\"" 2>/dev/null || true
+done
+echo "Removed unwanted login items (Spotify, Teams, Zoom, Slack, NordVPN, Notion)"
+
+# Add apps that should start at login
+for app in "Rocket" "Rectangle" "Google Drive" "Tailscale" "1Password"; do
+  osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"/Applications/$app.app\", hidden:false}" 2>/dev/null || true
+done
+echo "Added login items: Rocket, Rectangle, Google Drive, Tailscale, 1Password"
+
+# 1Password: start hidden (menu bar only, no Dock window)
+defaults write com.1password.1password showInMenuBar -bool true
+defaults write com.1password.1password StartAtLogin -bool true
+defaults write com.1password.1password ShowMainWindowAtLogin -bool false
+
+echo "1Password: starts at login, menu bar only (no main window)"
 
 # ===========================================================================
 # Xcode
