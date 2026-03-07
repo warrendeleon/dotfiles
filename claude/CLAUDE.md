@@ -115,6 +115,34 @@ If a project CLAUDE.md contradicts this file, the project one wins. If the user 
 
 ---
 
+## Shell Environment
+
+The user's shell is configured via `~/Developer/dotfiles/shell/.zshrc` (symlinked to `~/.zshrc`). Claude Code's Bash tool runs non-interactive, so **aliases are not available**. Use full commands instead.
+
+### Key Aliases (for user reference, not Claude Code use)
+- **CLI**: `ls`→eza, `cat`→bat, `find`→fd, `rm`→trash, `top`→htop, `man`→tldr, `diff`→delta, `lg`→lazygit, `du`→ncdu
+- **Yarn**: `nr`→yarn, `nrd`→dev, `nrs`→start, `nrt`→test, `nrb`→build, `nrl`→lint, `nrlf`→lint:fix, `nrv`→validate
+- **React Native**: `pod`→pod install, `podclean`→deintegrate+install, `rni`→ios, `rna`→android, `rnsr`→start:reset
+- **Nav**: `dev`→~/Developer, `dots`→~/Developer/dotfiles
+- **Git**: `gp`→push, `gpl`→pull, `gcm`→checkout main, `reload`→source ~/.zshrc
+
+### Functions
+- `mkcd <name>` — mkdir + cd in one step
+- `killport <port>` — kill whatever is running on that port
+- `aliases` — print the full alias help table
+
+### Shell Features
+- **Auto nvm use**: switches Node version on cd when `.nvmrc` is present
+- **Auto-ls**: shows directory contents after every cd (via eza)
+- **History**: 50k entries, deduplicated, shared across terminal tabs
+
+### Git Aliases (.gitconfig)
+`co`, `br`, `st`, `ci`, `ca`, `cp`, `df`, `ds`, `lg`, `la`, `last`, `undo`, `unstage`, `wip`, `pop`, `branches`, `tags`, `amend`, `fixup`, `prune-merged`
+
+Run `git aliases` for the full table.
+
+---
+
 ## Code Quality and Security
 
 ### Security Principles
