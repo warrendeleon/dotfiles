@@ -912,10 +912,11 @@ section "Tailscale SSH"
 TAILSCALE_CLI="/Applications/Tailscale.app/Contents/MacOS/tailscale"
 
 if [[ -d "/Applications/Tailscale.app" ]]; then
-  # Symlink CLI to PATH (App Store version doesn't do this automatically)
-  if [[ ! -L /usr/local/bin/tailscale ]]; then
-    sudo ln -sf "$TAILSCALE_CLI" /usr/local/bin/tailscale
-    success "Tailscale CLI symlinked to /usr/local/bin/tailscale"
+  # Wrapper script for CLI (symlink breaks — App Store binary checks bundle path)
+  if [[ ! -x /usr/local/bin/tailscale ]]; then
+    printf '#!/bin/sh\nexec "%s" "$@"\n' "$TAILSCALE_CLI" | sudo tee /usr/local/bin/tailscale > /dev/null
+    sudo chmod +x /usr/local/bin/tailscale
+    success "Tailscale CLI wrapper installed at /usr/local/bin/tailscale"
   fi
 
   if ! pgrep -q Tailscale; then
