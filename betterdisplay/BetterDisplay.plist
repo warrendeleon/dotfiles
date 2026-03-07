@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSWindow Frame NSSpellCheckerSubstitutionsPanel2</key>
+	<string>692 403 348 141 0 0 3840 2130 </string>
+	<key>NSWindow Frame SUUpdateAlert</key>
+	<string>1610 1299 620 398 0 0 3840 2130 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:219274BE-6BAA-4273-9594-8E70AE566D84-</key>
+	<string>1924 0 2560 1415 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:41B2FDDD-0925-4494-9CBF-08B65F744545-</key>
+	<string>0 603 1443 812 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:7238FCAC-2568-4565-9AD9-C0494F767AAD-</key>
+	<string>870 311 718 202 0 0 2560 695 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:7C903CBC-0EFC-42B3-BABD-2F081B355F40-</key>
+	<string>2200 785 720 405 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:7EC90BCE-2702-4ED7-8816-277F201D4B63-</key>
+	<string>2200 826 719 379 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:80867451-95BE-4C25-98FA-C201843005E8-</key>
+	<string>2970 817 719 379 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:819C0598-E612-4A75-852A-FC97B6DB1A2B-</key>
+	<string>149 79 2375 1336 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:87E1C984-8E17-4DBB-859F-655A59D7EE00-</key>
+	<string>1752 208 2340 658 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<string>1341 319 1948 1096 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:B65F132F-93FE-4310-816B-30FB18DDCA2E-</key>
+	<string>1468 815 720 405 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:BD85BF3A-D4CC-4700-BC24-FFE511B74197-</key>
+	<string>2286 810 720 405 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:C1BAB4A8-23B4-4AFD-B3E1-F43D3CDB40D8-</key>
+	<string>2201 666 1753 493 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:C7E3C04A-2782-40E2-88A0-C59CFDB29EE5-</key>
+	<string>1976 951 1493 420 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:C98460F5-0C28-4155-9E0C-AF8377DC31BD-</key>
+	<string>2560 85 1156 650 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:CC4005A5-7EA4-4FBB-9D14-FEC97CAB3F6B-</key>
+	<string>450 0 2556 1415 0 0 5120 1415 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<string>2201 959 718 202 0 0 5120 1440 </string>
+	<key>NSWindow Frame bdpip-@1:BetterDummy.Display:E891B077-3EEB-4F69-ACFA-3141C58715FF-</key>
+	<string>2927 786 720 405 0 0 5120 1415 </string>
+	<key>NSWindow Frame com.sindresorhus.Preferences.FrameAutosaveName</key>
+	<string>1265 443 830 658 0 0 3360 1860 </string>
+<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUHasLaunchedBefore</key>
+	<true/>
+	<key>SULastCheckTime</key>
+	<date>2026-03-07T06:21:32Z</date>
+	<key>SUUpdateGroupIdentifier</key>
+	<integer>49693657</integer>
+	<key>allowRestoreFullDimming</key>
+	<true/>
+	<key>alwaysUseSerialForDisplayPrefsId</key>
+	<false/>
+	<key>appAlreadyLaunched</key>
+	<true/>
+	<key>buildNumber</key>
+	<integer>15141</integer>
+	<key>collapseToolsMenuToIconRow</key>
+	<true/>
+	<key>combinedBrightness-BetterDummy.Combined@1:BetterDummy.Display:37D8832A-2D66-02CA-B9F7-8F30A301B230-</key>
+	<real>0.58255332708358765</real>
+	<key>combinedBrightness-BetterDummy.Combined@1:BetterDummy.Display:B67A4C2E-1E17-4553-9B7F-66EAA742F7B8-</key>
+	<real>0.80156248807907104</real>
+	<key>combinedBrightness-BetterDummy.Combined@1:BetterDummy.Display:F30A9FF0-BD3F-4225-92F7-BFDCDB91953C-</key>
+	<real>0.80412948131561279</real>
+	<key>ddcShowCustomControlSettings@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<true/>
+	<key>ddcShowCustomInputSourceSettings@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<false/>
+	<key>ddcShowCustomSettings@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<false/>
+	<key>dummySerialList</key>
+	<array/>
+	<key>forceDDCBrightnessWithHDR@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<true/>
+	<key>hardwareBrightness-BetterDummy.Apple@1:BetterDummy.Display:37D8832A-2D66-02CA-B9F7-8F30A301B230-</key>
+	<real>0.48340976238250732</real>
+	<key>hardwareBrightness-BetterDummy.DDC@1:BetterDummy.Display:B67A4C2E-1E17-4553-9B7F-66EAA742F7B8-</key>
+	<real>0.60312497615814209</real>
+	<key>hardwareBrightness-BetterDummy.DDC@1:BetterDummy.Display:F30A9FF0-BD3F-4225-92F7-BFDCDB91953C-</key>
+	<real>0.60825896263122559</real>
+	<key>hideHeaderWithOneDevice</key>
+	<true/>
+	<key>hideSettingsBlock@1:BetterDummy.Display:41B2FDDD-0925-4494-9CBF-08B65F744545-</key>
+	<true/>
+	<key>hideSettingsBlock@1:BetterDummy.Display:7C903CBC-0EFC-42B3-BABD-2F081B355F40-</key>
+	<true/>
+	<key>hideSettingsBlock@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<false/>
+	<key>hideSettingsBlock@1:BetterDummy.Display:C98460F5-0C28-4155-9E0C-AF8377DC31BD-</key>
+	<true/>
+	<key>hideSettingsBlock@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<false/>
+	<key>hideSettingsBlock@1:BetterDummy.Display:E891B077-3EEB-4F69-ACFA-3141C58715FF-</key>
+	<true/>
+	<key>isDisplayConnectionManagement</key>
+	<true/>
+	<key>isFullScreenWindowFlipVertical@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<false/>
+	<key>isMenuCollapsed@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<false/>
+	<key>isMoreOptions@1:BetterDummy.Display:1C2DDFEA-E13E-4771-A164-14E38B4201E9-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:1F0F2980-50D7-4053-AF5A-3ABD9682CD23-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:219274BE-6BAA-4273-9594-8E70AE566D84-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:2BC34575-65ED-41D1-BB58-2010A168DDAB-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:3F4257E2-AE4B-42C3-A4A8-E8A8AFE034E3-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:41B2FDDD-0925-4494-9CBF-08B65F744545-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:7238FCAC-2568-4565-9AD9-C0494F767AAD-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:7C903CBC-0EFC-42B3-BABD-2F081B355F40-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:7EC90BCE-2702-4ED7-8816-277F201D4B63-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:80867451-95BE-4C25-98FA-C201843005E8-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:819C0598-E612-4A75-852A-FC97B6DB1A2B-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:87E1C984-8E17-4DBB-859F-655A59D7EE00-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:B65F132F-93FE-4310-816B-30FB18DDCA2E-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:B67A4C2E-1E17-4553-9B7F-66EAA742F7B8-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:BD85BF3A-D4CC-4700-BC24-FFE511B74197-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:C1BAB4A8-23B4-4AFD-B3E1-F43D3CDB40D8-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:C7E3C04A-2782-40E2-88A0-C59CFDB29EE5-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:C98460F5-0C28-4155-9E0C-AF8377DC31BD-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:CC4005A5-7EA4-4FBB-9D14-FEC97CAB3F6B-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:D7870C08-E2A5-4BFA-92A4-71CD415A0E27-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:E891B077-3EEB-4F69-ACFA-3141C58715FF-</key>
+	<true/>
+	<key>isMoreOptions@1:BetterDummy.Display:F30A9FF0-BD3F-4225-92F7-BFDCDB91953C-</key>
+	<true/>
+	<key>isPipAutoStart@1:BetterDummy.Display:7238FCAC-2568-4565-9AD9-C0494F767AAD-</key>
+	<true/>
+	<key>isPipAutoStart@1:BetterDummy.Display:819C0598-E612-4A75-852A-FC97B6DB1A2B-</key>
+	<true/>
+	<key>isPipAutoStart@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<true/>
+	<key>isPipWindowHideTitlebar@1:BetterDummy.Display:219274BE-6BAA-4273-9594-8E70AE566D84-</key>
+	<false/>
+	<key>isPipWindowHideTitlebar@1:BetterDummy.Display:819C0598-E612-4A75-852A-FC97B6DB1A2B-</key>
+	<false/>
+	<key>isPipWindowHideTitlebar@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<false/>
+	<key>isPipWindowHideTitlebar@1:BetterDummy.Display:CC4005A5-7EA4-4FBB-9D14-FEC97CAB3F6B-</key>
+	<false/>
+	<key>isPipWindowPartial@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<false/>
+	<key>isToolsMenuCollapsed</key>
+	<false/>
+	<key>lastStartStopPIPDisplayPrefsId</key>
+	<string>@1:BetterDummy.Display:C7E3C04A-2782-40E2-88A0-C59CFDB29EE5-</string>
+	<key>menuLevelAssociation</key>
+	<integer>2</integer>
+	<key>menuLevelBlueLight</key>
+	<integer>1</integer>
+	<key>menuLevelBrightness</key>
+	<integer>1</integer>
+	<key>menuLevelCheckForUpdates</key>
+	<integer>1</integer>
+	<key>menuLevelColorDepth</key>
+	<integer>2</integer>
+	<key>menuLevelColortable</key>
+	<integer>2</integer>
+	<key>menuLevelConfigProtection</key>
+	<integer>2</integer>
+	<key>menuLevelContrast</key>
+	<integer>3</integer>
+	<key>menuLevelCreateNewDummy</key>
+	<integer>1</integer>
+	<key>menuLevelDDCAdjustments</key>
+	<integer>2</integer>
+	<key>menuLevelDDCInput</key>
+	<integer>2</integer>
+	<key>menuLevelDisplayConnect</key>
+	<integer>1</integer>
+	<key>menuLevelDisplayDisconnect</key>
+	<integer>2</integer>
+	<key>menuLevelDummyConnect</key>
+	<integer>1</integer>
+	<key>menuLevelDummyDisconnect</key>
+	<integer>2</integer>
+	<key>menuLevelManageDisplays</key>
+	<integer>1</integer>
+	<key>menuLevelManageDummies</key>
+	<integer>1</integer>
+	<key>menuLevelMirror</key>
+	<integer>2</integer>
+	<key>menuLevelMove</key>
+	<integer>2</integer>
+	<key>menuLevelPIP</key>
+	<integer>2</integer>
+	<key>menuLevelRefreshRate</key>
+	<integer>2</integer>
+	<key>menuLevelResolution</key>
+	<integer>1</integer>
+	<key>menuLevelResolutionMenu</key>
+	<integer>2</integer>
+	<key>menuLevelRotation</key>
+	<integer>2</integer>
+	<key>menuLevelStream</key>
+	<integer>2</integer>
+	<key>menuLevelToggles</key>
+	<integer>2</integer>
+	<key>menuLevelTools</key>
+	<integer>2</integer>
+	<key>menuLevelVolume</key>
+	<integer>1</integer>
+	<key>pipWindowAlpha@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<real>1</real>
+	<key>pipWindowPriority@1:BetterDummy.Display:219274BE-6BAA-4273-9594-8E70AE566D84-</key>
+	<integer>0</integer>
+	<key>pipWindowPriority@1:BetterDummy.Display:41B2FDDD-0925-4494-9CBF-08B65F744545-</key>
+	<integer>0</integer>
+	<key>pipWindowPriority@1:BetterDummy.Display:C98460F5-0C28-4155-9E0C-AF8377DC31BD-</key>
+	<integer>0</integer>
+	<key>pipWindowPriority@1:BetterDummy.Display:CC4005A5-7EA4-4FBB-9D14-FEC97CAB3F6B-</key>
+	<integer>0</integer>
+	<key>reconnectAfterSleep</key>
+	<true/>
+	<key>showAdvancedControlSettings@1:BetterDummy.Display:219274BE-6BAA-4273-9594-8E70AE566D84-</key>
+	<true/>
+	<key>showAdvancedControlSettings@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<true/>
+	<key>showAdvancedControlSettings@1:BetterDummy.Display:CC4005A5-7EA4-4FBB-9D14-FEC97CAB3F6B-</key>
+	<true/>
+	<key>showAdvancedControlSettings@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<true/>
+	<key>showDisplayAdditionalSettings@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<true/>
+	<key>showDisplayAdditionalSettings@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<true/>
+	<key>showDisplayPrefDetails@1:BetterDummy.Display:41B2FDDD-0925-4494-9CBF-08B65F744545-</key>
+	<false/>
+	<key>showDisplayPrefDetails@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<false/>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:1C2DDFEA-E13E-4771-A164-14E38B4201E9-</key>
+	<real>0.98999983072280884</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:1F0F2980-50D7-4053-AF5A-3ABD9682CD23-</key>
+	<real>1</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:7238FCAC-2568-4565-9AD9-C0494F767AAD-</key>
+	<real>0.9859999418258667</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:7EC90BCE-2702-4ED7-8816-277F201D4B63-</key>
+	<real>1</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:819C0598-E612-4A75-852A-FC97B6DB1A2B-</key>
+	<real>0.99699997901916504</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:87E1C984-8E17-4DBB-859F-655A59D7EE00-</key>
+	<real>1</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:900874EB-FE7A-4CFA-BD96-BEF3AEB4DB6B-</key>
+	<real>1</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:B65F132F-93FE-4310-816B-30FB18DDCA2E-</key>
+	<real>1</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:BD85BF3A-D4CC-4700-BC24-FFE511B74197-</key>
+	<real>1</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:C1BAB4A8-23B4-4AFD-B3E1-F43D3CDB40D8-</key>
+	<real>1</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:C98460F5-0C28-4155-9E0C-AF8377DC31BD-</key>
+	<real>1</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:CC4005A5-7EA4-4FBB-9D14-FEC97CAB3F6B-</key>
+	<real>0.96299988031387329</real>
+	<key>softwareBrightness-BetterDummy.Overlay@1:BetterDummy.Display:E891B077-3EEB-4F69-ACFA-3141C58715FF-</key>
+	<real>1</real>
+	<key>volume-BetterDummy.DDC@1:BetterDummy.Display:B67A4C2E-1E17-4553-9B7F-66EAA742F7B8-</key>
+	<real>1</real>
+	<key>volume-BetterDummy.DDC@1:BetterDummy.Display:DBAB38CA-496B-44B9-A7BB-3D79AFDBD650-</key>
+	<real>1</real>
+	<key>volume-BetterDummy.DDC@1:BetterDummy.Display:F30A9FF0-BD3F-4225-92F7-BFDCDB91953C-</key>
+	<real>1</real>
+	<key>warningDismissedDdcPowerOff</key>
+	<true/>
+	<key>warningDismissedDisconnect</key>
+	<false/>
+</dict>
+</plist>

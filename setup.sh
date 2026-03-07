@@ -1267,6 +1267,13 @@ for app in "${LOGIN_APPS[@]}"; do
   fi
 done
 
+# Import BetterDisplay display profiles (resolutions, brightness, DDC settings)
+BETTERDISPLAY_PLIST="${DOTFILES_DIR}/betterdisplay/BetterDisplay.plist"
+if [[ -f "$BETTERDISPLAY_PLIST" ]]; then
+  defaults import me.waydabber.BetterDummy "$BETTERDISPLAY_PLIST"
+  success "BetterDisplay display profiles imported"
+fi
+
 # Activate BetterDisplay Pro licence if key is available
 BETTERDISPLAY_BIN="/Applications/BetterDisplay.app/Contents/MacOS/BetterDisplay"
 if [[ -f "$BETTERDISPLAY_BIN" ]] && [[ -n "${BETTERDISPLAY_EMAIL:-}" ]] && [[ -n "${BETTERDISPLAY_KEY:-}" ]]; then
