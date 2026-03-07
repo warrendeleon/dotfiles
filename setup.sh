@@ -1274,6 +1274,13 @@ if [[ -f "$BETTERDISPLAY_PLIST" ]]; then
   success "BetterDisplay display profiles imported"
 fi
 
+# Import Amphetamine preferences
+AMPHETAMINE_PLIST="${DOTFILES_DIR}/amphetamine/Amphetamine.plist"
+if [[ -f "$AMPHETAMINE_PLIST" ]]; then
+  defaults import com.if.Amphetamine "$AMPHETAMINE_PLIST"
+  success "Amphetamine preferences imported"
+fi
+
 # Activate BetterDisplay Pro licence if key is available
 BETTERDISPLAY_BIN="/Applications/BetterDisplay.app/Contents/MacOS/BetterDisplay"
 if [[ -f "$BETTERDISPLAY_BIN" ]] && [[ -n "${BETTERDISPLAY_EMAIL:-}" ]] && [[ -n "${BETTERDISPLAY_KEY:-}" ]]; then
