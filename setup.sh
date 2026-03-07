@@ -937,14 +937,21 @@ if [[ -d "/Applications/Tailscale.app" ]]; then
     fi
   fi
 
-  # Set custom hostname on the tailnet
-  if "$TAILSCALE_CLI" status &>/dev/null 2>&1; then
-    CURRENT_TS_HOST=$("$TAILSCALE_CLI" status --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('Self',{}).get('DNSName','').split('.')[0])" 2>/dev/null)
-    info "Current Tailscale hostname: ${CURRENT_TS_HOST}"
-    read -rp "Enter new hostname (or press ENTER to keep '${CURRENT_TS_HOST}'): " TS_HOSTNAME </dev/tty
-    if [[ -n "$TS_HOSTNAME" ]]; then
-      "$TAILSCALE_CLI" set --hostname="$TS_HOSTNAME" || warn "Could not set hostname."
-      success "Tailscale hostname set to: ${TS_HOSTNAME}"
+  # Set machine hostname (macOS + Tailscale together)
+  CURRENT_HOSTNAME=$(scutil --get ComputerName 2>/dev/null || hostname -s)
+  info "Current machine name: ${CURRENT_HOSTNAME}"
+  read -rp "Enter new hostname (or press ENTER to keep '${CURRENT_HOSTNAME}'): " NEW_HOSTNAME </dev/tty
+  if [[ -n "$NEW_HOSTNAME" ]]; then
+    # macOS has three hostname layers
+    sudo scutil --set ComputerName "$NEW_HOSTNAME"
+    sudo scutil --set LocalHostName "$NEW_HOSTNAME"
+    sudo scutil --set HostName "$NEW_HOSTNAME"
+    success "macOS hostname set to: ${NEW_HOSTNAME}"
+
+    # Match Tailscale hostname
+    if "$TAILSCALE_CLI" status &>/dev/null 2>&1; then
+      "$TAILSCALE_CLI" set --hostname="$NEW_HOSTNAME" || warn "Could not set Tailscale hostname."
+      success "Tailscale hostname set to: ${NEW_HOSTNAME}"
     fi
   fi
 else
