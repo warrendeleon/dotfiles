@@ -812,9 +812,9 @@ if command -v gh &>/dev/null; then
   # Set preferred defaults
   if gh auth status &>/dev/null 2>&1; then
     gh config set git_protocol ssh --host github.com 2>/dev/null
-    gh config set editor "code --wait" 2>/dev/null
+    gh config set editor "webstorm --wait" 2>/dev/null
     gh config set pager "less" 2>/dev/null
-    success "GitHub CLI configured (SSH protocol, VS Code editor)"
+    success "GitHub CLI configured (SSH protocol, WebStorm editor)"
   fi
 else
   warn "GitHub CLI (gh) not found. Install Homebrew packages first (Step 3)."
