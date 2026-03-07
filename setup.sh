@@ -1072,6 +1072,26 @@ info "To SSH into this Mac from another Tailscale device:"
 info "  ssh $(whoami)@$(hostname -s)"
 info "To SSH to your minipc: ssh warren@minipc"
 
+# Register this Mac with iMessage sync on the homelab server
+if ask "Register this Mac with iMessage sync on the homelab server?"; then
+  TAILSCALE_IP=$("$TAILSCALE_CLI" ip -4 2>/dev/null || true)
+  if [[ -n "$TAILSCALE_IP" ]]; then
+    IMESSAGE_ENTRY="$(whoami)@${TAILSCALE_IP}"
+    MONDAY_ENV="/home/warren/homelab/stacks/monday/.env"
+    if ssh -o ConnectTimeout=10 -o BatchMode=yes minipc "grep -q '${TAILSCALE_IP}' ${MONDAY_ENV}" 2>/dev/null; then
+      success "Already registered: ${IMESSAGE_ENTRY}"
+    else
+      if ssh -o ConnectTimeout=10 -o BatchMode=yes minipc "sed -i 's|^MACS=.*|&,${IMESSAGE_ENTRY}|' ${MONDAY_ENV} && cd /home/warren/homelab/stacks/monday && docker compose up -d imessage-sync" 2>/dev/null; then
+        success "Registered ${IMESSAGE_ENTRY} with iMessage sync and restarted container"
+      else
+        warn "Could not register. Add manually: ${IMESSAGE_ENTRY} to MACS in ${MONDAY_ENV}"
+      fi
+    fi
+  else
+    warn "Could not get Tailscale IP. Connect to Tailscale first."
+  fi
+fi
+
 # ===========================================================================
 # Step 21: Fork Preferences + Singlebox
 # ===========================================================================
@@ -1304,8 +1324,8 @@ success "Accessibility permissions step complete"
 echo ""
 if ask "Enable daily auto-updates for all apps (Homebrew + App Store)?"; then
   brew tap domt4/autoupdate 2>/dev/null || warn "Could not tap domt4/autoupdate"
-  brew autoupdate start --upgrade --cleanup --enable-notification 2>/dev/null \
-    && success "Auto-updates enabled (daily, with notifications)" \
+  brew autoupdate start --upgrade --cleanup --immediate 2>/dev/null \
+    && success "Auto-updates enabled (daily, immediate, on system boot)" \
     || warn "Could not enable autoupdate. Run manually: brew autoupdate start"
 fi
 

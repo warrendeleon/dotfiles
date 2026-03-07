@@ -137,7 +137,7 @@ cask "notion"                    # Notes and project management
 cask "iina"                      # Video player (replaces VLC)
 cask "spotify"                   # Music
 cask "ecamm-live"                # Live streaming & recording
-cask "gifski"                    # GIF encoder
+# gifski installed via Mac App Store (not available as brew cask)
 
 # Browsers
 cask "google-chrome"             # Web browser
@@ -159,5 +159,6 @@ cask "google-cloud-sdk"          # gcloud CLI
 # Mac App Store Apps (requires `mas` + App Store sign-in)
 # ============================================================================
 mas "Amphetamine", id: 937984704      # Keep Mac awake
+mas "Gifski", id: 1351639930          # GIF encoder
 mas "Tailscale", id: 1475387142       # Mesh VPN (App Store for MagicDNS + network extension)
 # Xcode installed separately in setup.sh (background download, ~12GB)

@@ -510,7 +510,12 @@ echo "1Password: starts at login, menu bar only (no main window)"
 /usr/libexec/PlistBuddy -c "Set :AppleSymbolicHotKeys:64:enabled false" \
   ~/Library/Preferences/com.apple.symbolichotkeys.plist 2>/dev/null || true
 
-echo "Spotlight Cmd+Space disabled (Raycast will claim it on first launch)"
+echo "Spotlight Cmd+Space disabled"
+
+# Set Raycast hotkey to Cmd+Space
+defaults write com.raycast.macos raycastGlobalHotkey -string "Command-49"
+echo "Raycast hotkey set to Cmd+Space"
+
 # Note: Configure Raycast window management shortcuts in Raycast Preferences:
 #   Ctrl+Option+Left/Right  → Left/Right half
 #   Ctrl+Option+Up/Down     → Top/Bottom half
