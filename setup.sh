@@ -326,13 +326,18 @@ fi
 # Start Xcode download in the background (~12GB, takes a while)
 XCODE_PID=""
 if ! [[ -d "/Applications/Xcode.app" ]] && [[ -z "${XCODE_PID:-}" ]]; then
-  if command -v mas &>/dev/null; then
-    info "Starting Xcode download in the background (~12GB)..."
+  if command -v xcodes &>/dev/null; then
+    info "Starting Xcode download in the background via xcodes + aria2 (~12GB)..."
+    xcodes install --latest --experimental-unxip &
+    XCODE_PID=$!
+    success "Xcode downloading (PID: ${XCODE_PID}) — continuing with other steps"
+  elif command -v mas &>/dev/null; then
+    info "Starting Xcode download in the background via App Store (~12GB)..."
     mas install 497799835 &
     XCODE_PID=$!
     success "Xcode downloading (PID: ${XCODE_PID}) — continuing with other steps"
   else
-    warn "mas not available. Install Xcode manually from the App Store."
+    warn "Neither xcodes nor mas available. Install Xcode manually from the App Store."
   fi
 else
   success "Xcode already installed"

@@ -18,6 +18,8 @@ brew "ripgrep"
 brew "gh"                        # GitHub CLI
 brew "mas"                       # Mac App Store CLI
 brew "duti"                      # Set default apps per file type
+brew "aria2"                     # Parallel downloader (used by xcodes)
+brew "xcodes"                    # Fast Xcode installer (parallel downloads via aria2)
 
 # ============================================================================
 # Shell
