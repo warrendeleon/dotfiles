@@ -921,10 +921,15 @@ if command -v tailscale &>/dev/null; then
   # Check if already logged in
   if tailscale status &>/dev/null 2>&1; then
     success "Tailscale already connected"
+    # Enable SSH if not already (preserves existing flags)
+    CURRENT_FLAGS=$(tailscale up --ssh 2>&1 | grep "tailscale up" | tail -1 | sed 's/.*tailscale up/tailscale up/')
+    if [[ -n "$CURRENT_FLAGS" ]]; then
+      eval "$CURRENT_FLAGS" 2>/dev/null || warn "Could not enable SSH. If using App Store build, reinstall via: brew install tailscale"
+    fi
   else
     if ask "Log in to Tailscale? (opens browser)"; then
-      tailscale up --ssh
-      success "Tailscale connected with SSH enabled"
+      tailscale up --ssh --accept-routes || warn "Tailscale SSH failed. If using App Store build, reinstall via: brew install tailscale"
+      tailscale status &>/dev/null 2>&1 && success "Tailscale connected with SSH enabled"
     fi
   fi
 
