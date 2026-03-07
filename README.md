@@ -69,7 +69,7 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 | 17 | **iTerm2** | Profile and preferences |
 | 18 | **macOS Defaults** | System preferences (Dock, Finder, keyboard, etc.) |
 | 19 | **Docker** | Colima (lightweight Docker runtime) + daemon startup |
-| 20 | **Tailscale SSH** | Mesh VPN with SSH access |
+| 20 | **Tailscale SSH** | Mesh VPN (App Store) + macOS Remote Login for SSH |
 | 21 | **Fork** | Git client preferences |
 | 22 | **WebStorm** | JetBrains IDE settings |
 | 23 | **Touch ID for sudo** | Fingerprint authentication for `sudo` |

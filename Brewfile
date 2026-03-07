@@ -126,7 +126,7 @@ cask "google-chrome"             # Web browser
 
 # Networking & Security
 cask "nordvpn"                   # VPN
-brew "tailscale"                 # Mesh VPN (CLI version — supports Tailscale SSH)
+# Tailscale installed via Mac App Store (network extension required for MagicDNS)
 
 # Hardware & Display
 cask "elgato-control-center"     # Elgato lights
@@ -141,4 +141,5 @@ cask "google-cloud-sdk"          # gcloud CLI
 # Mac App Store Apps (requires `mas` + App Store sign-in)
 # ============================================================================
 mas "Amphetamine", id: 937984704      # Keep Mac awake
+mas "Tailscale", id: 1475387142       # Mesh VPN (App Store for MagicDNS + network extension)
 # Xcode installed separately in setup.sh (background download, ~12GB)

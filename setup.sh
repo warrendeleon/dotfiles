@@ -904,41 +904,52 @@ else
 fi
 
 # ===========================================================================
-# Step 20: Tailscale SSH
+# Step 20: Tailscale + Remote Login (SSH)
 # ===========================================================================
 section "Tailscale SSH"
 
-if command -v tailscale &>/dev/null; then
-  # Start the daemon if not running
-  if ! pgrep -q tailscaled; then
-    info "Starting Tailscale daemon..."
-    sudo brew services start tailscale
-    success "tailscaled started"
-  else
-    success "tailscaled already running"
+# Tailscale (App Store) — open it so user can log in
+TAILSCALE_CLI="/Applications/Tailscale.app/Contents/MacOS/tailscale"
+
+if [[ -d "/Applications/Tailscale.app" ]]; then
+  # Symlink CLI to PATH (App Store version doesn't do this automatically)
+  if [[ ! -L /usr/local/bin/tailscale ]]; then
+    sudo ln -sf "$TAILSCALE_CLI" /usr/local/bin/tailscale
+    success "Tailscale CLI symlinked to /usr/local/bin/tailscale"
   fi
 
-  # Check if already logged in
-  if tailscale status &>/dev/null 2>&1; then
-    success "Tailscale already connected"
-    # Enable SSH if not already (preserves existing flags)
-    CURRENT_FLAGS=$(tailscale up --ssh 2>&1 | grep "tailscale up" | tail -1 | sed 's/.*tailscale up/tailscale up/')
-    if [[ -n "$CURRENT_FLAGS" ]]; then
-      eval "$CURRENT_FLAGS" 2>/dev/null || warn "Could not enable SSH. If using App Store build, reinstall via: brew install tailscale"
-    fi
-  else
-    if ask "Log in to Tailscale? (opens browser)"; then
-      tailscale up --ssh --accept-routes || warn "Tailscale SSH failed. If using App Store build, reinstall via: brew install tailscale"
-      tailscale status &>/dev/null 2>&1 && success "Tailscale connected with SSH enabled"
-    fi
+  if ! pgrep -q Tailscale; then
+    info "Opening Tailscale..."
+    open -a Tailscale
+    sleep 3
   fi
 
-  info "To SSH into this Mac from another Tailscale device:"
-  info "  ssh $(whoami)@$(hostname -s)"
-  info "To SSH to your minipc: ssh warren@minipc"
+  if "$TAILSCALE_CLI" status &>/dev/null 2>&1; then
+    success "Tailscale connected"
+  else
+    info "Sign in to Tailscale via the menu bar icon."
+    read -rp "Press ENTER after you've signed in..." </dev/tty
+    if "$TAILSCALE_CLI" status &>/dev/null 2>&1; then
+      success "Tailscale connected"
+    else
+      warn "Tailscale not connected. Sign in later via the menu bar icon."
+    fi
+  fi
 else
-  warn "Tailscale not found. Install Homebrew packages first (Step 3)."
+  warn "Tailscale not found. Install from the Mac App Store (Step 3)."
 fi
+
+# Enable macOS Remote Login (SSH) — works over Tailscale's private network
+if ask "Enable macOS Remote Login (SSH) for access over Tailscale?"; then
+  sudo systemsetup -setremotelogin on 2>/dev/null || warn "Could not enable Remote Login. Enable manually: System Settings → General → Sharing → Remote Login"
+  if sudo systemsetup -getremotelogin 2>/dev/null | grep -q "On"; then
+    success "Remote Login (SSH) enabled"
+  fi
+fi
+
+info "To SSH into this Mac from another Tailscale device:"
+info "  ssh $(whoami)@$(hostname -s)"
+info "To SSH to your minipc: ssh warren@minipc"
 
 # ===========================================================================
 # Step 21: Fork Preferences + Singlebox
