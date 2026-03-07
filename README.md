@@ -52,12 +52,12 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 |--:|------|-------------|
 | 1 | **Xcode CLI Tools** | Command-line tools + full Xcode download in background |
 | 2 | **Homebrew** | Package manager for macOS |
-| 3 | **Brewfile** | 65+ packages, casks, and Mac App Store apps |
+| 3 | **Brewfile** | 85+ packages, casks, and Mac App Store apps |
 | 4 | **1Password** | Password manager setup + CLI authentication |
 | 5 | **Oh My Zsh + Powerlevel10k** | Shell framework, theme, and plugins |
 | 6 | **Dotfiles** | Symlinks for shell, git, and SSH configs |
 | 7 | **Secrets** | Licence key template (`.secrets.env`) |
-| 8 | **Fonts** | MesloLGS NF + Font Awesome |
+| 8 | **Fonts** | MesloLGS NF, JetBrains Mono + Font Awesome |
 | 9 | **Node.js** | Node 24 via nvm, Corepack enabled |
 | 10 | **Ruby** | Latest Ruby via rbenv |
 | 11 | **npm Packages** | Claude Code, gitmoji-cli, and global tools |
@@ -69,7 +69,7 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 | 17 | **iTerm2** | Profile and preferences |
 | 18 | **macOS Defaults** | System preferences (Dock, Finder, keyboard, etc.) |
 | 19 | **Docker** | Colima (lightweight Docker runtime) + daemon startup |
-| 20 | **Tailscale SSH** | Mesh VPN (App Store) + macOS Remote Login for SSH |
+| 20 | **Tailscale SSH** | Mesh VPN (App Store) + macOS Remote Login + iMessage sync registration |
 | 21 | **Fork** | Git client preferences |
 | 22 | **WebStorm** | JetBrains IDE settings |
 | 23 | **Touch ID for sudo** | Fingerprint authentication for `sudo` |
@@ -83,14 +83,14 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 
 | Category | Packages |
 |----------|----------|
-| **CLI** | git, ripgrep, wget, mas, fswatch, gnupg |
+| **CLI** | git, ripgrep, wget, mas, jq, tree, bat, eza, fd, fzf, tlrc, htop, trash, zoxide, git-delta, ncdu, lazygit, fswatch, gnupg |
 | **Languages** | nvm, bun, rbenv, python |
 | **Mobile** | watchman, detox, applesimutils, ccache |
 | **AI/ML** | ollama, mlx |
 | **Docker** | colima, docker, kubernetes-cli |
 | **Media** | ffmpeg, imagemagick, tesseract |
 | **Apps** | iTerm2, Fork, WebStorm, VS Code, Android Studio |
-| **Productivity** | 1Password, Rectangle, Numi, Rocket |
+| **Productivity** | 1Password, Raycast, Numi, Rocket, Notion |
 | **Communication** | Slack, Teams, Zoom, Mattermost |
 
 ---
@@ -121,10 +121,21 @@ dotfiles/
 ├── macos/
 │   └── defaults.sh              # macOS system preferences
 │
-├── fonts/                       # MesloLGS NF + Font Awesome
+├── fonts/                       # MesloLGS NF, JetBrains Mono + Font Awesome
+│
+├── vscode/
+│   ├── settings.json            # VS Code editor settings
+│   └── extensions.txt           # VS Code extensions list
+│
+├── webstorm/
+│   ├── editor-font.xml          # JetBrains Mono 13pt with ligatures
+│   ├── console-font.xml         # MesloLGS NF 13pt for terminal
+│   └── Raycast Compatible.xml   # Keymap (removes Ctrl+Option+Arrow conflicts)
 │
 ├── singlebox/
 │   └── Settings                 # Multi-account browser workspaces
+│
+├── .editorconfig                # Editor defaults (indent, charset, newlines)
 │
 ├── claude/
 │   ├── CLAUDE.md                # Claude Code project instructions
@@ -208,7 +219,7 @@ On a fresh machine, `setup.sh` copies `.secrets.env.template` to `~/.secrets.env
 | **macOS** (Sequoia or later) | Shell scripts + macOS defaults |
 | **Internet connection** | Homebrew, npm, Ollama model downloads |
 | **1Password account** | SSH key retrieval via CLI |
-| **Apple ID** | Mac App Store apps (Amphetamine, Xcode) |
+| **Apple ID** | Mac App Store apps (Amphetamine, Gifski, Xcode) |
 
 ---
 
