@@ -26,7 +26,7 @@ brew "bat"                       # Cat with syntax highlighting
 brew "eza"                       # Modern ls with icons and colours
 brew "fd"                        # Modern find (faster, simpler)
 brew "fzf"                       # Fuzzy finder (history, file search)
-brew "tldr"                      # Simplified man pages
+brew "tlrc"                      # Simplified man pages (tldr client)
 brew "htop"                      # Interactive process viewer
 brew "trash"                     # Move to Trash instead of rm
 brew "zoxide"                    # Smarter cd (remembers directories)
