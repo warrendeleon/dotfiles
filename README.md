@@ -110,8 +110,7 @@ dotfiles/
 │
 ├── git/
 │   ├── .gitconfig               # Git configuration + aliases
-│   ├── .gitignore_global        # Global gitignore rules
-│   └── .gitmessage              # Commit message template
+│   └── .gitignore_global        # Global gitignore rules
 │
 ├── ssh/
 │   └── config                   # SSH client configuration

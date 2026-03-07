@@ -450,7 +450,6 @@ if ask "Symlink dotfiles? (existing files will be backed up)"; then
   symlink "${DOTFILES_DIR}/shell/.p10k.zsh"    "$HOME/.p10k.zsh"
   symlink "${DOTFILES_DIR}/git/.gitconfig"     "$HOME/.gitconfig"
   symlink "${DOTFILES_DIR}/git/.gitignore_global" "$HOME/.gitignore_global"
-  symlink "${DOTFILES_DIR}/git/.gitmessage"    "$HOME/.gitmessage"
 
   # Set git identity (prompted — not hardcoded)
   CURRENT_GIT_NAME=$(git config --global user.name 2>/dev/null || echo "")
