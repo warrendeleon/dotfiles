@@ -453,6 +453,26 @@ if ask "Symlink dotfiles? (existing files will be backed up)"; then
   symlink "${DOTFILES_DIR}/git/.gitignore_global" "$HOME/.gitignore_global"
   symlink "${DOTFILES_DIR}/git/.gitmessage"    "$HOME/.gitmessage"
 
+  # Set git identity (prompted — not hardcoded)
+  CURRENT_GIT_NAME=$(git config --global user.name 2>/dev/null || echo "")
+  CURRENT_GIT_EMAIL=$(git config --global user.email 2>/dev/null || echo "")
+
+  if [[ -z "$CURRENT_GIT_NAME" ]]; then
+    read -rp "Git full name (e.g. Warren de Leon): " GIT_NAME </dev/tty
+    [[ -n "$GIT_NAME" ]] && git config --global user.name "$GIT_NAME"
+  else
+    info "Git name already set: $CURRENT_GIT_NAME"
+  fi
+
+  if [[ -z "$CURRENT_GIT_EMAIL" ]]; then
+    read -rp "Git email (e.g. hi@warrendeleon.com): " GIT_EMAIL </dev/tty
+    [[ -n "$GIT_EMAIL" ]] && git config --global user.email "$GIT_EMAIL"
+  else
+    info "Git email already set: $CURRENT_GIT_EMAIL"
+  fi
+
+  success "Git identity: $(git config --global user.name) <$(git config --global user.email)>"
+
   # SSH config
   mkdir -p "$HOME/.ssh"
   chmod 700 "$HOME/.ssh"

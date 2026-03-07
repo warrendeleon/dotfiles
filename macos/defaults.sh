@@ -457,10 +457,21 @@ while IFS= read -r service; do
 done < <(networksetup -listallnetworkservices 2>/dev/null | tail -n +2)
 
 if [[ -n "$ACTIVE_SERVICE" ]]; then
-  # Pi-Hole first (home network), then Cloudflare (1.1.1.1), then Quad9 (9.9.9.9)
-  # When away from home, Pi-Hole is unreachable and falls through to Cloudflare/Quad9
-  networksetup -setdnsservers "$ACTIVE_SERVICE" 192.168.10.171 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112
-  echo "DNS set on $ACTIVE_SERVICE: Pi-Hole → Cloudflare → Quad9"
+  # Ask for Pi-hole IP (optional — skip for Cloudflare + Quad9 only)
+  echo ""
+  echo "If you have a Pi-hole on your network, enter its IP address."
+  echo "Example: 192.168.10.171"
+  read -rp "Pi-hole IP (press ENTER to skip): " PIHOLE_IP </dev/tty
+
+  if [[ -n "$PIHOLE_IP" ]]; then
+    # Pi-hole first, then Cloudflare, then Quad9
+    networksetup -setdnsservers "$ACTIVE_SERVICE" "$PIHOLE_IP" 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112
+    echo "DNS set on $ACTIVE_SERVICE: Pi-hole ($PIHOLE_IP) → Cloudflare → Quad9"
+  else
+    # Cloudflare + Quad9 only (no Pi-hole)
+    networksetup -setdnsservers "$ACTIVE_SERVICE" 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112
+    echo "DNS set on $ACTIVE_SERVICE: Cloudflare → Quad9"
+  fi
 
   # Flush DNS cache
   sudo dscacheutil -flushcache 2>/dev/null

@@ -1,6 +1,4 @@
-[user]
-    name = Warren de Leon
-    email = hi@warrendeleon.com
+# [user] name and email set by setup.sh (prompted during install)
 [core]
     excludesfile = ~/.gitignore_global
     autocrlf = input
