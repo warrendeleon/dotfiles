@@ -228,12 +228,17 @@ def get_audit_log(since: str | None = None, limit: int = 20) -> str:
     """View recent audit log entries.
 
     Args:
-        since: Optional ISO timestamp or hours ago (e.g. "24h", "7d").
+        since: Optional time filter — hours ago (e.g. "24h"), days ago (e.g. "7d"), or Unix timestamp.
                If omitted, returns the most recent entries.
         limit: Maximum entries to return (default 20).
     """
     limit = min(max(1, limit), MAX_AUDIT_ENTRIES)
-    audit = _get_audit()
+
+    try:
+        audit = _get_audit()
+    except Exception:
+        logger.exception("Failed to connect to audit log")
+        return "Audit log unavailable."
 
     since_ts: float | None = None
     if since:

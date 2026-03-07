@@ -52,23 +52,23 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 |--:|------|-------------|
 | 1 | **Xcode CLI Tools** | Command-line tools + full Xcode download in background |
 | 2 | **Homebrew** | Package manager for macOS |
-| 3 | **Brewfile** | 80+ packages, casks, and Mac App Store apps |
+| 3 | **Brewfile** | 65+ packages, casks, and Mac App Store apps |
 | 4 | **1Password** | Password manager setup + CLI authentication |
 | 5 | **Oh My Zsh + Powerlevel10k** | Shell framework, theme, and plugins |
 | 6 | **Dotfiles** | Symlinks for shell, git, and SSH configs |
 | 7 | **Secrets** | Licence key template (`.secrets.env`) |
 | 8 | **Fonts** | MesloLGS NF + Font Awesome |
-| 9 | **Node.js** | Node 22 + 24 via nvm, Corepack enabled |
+| 9 | **Node.js** | Node 24 via nvm, Corepack enabled |
 | 10 | **Ruby** | Latest Ruby via rbenv |
-| 11 | **npm Packages** | Claude Code, eas-cli, and global tools |
+| 11 | **npm Packages** | Claude Code, gitmoji-cli, and global tools |
 | 12 | **Clone Repos** | Project repositories |
 | 13 | **Android SDK** | SDK command-line tools + licence acceptance |
-| 14 | **iOS Development** | CocoaPods via Homebrew |
+| 14 | **iOS Development** | Verifies CocoaPods availability (installed via rbenv gem in Step 10) |
 | 15 | **SSH Key** | Pulled from 1Password CLI |
 | 16 | **GitHub CLI** | Authentication + SSH protocol + editor config |
 | 17 | **iTerm2** | Profile and preferences |
 | 18 | **macOS Defaults** | System preferences (Dock, Finder, keyboard, etc.) |
-| 19 | **Docker** | Docker Desktop + daemon startup |
+| 19 | **Docker** | Colima (lightweight Docker runtime) + daemon startup |
 | 20 | **Tailscale SSH** | Mesh VPN with SSH access |
 | 21 | **Fork** | Git client preferences |
 | 22 | **WebStorm** | JetBrains IDE settings |
@@ -84,7 +84,7 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 | Category | Packages |
 |----------|----------|
 | **CLI** | git, ripgrep, wget, mas, fswatch, gnupg |
-| **Languages** | nvm, bun, rbenv, python, cocoapods |
+| **Languages** | nvm, bun, rbenv, python |
 | **Mobile** | watchman, detox, applesimutils, ccache |
 | **AI/ML** | ollama, mlx |
 | **Docker** | colima, docker, kubernetes-cli |
@@ -128,7 +128,8 @@ dotfiles/
 │   └── Settings                 # Multi-account browser workspaces
 │
 ├── claude/
-│   └── CLAUDE.md                # Claude Code project instructions
+│   ├── CLAUDE.md                # Claude Code project instructions
+│   └── commands/                # Global skills (audit, debug, recall, etc.)
 │
 └── rag/                         # Local RAG system
     ├── src/
@@ -185,7 +186,7 @@ fswatch ──► SQLite Queue ──► Indexer ──► Summarise (haiku) ─
 | **File watching** | fswatch monitors `~/.claude/projects/` and `~/Developer/` |
 | **Background** | Two launchd services: watcher + indexer |
 
-Installed automatically as Step 27 of `setup.sh`. Runtime data lives in `~/.rag/`.
+Installed automatically as Step 28 of `setup.sh`. Runtime data lives in `~/.rag/`.
 
 ---
 

@@ -388,8 +388,10 @@ if [[ -d "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ]]; then
   success "zsh-autosuggestions already installed"
 else
   info "Installing zsh-autosuggestions..."
-  git clone https://github.com/zsh-users/zsh-autosuggestions "${ZSH_CUSTOM}/plugins/zsh-autosuggestions"
-  success "zsh-autosuggestions installed"
+  git clone https://github.com/zsh-users/zsh-autosuggestions "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" || {
+    warn "Failed to clone zsh-autosuggestions. Check network and retry."
+  }
+  [[ -d "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ]] && success "zsh-autosuggestions installed"
 fi
 
 # Powerlevel10k theme
@@ -397,8 +399,10 @@ if [[ -d "${ZSH_CUSTOM}/themes/powerlevel10k" ]]; then
   success "Powerlevel10k already installed"
 else
   info "Installing Powerlevel10k..."
-  git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM}/themes/powerlevel10k"
-  success "Powerlevel10k installed"
+  git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM}/themes/powerlevel10k" || {
+    warn "Failed to clone Powerlevel10k. Check network and retry."
+  }
+  [[ -d "${ZSH_CUSTOM}/themes/powerlevel10k" ]] && success "Powerlevel10k installed"
 fi
 
 # ===========================================================================
@@ -528,9 +532,13 @@ if command -v nvm &>/dev/null; then
 
   NODE_VERSION="24"
   if ask "Install Node.js ${NODE_VERSION} and set as default?"; then
-    nvm install "$NODE_VERSION"
-    nvm alias default "$NODE_VERSION"
-    success "Node $(node -v) installed and set as default"
+    nvm install "$NODE_VERSION" || {
+      warn "Failed to install Node ${NODE_VERSION}. Check network and retry."
+    }
+    if command -v node &>/dev/null; then
+      nvm alias default "$NODE_VERSION"
+      success "Node $(node -v) installed and set as default"
+    fi
   fi
 else
   warn "nvm not found. Install Homebrew packages first (Step 3)."
@@ -550,14 +558,18 @@ if command -v rbenv &>/dev/null; then
       warn "Could not determine latest Ruby version. Check rbenv install -l."
     else
     info "Latest stable Ruby: ${RUBY_LATEST}"
-    rbenv install -s "$RUBY_LATEST"
-    rbenv global "$RUBY_LATEST"
-    success "Ruby ${RUBY_LATEST} installed and set as global"
+    rbenv install -s "$RUBY_LATEST" || {
+      warn "Failed to install Ruby ${RUBY_LATEST}. Check rbenv and dependencies."
+    }
+    if rbenv versions 2>/dev/null | grep -q "$RUBY_LATEST"; then
+      rbenv global "$RUBY_LATEST"
+      success "Ruby ${RUBY_LATEST} installed and set as global"
 
-    # Install essential gems for the new Ruby version
-    info "Installing CocoaPods gem..."
-    gem install cocoapods
-    success "CocoaPods gem installed for Ruby ${RUBY_LATEST}"
+      # Install essential gems for the new Ruby version
+      info "Installing CocoaPods gem..."
+      gem install cocoapods || warn "Failed to install CocoaPods gem."
+      command -v pod &>/dev/null && success "CocoaPods gem installed for Ruby ${RUBY_LATEST}"
+    fi
     fi
   fi
 else
@@ -634,13 +646,16 @@ if [[ -z "$SDKMANAGER" ]]; then
     info "Downloading Android command-line tools..."
     CMDLINE_URL="https://dl.google.com/android/repository/commandlinetools-mac-11076708_latest.zip"
     CMDLINE_TMPDIR=$(mktemp -d)
-    curl -fsSL "$CMDLINE_URL" -o "$CMDLINE_TMPDIR/cmdline-tools.zip"
-    unzip -qo "$CMDLINE_TMPDIR/cmdline-tools.zip" -d "$CMDLINE_TMPDIR"
-    rm -rf "$ANDROID_SDK/cmdline-tools/latest"
-    mv "$CMDLINE_TMPDIR/cmdline-tools" "$ANDROID_SDK/cmdline-tools/latest"
+    if curl -fsSL "$CMDLINE_URL" -o "$CMDLINE_TMPDIR/cmdline-tools.zip" && \
+       unzip -qo "$CMDLINE_TMPDIR/cmdline-tools.zip" -d "$CMDLINE_TMPDIR"; then
+      rm -rf "$ANDROID_SDK/cmdline-tools/latest"
+      mv "$CMDLINE_TMPDIR/cmdline-tools" "$ANDROID_SDK/cmdline-tools/latest"
+      SDKMANAGER="$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager"
+      success "Command-line tools installed"
+    else
+      warn "Failed to download or extract Android command-line tools."
+    fi
     rm -rf "$CMDLINE_TMPDIR"
-    SDKMANAGER="$ANDROID_SDK/cmdline-tools/latest/bin/sdkmanager"
-    success "Command-line tools installed"
   fi
 fi
 
@@ -656,7 +671,9 @@ if [[ -n "$SDKMANAGER" ]]; then
     "emulator" \
     "system-images;android-35;google_apis;arm64-v8a" \
     "sources;android-35" \
-    "ndk;27.0.12077973"
+    "ndk;27.0.12077973" || {
+    warn "Some Android SDK components failed to install. Run sdkmanager manually to retry."
+  }
   success "Android SDK components installed"
 
   if ask "Create an Android emulator (Pixel 8, API 35)?"; then
@@ -664,8 +681,8 @@ if [[ -n "$SDKMANAGER" ]]; then
       --name "Pixel_8_API_35" \
       --package "system-images;android-35;google_apis;arm64-v8a" \
       --device "pixel_8" \
-      --force
-    success "Emulator 'Pixel_8_API_35' created"
+      --force || warn "Failed to create emulator. Create it manually in Android Studio."
+    [[ -d "$HOME/.android/avd/Pixel_8_API_35.avd" ]] && success "Emulator 'Pixel_8_API_35' created"
   fi
 else
   warn "Skipped Android SDK setup."
@@ -1176,38 +1193,42 @@ POWER_PROTECT_URL="https://github.com/x74353/Amphetamine-Power-Protect/raw/main/
 
 if ask "Download and open Amphetamine Power Protect installer?"; then
   info "Downloading..."
-  curl -fsSL "$POWER_PROTECT_URL" -o "$POWER_PROTECT_DMG"
-  success "Downloaded"
+  if ! curl -fsSL "$POWER_PROTECT_URL" -o "$POWER_PROTECT_DMG"; then
+    warn "Failed to download Power Protect. Install manually later."
+    rm -rf "${POWER_PROTECT_TMPDIR:-}"
+  elif ! hdiutil attach "$POWER_PROTECT_DMG" -nobrowse -quiet; then
+    warn "Failed to mount DMG. Install Power Protect manually."
+    rm -rf "${POWER_PROTECT_TMPDIR:-}"
+  else
+    success "Downloaded and mounted"
+    open "/Volumes/Power Protect for Amphetamine"
+    success "Opened — run the installer inside the window"
+    echo ""
 
-  info "Mounting DMG..."
-  hdiutil attach "$POWER_PROTECT_DMG" -nobrowse -quiet
-  open "/Volumes/Power Protect for Amphetamine"
-  success "Opened — run the installer inside the window"
-  echo ""
+    # Wait for installation to complete (timeout after 2 minutes)
+    info "Waiting for Power Protect to be installed..."
+    TIMEOUT=120
+    ELAPSED=0
+    while true; do
+      if [[ -f "/private/etc/sudoers.d/amphetamine-power-protect" ]] || \
+         ls /private/etc/sudoers.d/*mphetamine* &>/dev/null 2>&1; then
+        success "Power Protect installed successfully"
+        break
+      fi
+      sleep 3
+      ELAPSED=$((ELAPSED + 3))
+      if ((ELAPSED >= TIMEOUT)); then
+        warn "Timed out waiting. Install Power Protect manually later."
+        break
+      fi
+      echo -e "${DIM}  Still waiting... (${ELAPSED}s/${TIMEOUT}s)${NC}"
+    done
 
-  # Wait for installation to complete (timeout after 2 minutes)
-  info "Waiting for Power Protect to be installed..."
-  TIMEOUT=120
-  ELAPSED=0
-  while true; do
-    if [[ -f "/private/etc/sudoers.d/amphetamine-power-protect" ]] || \
-       ls /private/etc/sudoers.d/*mphetamine* &>/dev/null 2>&1; then
-      success "Power Protect installed successfully"
-      break
-    fi
-    sleep 3
-    ELAPSED=$((ELAPSED + 3))
-    if ((ELAPSED >= TIMEOUT)); then
-      warn "Timed out waiting. Install Power Protect manually later."
-      break
-    fi
-    echo -e "${DIM}  Still waiting... (${ELAPSED}s/${TIMEOUT}s)${NC}"
-  done
-
-  # Clean up
-  hdiutil detach "/Volumes/Power Protect for Amphetamine" -quiet 2>/dev/null || true
-  rm -rf "${POWER_PROTECT_TMPDIR:-}"
-  success "Cleaned up"
+    # Clean up
+    hdiutil detach "/Volumes/Power Protect for Amphetamine" -quiet 2>/dev/null || true
+    rm -rf "${POWER_PROTECT_TMPDIR:-}"
+    success "Cleaned up"
+  fi
 fi
 
 fi  # end of "already installed" check
@@ -1244,16 +1265,19 @@ if [[ -d "$RAG_DIR" ]]; then
 
     # Install dependencies
     info "Installing Python dependencies..."
-    "$RAG_HOME/venv/bin/pip" install --quiet --upgrade pip
-    "$RAG_HOME/venv/bin/pip" install --quiet -r "$RAG_DIR/requirements.txt"
-    "$RAG_HOME/venv/bin/pip" install --quiet -e "$RAG_DIR"
-    success "Dependencies installed"
+    if "$RAG_HOME/venv/bin/pip" install --quiet --upgrade pip && \
+       "$RAG_HOME/venv/bin/pip" install --quiet -r "$RAG_DIR/requirements.txt" && \
+       "$RAG_HOME/venv/bin/pip" install --quiet -e "$RAG_DIR"; then
+      success "Dependencies installed"
+    else
+      warn "Some Python dependencies failed to install. Run pip install manually."
+    fi
 
     # Pull Ollama embedding model
     if command -v ollama &>/dev/null; then
       info "Pulling mxbai-embed-large model (one-time, ~670MB)..."
-      ollama pull mxbai-embed-large
-      success "Embedding model ready"
+      ollama pull mxbai-embed-large || warn "Failed to pull model. Run: ollama pull mxbai-embed-large"
+      ollama list 2>/dev/null | grep -q "mxbai-embed-large" && success "Embedding model ready"
     else
       warn "Ollama not found. Install it first, then run: ollama pull mxbai-embed-large"
     fi
