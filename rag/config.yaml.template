@@ -1,0 +1,17 @@
+# RAG System Configuration
+# Copy to ~/.rag/config.yaml and adjust as needed.
+
+# Paths to watch for changes (fswatch)
+# Only paths under $HOME are supported. Use ~ for home directory.
+watch_paths:
+  - ~/Developer
+  - ~/.claude/projects
+
+# Note: Ollama, summariser, and indexer settings are currently
+# hardcoded. This file controls watcher paths only. Future versions
+# may read additional settings from here.
+
+# Data paths (created automatically at defaults shown below)
+# db_path: ~/.rag/chromadb
+# queue_path: ~/.rag/queue.db
+# audit_path: ~/.rag/audit.db

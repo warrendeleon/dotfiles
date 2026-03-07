@@ -1,0 +1,57 @@
+# ===========================================================================
+# Global gitignore — Warren de Leon
+# Applied to ALL repositories via core.excludesfile
+# ===========================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Editors & IDEs
+*.swp
+*.swo
+*~
+.idea/
+.vscode/settings.json
+.vscode/launch.json
+*.sublime-workspace
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# React Native
+ios/Pods/
+ios/build/
+android/.gradle/
+android/app/build/
+*.jsbundle
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Compiled
+*.o
+*.pyc
+__pycache__/
+
+# Archives & binaries
+*.zip
+*.tar.gz
+*.dmg
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+.nyc_output/

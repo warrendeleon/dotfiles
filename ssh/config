@@ -1,0 +1,13 @@
+# SSH Config — Warren de Leon
+# Copy to ~/.ssh/config and adjust as needed
+
+Host *
+  UseKeychain yes
+  AddKeysToAgent yes
+  IdentityFile ~/.ssh/id_rsa
+  HashKnownHosts yes
+  StrictHostKeyChecking ask
+
+Host minipc
+  HostName ubuntu-minipc.local
+  User warren

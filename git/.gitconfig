@@ -1,0 +1,91 @@
+[user]
+    name = Warren de Leon
+    email = hi@warrendeleon.com
+[core]
+    excludesfile = ~/.gitignore_global
+    autocrlf = input
+    safecrlf = false
+[difftool "sourcetree"]
+    cmd = opendiff "$LOCAL" "$REMOTE"
+    path =
+[mergetool "sourcetree"]
+    cmd = /Applications/Sourcetree.app/Contents/Resources/opendiff-w.sh "$LOCAL" "$REMOTE" -ancestor "$BASE" -merge "$MERGED"
+    trustExitCode = true
+[credential]
+    helper = osxkeychain
+[commit]
+    template = ~/.gitmessage
+[alias]
+    co = checkout
+    br = branch
+    st = status -sb
+    ci = commit
+    ca = commit --amend
+    cp = cherry-pick
+    df = diff
+    ds = diff --staged
+    lg = log --oneline --graph --decorate -20
+    la = log --oneline --graph --decorate --all -30
+    last = log -1 --stat
+    undo = reset --soft HEAD~1
+    unstage = reset HEAD --
+    wip = stash push -m "WIP"
+    pop = stash pop
+    branches = branch -a --sort=-committerdate
+    tags = tag -l --sort=-v:refname
+    amend = commit --amend --no-edit
+    fixup = commit --fixup
+    aliases = !printf '\\n\
+┌───────────────┬──────────────────────────────┬─────────────────────────┐\\n\
+│ Shortcut      │ Expands to                   │ Example                 │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git co        │ checkout                     │ git co main             │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git br        │ branch                       │ git br                  │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git st        │ status -sb                   │ git st                  │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git ci        │ commit                       │ git ci -m \"msg\"         │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git ca        │ commit --amend               │ git ca                  │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git cp        │ cherry-pick                  │ git cp abc123           │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git df        │ diff                         │ git df                  │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git ds        │ diff --staged                │ git ds                  │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git lg        │ log --oneline --graph -20    │ git lg                  │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git la        │ log --oneline --all -30      │ git la                  │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git last      │ log -1 --stat                │ git last                │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git undo      │ reset --soft HEAD~1          │ git undo                │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git unstage   │ reset HEAD --                │ git unstage file        │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git wip       │ stash push -m \"WIP\"          │ git wip                 │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git pop       │ stash pop                    │ git pop                 │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git branches  │ branch -a (by date)          │ git branches            │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git tags      │ tag -l (by version)          │ git tags                │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git amend     │ commit --amend --no-edit     │ git amend               │\\n\
+├───────────────┼──────────────────────────────┼─────────────────────────┤\\n\
+│ git fixup     │ commit --fixup               │ git fixup abc123        │\\n\
+└───────────────┴──────────────────────────────┴─────────────────────────┘\\n\\n'
+[pull]
+    rebase = true
+[rebase]
+    autoSquash = true
+    autoStash = true
+[fetch]
+    prune = true
+[diff]
+    algorithm = histogram
+    colorMoved = default
+[merge]
+    conflictstyle = zdiff3

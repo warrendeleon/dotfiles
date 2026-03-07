@@ -1,0 +1,45 @@
+{
+  "Profiles": [
+    {
+      "Name": "Default",
+      "Guid": "warrendeleon-default-profile",
+      "Dynamic Profile Parent Name": "Default",
+
+      "Normal Font": "MesloLGSNF-Regular 13",
+      "Non Ascii Font": "MesloLGSNF-Regular 13",
+      "Use Non-ASCII Font": false,
+      "ASCII Anti Aliased": true,
+      "Non-ASCII Anti Aliased": true,
+      "Horizontal Spacing": 1.0,
+      "Vertical Spacing": 1.1,
+
+      "Columns": 120,
+      "Rows": 35,
+
+      "Scrollback Lines": 10000,
+      "Unlimited Scrollback": true,
+
+      "Option Key Sends": 2,
+      "Right Option Key Sends": 2,
+
+      "Transparency": 0.05,
+      "Blur": true,
+      "Blur Radius": 10.0,
+
+      "Use Bold Font": true,
+      "Use Italic Font": true,
+      "Draw Powerline Glyphs": true,
+
+      "Cursor Type": 1,
+      "Blinking Cursor": true,
+
+      "Mouse Reporting": true,
+      "Unicode Version": 9,
+
+      "Badge Text": "",
+      "Title Components": 2,
+
+      "Custom Directory": "Recycle"
+    }
+  ]
+}
