@@ -52,7 +52,7 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 |--:|------|-------------|
 | 1 | **Xcode CLI Tools** | Command-line tools + full Xcode download in background |
 | 2 | **Homebrew** | Package manager for macOS |
-| 3 | **Brewfile** | 85+ packages, casks, and Mac App Store apps |
+| 3 | **Brewfile** | Packages, casks, and Mac App Store apps |
 | 4 | **1Password** | Password manager setup + CLI authentication |
 | 5 | **Oh My Zsh + Powerlevel10k** | Shell framework, theme, and plugins |
 | 6 | **Dotfiles** | Symlinks for shell, git, and SSH configs |
