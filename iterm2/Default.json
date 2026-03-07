@@ -2,7 +2,7 @@
   "Profiles": [
     {
       "Name": "Default",
-      "Guid": "warrendeleon-default-profile",
+      "Guid": "dotfiles-default-profile",
       "Dynamic Profile Parent Name": "Default",
 
       "Normal Font": "MesloLGSNF-Regular 13",

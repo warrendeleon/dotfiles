@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ===========================================================================
-# Mac Setup Script — Warren de Leon
+# Mac Setup Script
 # Fully configures a new Mac for React Native + iOS + Android development
 #
 # Usage:
@@ -239,7 +239,6 @@ ask() {
 echo ""
 echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BOLD}${CYAN}║                    Mac Setup Script                         ║${NC}"
-echo -e "${BOLD}${CYAN}║                   Warren de Leon                            ║${NC}"
 echo -e "${BOLD}${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -843,7 +842,8 @@ else
     warn "1Password CLI (op) not found. Install Homebrew packages first (Step 3)."
     echo ""
     if ask "Generate a new RSA SSH key instead?"; then
-      ssh-keygen -t rsa -b 4096 -C "hi@warrendeleon.com" -f "$SSH_KEY"
+      GIT_EMAIL_FOR_SSH=$(git config --global user.email 2>/dev/null || echo "")
+      ssh-keygen -t rsa -b 4096 -C "${GIT_EMAIL_FOR_SSH:-$(whoami)@$(hostname)}" -f "$SSH_KEY"
       eval "$(ssh-agent -s)"
       ssh-add --apple-use-keychain "$SSH_KEY"
       success "SSH key generated and added to keychain"
@@ -905,7 +905,7 @@ if ask "Configure iTerm2 (font, scrollback, colours)?"; then
   success "Dynamic profile installed"
 
   # Set iTerm2 preferences via defaults
-  defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "warrendeleon-default-profile"
+  defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "dotfiles-default-profile"
 
   # Appearance: compact tabs
   defaults write com.googlecode.iterm2 TabViewType -int 1

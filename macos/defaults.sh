@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# macOS System Preferences — Warren de Leon
+# macOS System Preferences
 # Run once after fresh install, then log out/restart to apply.
 
 set -euo pipefail

@@ -1,4 +1,4 @@
-# Brewfile — Warren de Leon's Mac Setup
+# Brewfile — Mac Setup
 # Install with: brew bundle --file=Brewfile
 
 # ============================================================================
