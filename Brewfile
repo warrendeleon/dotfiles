@@ -130,6 +130,7 @@ brew "tailscale"                 # Mesh VPN (CLI version — supports Tailscale 
 
 # Hardware & Display
 cask "elgato-control-center"     # Elgato lights
+cask "logi-options+"              # Logitech mouse configuration
 cask "betterdisplay"             # Monitor management
 cask "displaylink"               # DisplayLink Manager (deprecated: unsigned, still installable)
 
