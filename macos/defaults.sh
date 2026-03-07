@@ -361,6 +361,10 @@ defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
 # Disable press-and-hold for accent characters (enables key repeat in all apps)
 defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
 
+# Disable smart quotes and dashes (breaks code when pasting)
+defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
+defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
+
 # ===========================================================================
 # Sound
 # ===========================================================================
