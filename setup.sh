@@ -1372,6 +1372,32 @@ fi
 fi  # end of "already installed" check
 
 # ===========================================================================
+# Git Maintenance (all repos in ~/Developer)
+# ===========================================================================
+info "Enabling git maintenance for all repos in ~/Developer..."
+find "$HOME/Developer" -maxdepth 3 -name ".git" -type d 2>/dev/null | while read gitdir; do
+  repo=$(dirname "$gitdir")
+  git -C "$repo" maintenance start 2>/dev/null && echo "  ✓ $(basename "$repo")" || true
+done
+success "Git maintenance enabled (background prefetch, commit-graph, loose-objects)"
+
+# ===========================================================================
+# Weekly Cleanup (launchd)
+# ===========================================================================
+CLEANUP_SCRIPT="${DOTFILES_DIR}/scripts/weekly-cleanup.sh"
+CLEANUP_PLIST_SRC="${DOTFILES_DIR}/scripts/com.dotfiles.weekly-cleanup.plist"
+CLEANUP_PLIST_DST="$HOME/Library/LaunchAgents/com.dotfiles.weekly-cleanup.plist"
+
+if [[ -f "$CLEANUP_SCRIPT" ]]; then
+  chmod +x "$CLEANUP_SCRIPT"
+  mkdir -p "$HOME/Library/LaunchAgents"
+  sed "s|__HOME__|$HOME|g" "$CLEANUP_PLIST_SRC" > "$CLEANUP_PLIST_DST"
+  launchctl unload "$CLEANUP_PLIST_DST" 2>/dev/null || true
+  launchctl load "$CLEANUP_PLIST_DST"
+  success "Weekly cleanup enabled (every 7 days, catches up after boot)"
+fi
+
+# ===========================================================================
 # Step 28: RAG System (Local Semantic Search)
 # ===========================================================================
 section "RAG System"

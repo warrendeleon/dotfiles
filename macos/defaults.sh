@@ -542,6 +542,13 @@ echo "Raycast hotkey set to Cmd+Space"
 defaults write com.apple.dt.Xcode ShowBuildOperationDuration -bool true
 
 # ===========================================================================
+# Gatekeeper
+# ===========================================================================
+# Disable "Are you sure you want to open this application?" dialog
+defaults write com.apple.LaunchServices LSQuarantine -bool false
+echo "Gatekeeper first-open dialog disabled"
+
+# ===========================================================================
 # Firewall
 # ===========================================================================
 # Enable macOS firewall (off by default)
