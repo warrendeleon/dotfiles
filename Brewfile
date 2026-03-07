@@ -20,6 +20,15 @@ brew "mas"                       # Mac App Store CLI
 brew "duti"                      # Set default apps per file type
 brew "aria2"                     # Parallel downloader (used by xcodes)
 brew "xcodes"                    # Fast Xcode installer (parallel downloads via aria2)
+brew "jq"                        # JSON processor
+brew "tree"                      # Directory structure viewer
+brew "bat"                       # Cat with syntax highlighting
+brew "eza"                       # Modern ls with icons and colours
+brew "fd"                        # Modern find (faster, simpler)
+brew "fzf"                       # Fuzzy finder (history, file search)
+brew "tldr"                      # Simplified man pages
+brew "htop"                      # Interactive process viewer
+brew "trash"                     # Move to Trash instead of rm
 
 # ============================================================================
 # Shell
@@ -116,7 +125,7 @@ cask "1password-cli"             # 1Password CLI (op)
 cask "numi"                      # Calculator
 cask "rocket"                    # Emoji picker
 cask "google-drive"              # Cloud storage
-cask "rectangle"                 # Window management (keyboard shortcuts)
+cask "raycast"                   # Spotlight replacement (launcher, clipboard, window management)
 cask "the-unarchiver"            # Archive extraction (zip, rar, 7z, etc.)
 cask "notion"                    # Notes and project management
 

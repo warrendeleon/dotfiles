@@ -172,6 +172,18 @@ defaults write com.apple.AppleMultitouchTrackpad FirstClickThreshold -int 1
 # Mission Control: three-finger swipe up
 defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerVertSwipeGesture -int 2
 
+# Three-finger drag (Accessibility setting)
+defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerDrag -bool true
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadThreeFingerDrag -bool true
+
+# ===========================================================================
+# Siri
+# ===========================================================================
+# Disable Siri
+defaults write com.apple.assistant.support "Assistant Enabled" -bool false
+defaults write com.apple.Siri StatusMenuVisible -bool false
+defaults write com.apple.Siri UserHasDeclinedEnable -bool true
+
 # ===========================================================================
 # Default Apps (IINA for all video formats)
 # ===========================================================================
@@ -455,16 +467,16 @@ fi
 # Login Items
 # ===========================================================================
 # Remove unwanted auto-launchers
-for app in "Spotify" "Microsoft Teams" "Zoom" "Slack" "NordVPN" "Notion"; do
+for app in "Spotify" "Microsoft Teams" "Zoom" "Slack" "NordVPN" "Notion" "Rectangle"; do
   osascript -e "tell application \"System Events\" to delete login item \"$app\"" 2>/dev/null || true
 done
-echo "Removed unwanted login items (Spotify, Teams, Zoom, Slack, NordVPN, Notion)"
+echo "Removed unwanted login items (Spotify, Teams, Zoom, Slack, NordVPN, Notion, Rectangle)"
 
 # Add apps that should start at login
-for app in "Rocket" "Rectangle" "Google Drive" "Tailscale" "1Password"; do
+for app in "Rocket" "Raycast" "Google Drive" "Tailscale" "1Password"; do
   osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"/Applications/$app.app\", hidden:false}" 2>/dev/null || true
 done
-echo "Added login items: Rocket, Rectangle, Google Drive, Tailscale, 1Password"
+echo "Added login items: Rocket, Raycast, Google Drive, Tailscale, 1Password"
 
 # 1Password: start hidden (menu bar only, no Dock window)
 defaults write com.1password.1password showInMenuBar -bool true
@@ -472,6 +484,48 @@ defaults write com.1password.1password StartAtLogin -bool true
 defaults write com.1password.1password ShowMainWindowAtLogin -bool false
 
 echo "1Password: starts at login, menu bar only (no main window)"
+
+# ===========================================================================
+# Raycast (Spotlight replacement)
+# ===========================================================================
+# Disable Spotlight shortcut (Cmd+Space) so Raycast can use it
+/usr/libexec/PlistBuddy -c "Set :AppleSymbolicHotKeys:64:enabled false" \
+  ~/Library/Preferences/com.apple.symbolichotkeys.plist 2>/dev/null || true
+
+echo "Spotlight Cmd+Space disabled (Raycast will claim it on first launch)"
+# Note: Configure Raycast window management shortcuts in Raycast Preferences:
+#   Ctrl+Option+Left/Right  → Left/Right half
+#   Ctrl+Option+Up/Down     → Top/Bottom half
+#   Ctrl+Option+Return      → Maximise
+#   Ctrl+Option+C           → Centre
+#   Ctrl+Option+F           → Fullscreen
+
+# ===========================================================================
+# WebStorm (free Ctrl+Option+Arrow for Raycast window management)
+# ===========================================================================
+# Find the latest WebStorm config directory
+WEBSTORM_DIR=$(ls -1d ~/Library/Application\ Support/JetBrains/WebStorm* 2>/dev/null | sort -V | tail -1)
+
+if [[ -n "$WEBSTORM_DIR" ]]; then
+  KEYMAP_DIR="$WEBSTORM_DIR/keymaps"
+  mkdir -p "$KEYMAP_DIR"
+
+  cat > "$KEYMAP_DIR/Raycast Compatible.xml" << 'WSEOF'
+<keymap name="Raycast Compatible" parent="Mac OS X 10.5+" version="1">
+  <!-- Remove Ctrl+Option+Arrow: free for Raycast window management -->
+  <action id="ResizeToolWindowLeft"/>
+  <action id="ResizeToolWindowRight"/>
+  <action id="ResizeToolWindowUp"/>
+  <action id="ResizeToolWindowDown"/>
+  <action id="GotoNextElementUnderCaretUsage"/>
+  <action id="GotoPrevElementUnderCaretUsage"/>
+</keymap>
+WSEOF
+
+  echo "WebStorm: 'Raycast Compatible' keymap created (select it in Settings > Keymap)"
+else
+  echo "WebStorm not installed yet — keymap will be created after first launch"
+fi
 
 # ===========================================================================
 # Xcode
