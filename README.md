@@ -20,7 +20,7 @@
 ## Quick Start
 
 ```bash
-git clone git@github.com:warrendeleon/dotfiles.git ~/Developer/dotfiles
+git clone https://github.com/warrendeleon/dotfiles.git ~/Developer/dotfiles
 cd ~/Developer/dotfiles
 ./setup.sh
 ```

@@ -4,7 +4,7 @@
 # Fully configures a new Mac for React Native + iOS + Android development
 #
 # Usage:
-#   git clone <repo> ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh
+#   git clone https://github.com/warrendeleon/dotfiles.git ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh
 # ===========================================================================
 
 set -euo pipefail
@@ -26,7 +26,7 @@ DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Guard: must be run from a cloned repo, not via pipe
 if [[ -z "${BASH_SOURCE[0]:-}" ]] || [[ ! -f "${DOTFILES_DIR}/Brewfile" ]]; then
   echo "Error: Run this script from the cloned dotfiles repo, not via pipe."
-  echo "  git clone <repo> ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh"
+  echo "  git clone https://github.com/warrendeleon/dotfiles.git ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh"
   exit 1
 fi
 
