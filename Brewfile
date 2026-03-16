@@ -79,13 +79,6 @@ brew "gnupg"                     # GPG encryption
 brew "openssl@3"                 # TLS/SSL toolkit
 
 # ============================================================================
-# Media & Image Processing
-# ============================================================================
-brew "ffmpeg"                    # Video/audio processing
-brew "imagemagick"               # Image manipulation
-brew "tesseract"                 # OCR engine
-
-# ============================================================================
 # AI / ML (Apple Silicon)
 # ============================================================================
 brew "ollama"                    # Local LLM runner

@@ -89,7 +89,6 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 | **Mobile** | watchman, detox, applesimutils, ccache |
 | **AI/ML** | ollama, mlx |
 | **Docker** | colima, docker, kubernetes-cli |
-| **Media** | ffmpeg, imagemagick, tesseract |
 | **Apps** | iTerm2, Fork, WebStorm, VS Code, Android Studio |
 | **Productivity** | Bitwarden, 1Password, Raycast, Rocket, Notion |
 | **Communication** | Slack, Teams, Zoom, Mattermost |

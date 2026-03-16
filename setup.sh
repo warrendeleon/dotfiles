@@ -304,7 +304,7 @@ fi
 section "Homebrew Packages (Brewfile)"
 
 info "This will install:"
-info "  - CLI tools: git, ripgrep, wget, watchman, ffmpeg, etc."
+info "  - CLI tools: git, ripgrep, wget, watchman, etc."
 info "  - Languages: nvm, ruby, python, java (Temurin 17)"
 info "  - Apps: Android Studio, WebStorm, iTerm2, Claude, IINA, etc."
 info "  - Mac App Store: Amphetamine (requires App Store sign-in)"
