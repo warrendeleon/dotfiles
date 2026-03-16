@@ -1266,7 +1266,6 @@ section "Login Items"
 info "Setting apps to open at login..."
 
 LOGIN_APPS=(
-  "/Applications/1Password.app"
   "/Applications/Amphetamine.app"
   "/Applications/Rocket.app"
   "/Applications/Google Drive.app"
