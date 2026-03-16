@@ -54,7 +54,7 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 | 1 | **Xcode CLI Tools** | Command-line tools + full Xcode download in background |
 | 2 | **Homebrew** | Package manager for macOS |
 | 3 | **Brewfile** | Packages, casks, and Mac App Store apps |
-| 4 | **1Password** | Password manager setup + CLI authentication |
+| 4 | **Password Manager** | Bitwarden + 1Password (legacy) setup and CLI authentication |
 | 5 | **Oh My Zsh + Powerlevel10k** | Shell framework, theme, and plugins |
 | 6 | **Dotfiles** | Symlinks for shell, git, and SSH configs |
 | 7 | **Secrets** | Licence key template (`.secrets.env`) |
@@ -218,7 +218,8 @@ On a fresh machine, `setup.sh` copies `.secrets.env.template` to `~/.secrets.env
 |-------------|-----|
 | **macOS** (Sequoia or later) | Shell scripts + macOS defaults |
 | **Internet connection** | Homebrew, npm, Ollama model downloads |
-| **1Password account** | SSH key retrieval via CLI |
+| **Bitwarden account** | Password manager |
+| **1Password account** | SSH key retrieval via CLI (legacy) |
 | **Apple ID** | Mac App Store apps (Amphetamine, Gifski, Xcode) |
 
 ---

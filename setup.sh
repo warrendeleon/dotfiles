@@ -39,7 +39,7 @@ STEP_NAMES=(
   "Xcode CLI Tools"
   "Homebrew"
   "Brewfile"
-  "1Password"
+  "Password Manager"
   "Oh My Zsh + Powerlevel10k"
   "Dotfiles"
   "Secrets"
@@ -343,13 +343,38 @@ else
 fi
 
 # ===========================================================================
-# Step 4: 1Password Setup
+# Step 4: Password Manager Setup
 # ===========================================================================
-section "1Password"
+section "Password Manager"
 
+# Bitwarden
+if [[ -d "/Applications/Bitwarden.app" ]]; then
+  success "Bitwarden app installed"
+  info "Please sign in to Bitwarden now if you haven't already."
+  echo ""
+  if ask "Open Bitwarden to sign in?"; then
+    open -a "Bitwarden" 2>/dev/null || warn "Could not open Bitwarden"
+    warn "Press ENTER after you've signed in to Bitwarden."
+    read -r </dev/tty
+    success "Bitwarden ready"
+  fi
+
+  # Set up Bitwarden CLI
+  if command -v bw &>/dev/null; then
+    if bw status 2>/dev/null | grep -q '"status":"unlocked"'; then
+      success "Bitwarden CLI already unlocked"
+    else
+      info "Log in to Bitwarden CLI with: bw login"
+      warn "Then unlock with: export BW_SESSION=\$(bw unlock --raw)"
+    fi
+  fi
+else
+  warn "Bitwarden not found. Install Homebrew packages first (Step 3)."
+fi
+
+# 1Password (legacy)
 if [[ -d "/Applications/1Password.app" ]]; then
-  success "1Password app installed"
-  info "Please sign in to 1Password now if you haven't already."
+  success "1Password app installed (legacy)"
   info "The SSH key retrieval step later depends on 1Password being signed in."
   echo ""
   if ask "Open 1Password to sign in?"; then
@@ -1241,6 +1266,7 @@ section "Login Items"
 info "Setting apps to open at login..."
 
 LOGIN_APPS=(
+  "/Applications/Bitwarden.app"
   "/Applications/1Password.app"
   "/Applications/Amphetamine.app"
   "/Applications/Rocket.app"
