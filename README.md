@@ -40,6 +40,7 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 ![Ollama](https://img.shields.io/badge/Ollama-000000?style=flat-square&logo=ollama&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-34A853?style=flat-square&logo=android&logoColor=white)
 ![Xcode](https://img.shields.io/badge/Xcode-147EFB?style=flat-square&logo=xcode&logoColor=white)
+![Bitwarden](https://img.shields.io/badge/Bitwarden-175DDC?style=flat-square&logo=bitwarden&logoColor=white)
 ![1Password](https://img.shields.io/badge/1Password-0094F5?style=flat-square&logo=1password&logoColor=white)
 ![iTerm2](https://img.shields.io/badge/iTerm2-000000?style=flat-square&logo=iterm2&logoColor=white)
 ![Tailscale](https://img.shields.io/badge/Tailscale-242424?style=flat-square&logo=tailscale&logoColor=white)
@@ -90,7 +91,7 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 | **Docker** | colima, docker, kubernetes-cli |
 | **Media** | ffmpeg, imagemagick, tesseract |
 | **Apps** | iTerm2, Fork, WebStorm, VS Code, Android Studio |
-| **Productivity** | 1Password, Raycast, Numi, Rocket, Notion |
+| **Productivity** | Bitwarden, 1Password, Raycast, Rocket, Notion |
 | **Communication** | Slack, Teams, Zoom, Mattermost |
 
 ---

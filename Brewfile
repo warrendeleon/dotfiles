@@ -124,9 +124,10 @@ cask "mattermost"                # Team messaging
 cask "singlebox"                 # Multi-account browser
 
 # Productivity
-cask "1password"                 # Password manager
+cask "bitwarden"                 # Password manager
+brew "bitwarden-cli"             # Bitwarden CLI (bw)
+cask "1password"                 # Password manager (legacy)
 cask "1password-cli"             # 1Password CLI (op)
-cask "numi"                      # Calculator
 cask "rocket"                    # Emoji picker
 cask "google-drive"              # Cloud storage
 cask "raycast"                   # Spotlight replacement (launcher, clipboard, window management)
