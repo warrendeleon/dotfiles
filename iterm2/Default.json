@@ -1,79 +1,213 @@
 {
-  "Profiles": [
+  "Profiles" : [
     {
-      "Name": "Default",
-      "Guid": "dotfiles-default-profile",
-      "Dynamic Profile Parent Name": "Default",
-
-      "Normal Font": "MesloLGS-NF-Regular 13",
-      "Non Ascii Font": "MesloLGS-NF-Regular 13",
-      "Use Non-ASCII Font": false,
-      "ASCII Anti Aliased": true,
-      "Non-ASCII Anti Aliased": true,
-      "Horizontal Spacing": 1.0,
-      "Vertical Spacing": 1.1,
-
-      "Columns": 120,
-      "Rows": 35,
-
-      "Scrollback Lines": 10000,
-      "Unlimited Scrollback": true,
-
-      "Option Key Sends": 2,
-      "Right Option Key Sends": 2,
-
-      "Transparency": 0.0,
-      "Blur": true,
-      "Blur Radius": 10.0,
-
-      "Use Bold Font": true,
-      "Use Italic Font": true,
-      "Draw Powerline Glyphs": true,
-
-      "Cursor Type": 1,
-      "Blinking Cursor": true,
-
-      "Mouse Reporting": true,
-      "Unicode Version": 9,
-
-      "Badge Text": "",
-      "Title Components": 2,
-
-      "Custom Directory": "Yes",
-      "Working Directory": "/Users/warrendeleon/Developer",
-
-      "Ansi 0 Color": { "Red Component": 0.027, "Green Component": 0.212, "Blue Component": 0.259 },
-      "Ansi 1 Color": { "Red Component": 0.863, "Green Component": 0.196, "Blue Component": 0.184 },
-      "Ansi 2 Color": { "Red Component": 0.522, "Green Component": 0.600, "Blue Component": 0.000 },
-      "Ansi 3 Color": { "Red Component": 0.710, "Green Component": 0.537, "Blue Component": 0.000 },
-      "Ansi 4 Color": { "Red Component": 0.149, "Green Component": 0.545, "Blue Component": 0.824 },
-      "Ansi 5 Color": { "Red Component": 0.827, "Green Component": 0.212, "Blue Component": 0.510 },
-      "Ansi 6 Color": { "Red Component": 0.165, "Green Component": 0.631, "Blue Component": 0.596 },
-      "Ansi 7 Color": { "Red Component": 0.933, "Green Component": 0.910, "Blue Component": 0.835 },
-      "Ansi 8 Color": { "Red Component": 0.000, "Green Component": 0.169, "Blue Component": 0.212 },
-      "Ansi 9 Color": { "Red Component": 0.796, "Green Component": 0.294, "Blue Component": 0.086 },
-      "Ansi 10 Color": { "Red Component": 0.345, "Green Component": 0.431, "Blue Component": 0.459 },
-      "Ansi 11 Color": { "Red Component": 0.396, "Green Component": 0.482, "Blue Component": 0.514 },
-      "Ansi 12 Color": { "Red Component": 0.514, "Green Component": 0.580, "Blue Component": 0.588 },
-      "Ansi 13 Color": { "Red Component": 0.424, "Green Component": 0.443, "Blue Component": 0.769 },
-      "Ansi 14 Color": { "Red Component": 0.576, "Green Component": 0.631, "Blue Component": 0.631 },
-      "Ansi 15 Color": { "Red Component": 0.992, "Green Component": 0.965, "Blue Component": 0.890 },
-      "Background Color": { "Red Component": 0.000, "Green Component": 0.169, "Blue Component": 0.212 },
-      "Foreground Color": { "Red Component": 0.514, "Green Component": 0.580, "Blue Component": 0.588 },
-      "Bold Color": { "Red Component": 0.576, "Green Component": 0.631, "Blue Component": 0.631 },
-      "Cursor Color": { "Red Component": 0.514, "Green Component": 0.580, "Blue Component": 0.588 },
-      "Cursor Text Color": { "Red Component": 0.000, "Green Component": 0.169, "Blue Component": 0.212 },
-      "Selection Color": { "Red Component": 0.027, "Green Component": 0.212, "Blue Component": 0.259 },
-      "Selected Text Color": { "Red Component": 0.576, "Green Component": 0.631, "Blue Component": 0.631 },
-
-      "Key Mappings": [
-        { "Action": 25, "Text": " ", "Modifiers": ["Option"], "Key": "0x7f", "Comment": "Option+Backspace: delete word" },
-        { "Action": 10, "Text": "b", "Modifiers": ["Option"], "Key": "0xf702", "Comment": "Option+Left: jump word left" },
-        { "Action": 10, "Text": "f", "Modifiers": ["Option"], "Key": "0xf703", "Comment": "Option+Right: jump word right" },
-        { "Action": 10, "Text": "0x01", "Modifiers": ["Command"], "Key": "0xf702", "Comment": "Cmd+Left: jump to start of line" },
-        { "Action": 10, "Text": "0x05", "Modifiers": ["Command"], "Key": "0xf703", "Comment": "Cmd+Right: jump to end of line" },
-        { "Action": 10, "Text": "0x15", "Modifiers": ["Command"], "Key": "0x7f", "Comment": "Cmd+Backspace: delete to start of line" }
-      ]
+      "Ansi 0 Color" : {
+        "Green Component" : 0.21199999999999999,
+        "Red Component" : 0.027,
+        "Blue Component" : 0.25900000000000001
+      },
+      "Ansi 12 Color" : {
+        "Green Component" : 0.57999999999999996,
+        "Red Component" : 0.51400000000000001,
+        "Blue Component" : 0.58799999999999997
+      },
+      "Ansi 7 Color" : {
+        "Green Component" : 0.91000000000000003,
+        "Red Component" : 0.93300000000000005,
+        "Blue Component" : 0.83499999999999996
+      },
+      "Custom Directory" : "Advanced",
+      "AWDS Window Option" : "Yes",
+      "AWDS Window Directory" : "/Users/warrendeleon/Developer",
+      "AWDS Tab Option" : "Recycle",
+      "AWDS Tab Directory" : "",
+      "AWDS Pane Option" : "Recycle",
+      "AWDS Pane Directory" : "",
+      "Normal Font" : "MesloLGS-NF-Regular 13",
+      "Bold Color" : {
+        "Green Component" : 0.63100000000000001,
+        "Red Component" : 0.57599999999999996,
+        "Blue Component" : 0.63100000000000001
+      },
+      "Draw Powerline Glyphs" : true,
+      "Ansi 6 Color" : {
+        "Green Component" : 0.63100000000000001,
+        "Red Component" : 0.16500000000000001,
+        "Blue Component" : 0.59599999999999997
+      },
+      "Rows" : 35,
+      "Key Mappings" : [
+        {
+          "Modifiers" : [
+            "Option"
+          ],
+          "Action" : 25,
+          "Text" : " ",
+          "Comment" : "Option+Backspace: delete word",
+          "Key" : "0x7f"
+        },
+        {
+          "Modifiers" : [
+            "Option"
+          ],
+          "Action" : 10,
+          "Text" : "b",
+          "Comment" : "Option+Left: jump word left",
+          "Key" : "0xf702"
+        },
+        {
+          "Modifiers" : [
+            "Option"
+          ],
+          "Action" : 10,
+          "Text" : "f",
+          "Comment" : "Option+Right: jump word right",
+          "Key" : "0xf703"
+        },
+        {
+          "Modifiers" : [
+            "Command"
+          ],
+          "Action" : 10,
+          "Text" : "0x01",
+          "Comment" : "Cmd+Left: jump to start of line",
+          "Key" : "0xf702"
+        },
+        {
+          "Modifiers" : [
+            "Command"
+          ],
+          "Action" : 10,
+          "Text" : "0x05",
+          "Comment" : "Cmd+Right: jump to end of line",
+          "Key" : "0xf703"
+        },
+        {
+          "Modifiers" : [
+            "Command"
+          ],
+          "Action" : 10,
+          "Text" : "0x15",
+          "Comment" : "Cmd+Backspace: delete to start of line",
+          "Key" : "0x7f"
+        }
+      ],
+      "Non-ASCII Anti Aliased" : true,
+      "Ansi 10 Color" : {
+        "Green Component" : 0.43099999999999999,
+        "Red Component" : 0.34499999999999997,
+        "Blue Component" : 0.45900000000000002
+      },
+      "Ansi 15 Color" : {
+        "Green Component" : 0.96499999999999997,
+        "Red Component" : 0.99199999999999999,
+        "Blue Component" : 0.89000000000000001
+      },
+      "Foreground Color" : {
+        "Green Component" : 0.57999999999999996,
+        "Red Component" : 0.51400000000000001,
+        "Blue Component" : 0.58799999999999997
+      },
+      "Blinking Cursor" : true,
+      "Rewritable" : true,
+      "Mouse Reporting" : true,
+      "Selection Color" : {
+        "Green Component" : 0.21199999999999999,
+        "Red Component" : 0.027,
+        "Blue Component" : 0.25900000000000001
+      },
+      "Columns" : 120,
+      "Ansi 13 Color" : {
+        "Green Component" : 0.443,
+        "Red Component" : 0.42399999999999999,
+        "Blue Component" : 0.76900000000000002
+      },
+      "Title Components" : 2,
+      "ASCII Anti Aliased" : true,
+      "Non Ascii Font" : "MesloLGS-NF-Regular 13",
+      "Vertical Spacing" : 1.1000000000000001,
+      "Use Bold Font" : true,
+      "Option Key Sends" : 2,
+      "Selected Text Color" : {
+        "Green Component" : 0.63100000000000001,
+        "Red Component" : 0.57599999999999996,
+        "Blue Component" : 0.63100000000000001
+      },
+      "Background Color" : {
+        "Green Component" : 0.16900000000000001,
+        "Red Component" : 0,
+        "Blue Component" : 0.21199999999999999
+      },
+      "Ansi 11 Color" : {
+        "Green Component" : 0.48199999999999998,
+        "Red Component" : 0.39600000000000002,
+        "Blue Component" : 0.51400000000000001
+      },
+      "Use Italic Font" : true,
+      "Unlimited Scrollback" : true,
+      "Dynamic Profile Parent Name" : "Default",
+      "Blur Radius" : 10,
+      "Cursor Type" : 1,
+      "Blur" : true,
+      "Scrollback Lines" : 10000,
+      "Badge Text" : "",
+      "Unicode Version" : 9,
+      "Ansi 14 Color" : {
+        "Green Component" : 0.63100000000000001,
+        "Red Component" : 0.57599999999999996,
+        "Blue Component" : 0.63100000000000001
+      },
+      "Name" : "Default",
+      "Cursor Text Color" : {
+        "Green Component" : 0.16900000000000001,
+        "Red Component" : 0,
+        "Blue Component" : 0.21199999999999999
+      },
+      "Cursor Color" : {
+        "Green Component" : 0.57999999999999996,
+        "Red Component" : 0.51400000000000001,
+        "Blue Component" : 0.58799999999999997
+      },
+      "Transparency" : 0,
+      "Guid" : "dotfiles-default-profile",
+      "Horizontal Spacing" : 1,
+      "Ansi 3 Color" : {
+        "Green Component" : 0.53700000000000003,
+        "Red Component" : 0.70999999999999996,
+        "Blue Component" : 0
+      },
+      "Ansi 4 Color" : {
+        "Green Component" : 0.54500000000000004,
+        "Red Component" : 0.14899999999999999,
+        "Blue Component" : 0.82399999999999995
+      },
+      "Ansi 5 Color" : {
+        "Green Component" : 0.21199999999999999,
+        "Red Component" : 0.82699999999999996,
+        "Blue Component" : 0.51000000000000001
+      },
+      "Use Non-ASCII Font" : false,
+      "Right Option Key Sends" : 2,
+      "Ansi 2 Color" : {
+        "Green Component" : 0.59999999999999998,
+        "Red Component" : 0.52200000000000002,
+        "Blue Component" : 0
+      },
+      "Ansi 9 Color" : {
+        "Green Component" : 0.29399999999999998,
+        "Red Component" : 0.79600000000000004,
+        "Blue Component" : 0.085999999999999993
+      },
+      "Ansi 1 Color" : {
+        "Green Component" : 0.19600000000000001,
+        "Red Component" : 0.86299999999999999,
+        "Blue Component" : 0.184
+      },
+      "Ansi 8 Color" : {
+        "Green Component" : 0.16900000000000001,
+        "Red Component" : 0,
+        "Blue Component" : 0.21199999999999999
+      }
     }
   ]
 }
