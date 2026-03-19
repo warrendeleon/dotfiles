@@ -5,8 +5,8 @@
       "Guid": "dotfiles-default-profile",
       "Dynamic Profile Parent Name": "Default",
 
-      "Normal Font": "MesloLGSNF-Regular 13",
-      "Non Ascii Font": "MesloLGSNF-Regular 13",
+      "Normal Font": "MesloLGS-NF-Regular 13",
+      "Non Ascii Font": "MesloLGS-NF-Regular 13",
       "Use Non-ASCII Font": false,
       "ASCII Anti Aliased": true,
       "Non-ASCII Anti Aliased": true,
@@ -22,7 +22,7 @@
       "Option Key Sends": 2,
       "Right Option Key Sends": 2,
 
-      "Transparency": 0.05,
+      "Transparency": 0.0,
       "Blur": true,
       "Blur Radius": 10.0,
 
@@ -39,7 +39,8 @@
       "Badge Text": "",
       "Title Components": 2,
 
-      "Custom Directory": "Recycle",
+      "Custom Directory": "Yes",
+      "Working Directory": "/Users/warrendeleon/Developer",
 
       "Ansi 0 Color": { "Red Component": 0.027, "Green Component": 0.212, "Blue Component": 0.259 },
       "Ansi 1 Color": { "Red Component": 0.863, "Green Component": 0.196, "Blue Component": 0.184 },

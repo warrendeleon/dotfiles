@@ -50,7 +50,13 @@ Five tools are available automatically via MCP. Use them proactively:
 | `get_audit_log(since?, limit=20)` | View what was done recently. `since` accepts "24h", "7d", or a timestamp. |
 
 **When to search**: user says "we discussed", "remember when", "like before", "last time"; or you need background on a topic.
-**When to log**: after commits, after completing tasks, after architectural decisions.
+**When to log** (call `log_action` proactively, don't wait to be asked):
+- After creating a commit
+- After completing a multi-step task (setup, refactor, migration, bug fix)
+- After an architectural or infrastructure decision
+- After resolving a non-obvious bug (include root cause)
+- After significant config changes (dotfiles, CI, deploy)
+- Include files affected when relevant
 
 ---
 

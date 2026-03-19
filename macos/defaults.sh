@@ -108,6 +108,9 @@ defaults write com.apple.TextEdit RichText -int 0
 # Make iTerm2 the default terminal app
 defaults write com.googlecode.iterm2 "Default Terminal" -string "iTerm2"
 
+# Use the dotfiles dynamic profile as the default profile
+defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "dotfiles-default-profile"
+
 # ===========================================================================
 # Dock
 # ===========================================================================
@@ -484,11 +487,16 @@ fi
 # ===========================================================================
 # Login Items
 # ===========================================================================
-# Remove unwanted auto-launchers
+# Remove unwanted auto-launchers (legacy login items)
 for app in "Spotify" "Microsoft Teams" "Zoom" "Slack" "NordVPN" "Notion" "Rectangle"; do
   osascript -e "tell application \"System Events\" to delete login item \"$app\"" 2>/dev/null || true
 done
 echo "Removed unwanted login items (Spotify, Teams, Zoom, Slack, NordVPN, Notion, Rectangle)"
+
+# Note: macOS 13+ uses Background Task Management for app auto-launch.
+# These cannot be disabled programmatically. After first login, manually go to:
+#   System Settings → General → Login Items & Extensions
+# and disable: Spotify, Microsoft Teams, Zoom, Slack, NordVPN, Notion
 
 # Add apps that should start at login
 for app in "Rocket" "Raycast" "Google Drive" "Tailscale" "1Password" "BetterDisplay" "Elgato Control Center" "Singlebox" "DisplayLink Manager"; do

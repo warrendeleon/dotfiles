@@ -8,6 +8,14 @@ Host minipc
     HostName ubuntu-minipc
     User warren
 
+Host minipc-tailscale
+    HostName 100.118.77.94
+    User warren
+
+Host minipc-lan
+    HostName 192.168.10.171
+    User warren
+
 # Defaults for all hosts
 Host *
     AddKeysToAgent yes

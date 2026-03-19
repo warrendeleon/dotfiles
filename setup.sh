@@ -1460,10 +1460,16 @@ if [[ -d "$RAG_DIR" ]]; then
       success "Config already exists"
     fi
 
-    # Create Python virtual environment
+    # Create Python virtual environment (chromadb requires Python ≤3.13)
     if [[ ! -d "$RAG_HOME/venv" ]]; then
       info "Creating Python virtual environment..."
-      python3 -m venv "$RAG_HOME/venv"
+      PYTHON_313="/opt/homebrew/opt/python@3.13/bin/python3.13"
+      if [[ -x "$PYTHON_313" ]]; then
+        "$PYTHON_313" -m venv "$RAG_HOME/venv"
+      else
+        warn "Python 3.13 not found at $PYTHON_313 — falling back to python3 (chromadb may fail on 3.14+)"
+        python3 -m venv "$RAG_HOME/venv"
+      fi
       success "Virtual environment created"
     else
       success "Virtual environment already exists"
@@ -1505,10 +1511,19 @@ if [[ -d "$RAG_DIR" ]]; then
     # Register MCP server with Claude Code
     if command -v claude &>/dev/null; then
       info "Registering RAG MCP server..."
-      claude mcp add --scope user --transport stdio rag \
-        --directory "$RAG_DIR" \
-        -- "$RAG_HOME/venv/bin/python" -m src.server 2>/dev/null || \
+      claude mcp add -s user rag -- "$RAG_HOME/venv/bin/python" -m src.server 2>/dev/null || \
         warn "MCP registration failed. Register manually later."
+      # Add cwd so the server can find its source modules
+      if command -v python3 &>/dev/null; then
+        python3 -c "
+import json, pathlib
+p = pathlib.Path.home() / '.claude.json'
+cfg = json.loads(p.read_text())
+if 'rag' in cfg.get('mcpServers', {}):
+    cfg['mcpServers']['rag']['cwd'] = '$RAG_DIR'
+    p.write_text(json.dumps(cfg, indent=2))
+" 2>/dev/null
+      fi
       success "MCP server registered"
     else
       warn "Claude CLI not found. Register MCP manually after installing claude-code."
