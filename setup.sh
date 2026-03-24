@@ -413,15 +413,15 @@ _draw_picker() {
   rows=$(tput lines 2>/dev/null || echo 40)
 
   local max_visible=$((rows - 10))
-  ((max_visible < 10)) && max_visible=10
-  ((max_visible > TOTAL_PICK)) && max_visible=$TOTAL_PICK
+  [[ $max_visible -lt 10 ]] && max_visible=10
+  [[ $max_visible -gt $TOTAL_PICK ]] && max_visible=$TOTAL_PICK
 
   local visible_start=$((current - max_visible / 2))
-  ((visible_start < 0)) && visible_start=0
+  [[ $visible_start -lt 0 ]] && visible_start=0
   local visible_end=$((visible_start + max_visible))
-  ((visible_end > TOTAL_PICK)) && visible_end=$TOTAL_PICK
-  ((visible_start > TOTAL_PICK - max_visible)) && visible_start=$((TOTAL_PICK - max_visible))
-  ((visible_start < 0)) && visible_start=0
+  [[ $visible_end -gt $TOTAL_PICK ]] && visible_end=$TOTAL_PICK
+  [[ $visible_start -gt $((TOTAL_PICK - max_visible)) ]] && visible_start=$((TOTAL_PICK - max_visible))
+  [[ $visible_start -lt 0 ]] && visible_start=0
 
   if [[ "${2:-}" == "redraw" ]]; then
     printf '\033[%dA' "${_prev_lines:-$max_visible}"
@@ -456,8 +456,8 @@ while true; do
     $'\x1b')
       read -rsn2 seq </dev/tty
       case "$seq" in
-        '[A') ((_cur > 0)) && _cur=$((_cur - 1)) ;;
-        '[B') ((_cur < TOTAL_PICK - 1)) && _cur=$((_cur + 1)) ;;
+        '[A') [[ $_cur -gt 0 ]] && _cur=$((_cur - 1)) ;;
+        '[B') [[ $_cur -lt $((TOTAL_PICK - 1)) ]] && _cur=$((_cur + 1)) ;;
       esac
       _draw_picker $_cur "redraw"
       ;;
