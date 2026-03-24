@@ -527,9 +527,10 @@ for ((i=0; i<TOTAL_PICK; i++)); do
     cask_name="${BASH_REMATCH[1]}"
     # Check if brew installed it
     if ! brew list --cask "$cask_name" &>/dev/null; then
-      if [[ -n "${DIRECT_DOWNLOADS[$cask_name]:-}" ]]; then
-        url="${DIRECT_DOWNLOADS[$cask_name]%%|*}"
-        filename="${DIRECT_DOWNLOADS[$cask_name]#*|}"
+      fallback="${DIRECT_DOWNLOADS[$cask_name]+${DIRECT_DOWNLOADS[$cask_name]}}"
+      if [[ -n "$fallback" ]]; then
+        url="${fallback%%|*}"
+        filename="${fallback#*|}"
         warn "${cask_name} failed via Homebrew. Trying direct download..."
         if curl -fsSL -o "$HOME/Downloads/${filename}" "$url" 2>/dev/null; then
           if [[ "$filename" == *.dmg ]]; then
