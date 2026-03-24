@@ -23,23 +23,6 @@ if [[ "$EUID" -eq 0 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Bootstrap: install Xcode Command Line Tools if git is missing
-# ---------------------------------------------------------------------------
-if ! command -v git &>/dev/null; then
-  echo "Git not found. Installing Xcode Command Line Tools first..."
-  xcode-select --install 2>/dev/null || true
-  echo ""
-  echo "A system dialog should appear. Install the tools, then press ENTER to continue."
-  read -r </dev/tty
-  # Verify installation
-  if ! command -v git &>/dev/null; then
-    echo "Error: git still not available. Install Xcode Command Line Tools and re-run."
-    exit 1
-  fi
-  echo "Xcode Command Line Tools installed."
-fi
-
-# ---------------------------------------------------------------------------
 # Colour helpers
 # ---------------------------------------------------------------------------
 RED='\033[0;31m'
