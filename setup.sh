@@ -1165,7 +1165,7 @@ fi
 # ---------------------------------------------------------------------------
 # WebStorm Configuration
 # ---------------------------------------------------------------------------
-WEBSTORM_DIR=$(ls -1d "$HOME/Library/Application Support/JetBrains/WebStorm"* 2>/dev/null | sort -V | tail -1)
+WEBSTORM_DIR=$(ls -1d "$HOME/Library/Application Support/JetBrains/WebStorm"* 2>/dev/null | sort -V | tail -1 || true)
 
 if [[ -n "$WEBSTORM_DIR" ]]; then
   if ask "Configure WebStorm (fonts, keymap)?"; then
