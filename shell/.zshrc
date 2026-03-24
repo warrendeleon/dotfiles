@@ -140,7 +140,7 @@ killport() {
 # ---------------------------------------------------------------------------
 
 # Modern CLI replacements
-alias ls="eza --icons --group-directories-first"
+alias ls="eza --icons --group-directories-first -a"
 alias ll="eza --icons --group-directories-first -la"
 alias lt="eza --icons --tree --level=2"
 alias cat="bat --paging=never"
