@@ -3,11 +3,31 @@
 # Mac Setup Script
 # Fully configures a new Mac for React Native + iOS + Android development
 #
-# Usage:
+# Usage (fresh Mac — no git yet):
+#   mkdir -p ~/Developer && curl -fsSL https://github.com/warrendeleon/dotfiles/archive/refs/heads/main.tar.gz | tar xz -C ~/Developer && mv ~/Developer/dotfiles-main ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh
+#
+# Usage (git available):
 #   git clone https://github.com/warrendeleon/dotfiles.git ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh
 # ===========================================================================
 
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Bootstrap: install Xcode Command Line Tools if git is missing
+# ---------------------------------------------------------------------------
+if ! command -v git &>/dev/null; then
+  echo "Git not found. Installing Xcode Command Line Tools first..."
+  xcode-select --install 2>/dev/null || true
+  echo ""
+  echo "A system dialog should appear. Install the tools, then press ENTER to continue."
+  read -r </dev/tty
+  # Verify installation
+  if ! command -v git &>/dev/null; then
+    echo "Error: git still not available. Install Xcode Command Line Tools and re-run."
+    exit 1
+  fi
+  echo "Xcode Command Line Tools installed."
+fi
 
 # ---------------------------------------------------------------------------
 # Colour helpers
@@ -25,8 +45,9 @@ DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Guard: must be run from a cloned repo, not via pipe
 if [[ -z "${BASH_SOURCE[0]:-}" ]] || [[ ! -f "${DOTFILES_DIR}/Brewfile" ]]; then
-  echo "Error: Run this script from the cloned dotfiles repo, not via pipe."
-  echo "  git clone https://github.com/warrendeleon/dotfiles.git ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh"
+  echo "Error: Run this script from the dotfiles directory, not via pipe."
+  echo "  Fresh Mac:  curl -fsSL https://github.com/warrendeleon/dotfiles/archive/refs/heads/main.tar.gz | tar xz -C ~/Developer && mv ~/Developer/dotfiles-main ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh"
+  echo "  With git:   git clone https://github.com/warrendeleon/dotfiles.git ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh"
   exit 1
 fi
 
@@ -476,25 +497,22 @@ if ask "Symlink dotfiles? (existing files will be backed up)"; then
   symlink "${DOTFILES_DIR}/git/.gitconfig"     "$HOME/.gitconfig"
   symlink "${DOTFILES_DIR}/git/.gitignore_global" "$HOME/.gitignore_global"
 
-  # Set git identity (prompted — not hardcoded)
-  CURRENT_GIT_NAME=$(git config --global user.name 2>/dev/null || echo "")
-  CURRENT_GIT_EMAIL=$(git config --global user.email 2>/dev/null || echo "")
-
-  if [[ -z "$CURRENT_GIT_NAME" ]]; then
+  # Set git identity in ~/.gitconfig.local (per-machine, not tracked)
+  GIT_LOCAL="$HOME/.gitconfig.local"
+  if [[ -f "$GIT_LOCAL" ]]; then
+    info "Git identity already set in ~/.gitconfig.local"
+    info "  name:  $(git config --global user.name 2>/dev/null || echo '(not set)')"
+    info "  email: $(git config --global user.email 2>/dev/null || echo '(not set)')"
+  else
     read -rp "Git full name (e.g. Warren de Leon): " GIT_NAME </dev/tty
-    [[ -n "$GIT_NAME" ]] && git config --global user.name "$GIT_NAME"
-  else
-    info "Git name already set: $CURRENT_GIT_NAME"
-  fi
-
-  if [[ -z "$CURRENT_GIT_EMAIL" ]]; then
     read -rp "Git email (e.g. hi@warrendeleon.com): " GIT_EMAIL </dev/tty
-    [[ -n "$GIT_EMAIL" ]] && git config --global user.email "$GIT_EMAIL"
-  else
-    info "Git email already set: $CURRENT_GIT_EMAIL"
+    cat > "$GIT_LOCAL" << GITEOF
+[user]
+	name = ${GIT_NAME}
+	email = ${GIT_EMAIL}
+GITEOF
+    success "Git identity saved to ~/.gitconfig.local"
   fi
-
-  success "Git identity: $(git config --global user.name) <$(git config --global user.email)>"
 
   # SSH config
   mkdir -p "$HOME/.ssh"
@@ -668,7 +686,7 @@ fi
 # Claude Code Configuration
 # ---------------------------------------------------------------------------
 if command -v claude &>/dev/null || [[ "${CLAUDE_CODE_INSTALLED:-}" == "true" ]]; then
-  section "Claude Code Configuration"
+  info "Configuring Claude Code..."
 
   mkdir -p "$HOME/.claude"
   CLAUDE_SETTINGS="$HOME/.claude/settings.json"
@@ -1358,7 +1376,6 @@ ACCESSIBILITY_APPS=(
   "Amphetamine:com.if.Amphetamine"
   "BetterDisplay:pro.betterdisplay.BetterDisplay"
   "Rocket:net.matthewpalmer.Rocket"
-  "Rectangle:com.knollsoft.Rectangle"
   "iTerm2:com.googlecode.iterm2"
 )
 

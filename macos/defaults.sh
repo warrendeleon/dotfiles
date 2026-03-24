@@ -109,7 +109,7 @@ defaults write com.apple.TextEdit RichText -int 0
 defaults write com.googlecode.iterm2 "Default Terminal" -string "iTerm2"
 
 # Use the dotfiles dynamic profile as the default profile
-defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "dotfiles-default-profile"
+defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "dotfiles-profile"
 
 # ===========================================================================
 # Dock

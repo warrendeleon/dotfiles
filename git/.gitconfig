@@ -94,6 +94,6 @@
     colorMoved = default
 [merge]
     conflictstyle = zdiff3
-[user]
-	name = Warren de León Ofalla
-	email = hi@warrendeleon.com
+# User identity is in ~/.gitconfig.local (per-machine, not tracked)
+[include]
+    path = ~/.gitconfig.local

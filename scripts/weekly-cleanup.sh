@@ -10,9 +10,6 @@ echo "$(date): cleanup started" >> "$LOG"
 # Homebrew cache + old versions
 brew cleanup --prune=7 >> "$LOG" 2>&1 || true
 
-# System logs older than 7 days
-sudo rm -rf /private/var/log/asl/*.asl 2>/dev/null || true
-
 # User logs
 rm -rf ~/Library/Logs/* 2>/dev/null || true
 

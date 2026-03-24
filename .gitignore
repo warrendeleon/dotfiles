@@ -2,6 +2,7 @@
 .secrets.env
 shell/.secrets.env
 secrets/
+.gitconfig.local
 .env
 .env.*
 *.env
