@@ -35,6 +35,12 @@ BOLD='\033[1m'
 NC='\033[0m' # No colour
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOGFILE="${DOTFILES_DIR}/setup.log"
+
+# Log all output (stdout + stderr) to file while still showing on screen
+exec > >(tee -a "$LOGFILE") 2>&1
+echo "=== Setup started: $(date) ==="
+echo "=== macOS $(sw_vers -productVersion 2>/dev/null || echo 'unknown') ($(uname -m)) ==="
 
 # Guard: must be run from a cloned repo, not via pipe
 if [[ -z "${BASH_SOURCE[0]:-}" ]] || [[ ! -f "${DOTFILES_DIR}/Brewfile" ]]; then
@@ -213,6 +219,9 @@ trap cleanup_widget EXIT
 
 # Ctrl+C: clean up and exit immediately
 trap 'cleanup_widget; echo -e "\n${RED}✗${NC}  Cancelled by user."; exit 130' INT TERM
+
+# On error: log context and point user to the log file
+trap 'echo -e "\n${RED}✗${NC}  Error on line ${LINENO} (exit code $?). Log saved to:\n   ${LOGFILE}"' ERR
 
 info()    { echo -e "${BLUE}ℹ${NC}  $1"; }
 success() { echo -e "${GREEN}✓${NC}  $1"; }

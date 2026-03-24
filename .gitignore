@@ -20,5 +20,8 @@ id_ed25519*
 *.egg-info/
 __pycache__/
 
+# Logs
+setup.log
+
 # macOS
 .DS_Store
