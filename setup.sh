@@ -4,13 +4,23 @@
 # Fully configures a new Mac for React Native + iOS + Android development
 #
 # Usage (fresh Mac — no git yet):
-#   mkdir -p ~/Developer && curl -fsSL https://github.com/warrendeleon/dotfiles/archive/refs/heads/main.tar.gz | tar xz -C ~/Developer && mv ~/Developer/dotfiles-main ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh
+#   mkdir -p ~/Developer && curl -fsSL https://github.com/warrendeleon/dotfiles/archive/refs/heads/main.tar.gz | tar xz -C ~/Developer && mv ~/Developer/dotfiles-main ~/Developer/dotfiles && cd ~/Developer/dotfiles && chmod +x setup.sh && ./setup.sh
 #
 # Usage (git available):
 #   git clone https://github.com/warrendeleon/dotfiles.git ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh
 # ===========================================================================
 
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Guard: never run as root (Homebrew refuses, sudo is used internally)
+# ---------------------------------------------------------------------------
+if [[ "$EUID" -eq 0 ]]; then
+  echo "Error: Do not run this script with sudo. Run as your normal user:"
+  echo "  ./setup.sh"
+  echo "The script will ask for your password when it needs elevated access."
+  exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Bootstrap: install Xcode Command Line Tools if git is missing
@@ -46,7 +56,7 @@ DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Guard: must be run from a cloned repo, not via pipe
 if [[ -z "${BASH_SOURCE[0]:-}" ]] || [[ ! -f "${DOTFILES_DIR}/Brewfile" ]]; then
   echo "Error: Run this script from the dotfiles directory, not via pipe."
-  echo "  Fresh Mac:  curl -fsSL https://github.com/warrendeleon/dotfiles/archive/refs/heads/main.tar.gz | tar xz -C ~/Developer && mv ~/Developer/dotfiles-main ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh"
+  echo "  Fresh Mac:  mkdir -p ~/Developer && curl -fsSL https://github.com/warrendeleon/dotfiles/archive/refs/heads/main.tar.gz | tar xz -C ~/Developer && mv ~/Developer/dotfiles-main ~/Developer/dotfiles && cd ~/Developer/dotfiles && chmod +x setup.sh && ./setup.sh"
   echo "  With git:   git clone https://github.com/warrendeleon/dotfiles.git ~/Developer/dotfiles && cd ~/Developer/dotfiles && ./setup.sh"
   exit 1
 fi
