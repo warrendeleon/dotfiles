@@ -1,5 +1,6 @@
 # Brewfile — Mac Setup
-# Install with: brew bundle --file=Brewfile
+# Lines marked [pick] are shown in the interactive picker.
+# Everything else installs automatically as a dependency.
 
 # ============================================================================
 # Taps
@@ -8,152 +9,124 @@ tap "oven-sh/bun"
 tap "wix/brew"
 
 # ============================================================================
-# Core CLI Tools
+# Core CLI Tools (always installed)
 # ============================================================================
 brew "git"
 brew "git-filter-repo"
 brew "wget"
 brew "ripgrep"
-brew "gh"                        # GitHub CLI
-brew "mas"                       # Mac App Store CLI
-brew "duti"                      # Set default apps per file type
-brew "aria2"                     # Parallel downloader (used by xcodes)
-brew "xcodes"                    # Fast Xcode installer (parallel downloads via aria2)
-brew "jq"                        # JSON processor
-brew "tree"                      # Directory structure viewer
-brew "bat"                       # Cat with syntax highlighting
-brew "eza"                       # Modern ls with icons and colours
-brew "fd"                        # Modern find (faster, simpler)
-brew "fzf"                       # Fuzzy finder (history, file search)
-brew "tlrc"                      # Simplified man pages (tldr client)
-brew "htop"                      # Interactive process viewer
-brew "trash"                     # Move to Trash instead of rm
-brew "zoxide"                    # Smarter cd (remembers directories)
-brew "git-delta"                 # Better git diff (syntax highlighting)
-brew "ncdu"                      # Interactive disk usage analyser
-brew "lazygit"                   # Terminal UI for git
+brew "gh"
+brew "jq"
+brew "tree"
+brew "bat"
+brew "eza"
+brew "fd"
+brew "fzf"
+brew "tlrc"
+brew "htop"
+brew "trash"
+brew "zoxide"
+brew "git-delta"
+brew "ncdu"
+brew "lazygit"
+brew "gnupg"
+brew "openssl@3"
+brew "duti"
 
 # ============================================================================
-# Shell
+# Languages & Runtimes (always installed)
 # ============================================================================
-# Oh My Zsh + Powerlevel10k installed separately in setup.sh
-
-# ============================================================================
-# Languages & Runtimes
-# ============================================================================
-brew "nvm"                       # Node version manager
-brew "oven-sh/bun/bun"           # Fast JS runtime
-# Yarn Berry managed via corepack (bundled with Node.js)
-brew "rbenv"                     # Ruby version manager
-brew "ruby-build"                # rbenv plugin for building Ruby
-brew "ruby"                      # System Ruby (for CocoaPods bootstrap)
-brew "python@3.13"               # Python
-brew "pipx"                      # Python CLI tool installer
-
-# Java (Temurin 17 — required for React Native / Android)
+brew "nvm"
+brew "oven-sh/bun/bun"
+brew "rbenv"
+brew "ruby-build"
+brew "ruby"
+brew "python@3.13"
+brew "pipx"
 cask "temurin@17"
 
 # ============================================================================
-# React Native / Mobile Development
-# ============================================================================
-brew "watchman"                  # File watcher (required by Metro)
-brew "fswatch"                   # File watcher (RAG indexing pipeline)
-# CocoaPods installed via rbenv gem (avoids conflicts with Homebrew Ruby)
-brew "applesimutils"             # iOS simulator utilities (Detox)
-# Detox CLI is an npm package (detox-cli), not a Homebrew formula
-brew "ccache"                    # Compiler cache for faster native builds
-
-# ============================================================================
-# Docker & Cloud
-# ============================================================================
-brew "colima"                    # Docker runtime for macOS (no Docker Desktop)
-brew "docker"                    # Docker CLI
-brew "docker-completion"         # Docker shell completions
-brew "kubernetes-cli"            # kubectl
-
-# ============================================================================
-# Security & Networking
-# ============================================================================
-brew "gnupg"                     # GPG encryption
-brew "openssl@3"                 # TLS/SSL toolkit
-
-# ============================================================================
-# AI / ML (Apple Silicon)
-# ============================================================================
-brew "ollama"                    # Local LLM runner
-brew "mlx"                       # Apple Silicon ML framework
-
-# ============================================================================
-# Database
-# ============================================================================
-brew "mysql-client"              # MySQL CLI tools
-brew "sqlite"                    # SQLite
-
-# ============================================================================
-# GUI Applications (Casks)
+# Apps (interactive picker)
 # ============================================================================
 
 # Development
-cask "android-studio"            # Android IDE + SDK
-cask "visual-studio-code"        # Code editor
-cask "webstorm"                  # JetBrains IDE
-cask "iterm2"                    # Terminal emulator
-cask "fork"                      # Git GUI
-cask "reactotron"                # Redux debugging
-cask "sim-genie"                 # iOS Simulator management
-cask "db-browser-for-sqlite"     # SQLite GUI
-cask "sublime-text"              # Text editor
+cask "android-studio"            # Android IDE + SDK [pick]
+cask "visual-studio-code"        # Code editor [pick]
+cask "webstorm"                  # JetBrains IDE [pick]
+cask "iterm2"                    # Terminal emulator [pick]
+cask "fork"                      # Git GUI [pick]
+cask "reactotron"                # Redux debugging [pick]
+cask "sim-genie"                 # iOS Simulator management [pick]
+cask "db-browser-for-sqlite"     # SQLite GUI [pick]
+cask "sublime-text"              # Text editor [pick]
 
 # AI
-cask "claude"                    # Claude Desktop app
-cask "chatgpt"                   # ChatGPT Desktop app
+cask "claude"                    # Claude Desktop app [pick]
+cask "chatgpt"                   # ChatGPT Desktop app [pick]
+brew "ollama"                    # Local LLM runner [pick]
+brew "mlx"                       # Apple Silicon ML framework [pick]
 
 # Communication
-cask "slack"                     # Team chat
-cask "microsoft-teams"           # Video calls
-cask "zoom"                      # Video calls
-cask "mattermost"                # Team messaging
-cask "singlebox"                 # Multi-account browser
+cask "slack"                     # Team chat [pick]
+cask "microsoft-teams"           # Video calls [pick]
+cask "zoom"                      # Video calls [pick]
+cask "mattermost"                # Team messaging [pick]
+cask "singlebox"                 # Multi-account browser [pick]
 
 # Productivity
-cask "bitwarden"                 # Password manager
-brew "bitwarden-cli"             # Bitwarden CLI (bw)
-cask "1password"                 # Password manager (legacy)
-cask "1password-cli"             # 1Password CLI (op)
-cask "rocket"                    # Emoji picker
-cask "google-drive"              # Cloud storage
-cask "raycast"                   # Spotlight replacement (launcher, clipboard, window management)
-cask "the-unarchiver"            # Archive extraction (zip, rar, 7z, etc.)
-cask "notion"                    # Notes and project management
-cask "localsend"                 # AirDrop alternative (local WiFi, no account)
+cask "bitwarden"                 # Password manager [pick]
+brew "bitwarden-cli"             # Bitwarden CLI [pick]
+cask "1password"                 # Password manager (legacy) [pick]
+cask "1password-cli"             # 1Password CLI [pick]
+cask "rocket"                    # Emoji picker [pick]
+cask "google-drive"              # Cloud storage [pick]
+cask "raycast"                   # Spotlight replacement [pick]
+cask "the-unarchiver"            # Archive extraction [pick]
+cask "notion"                    # Notes and project management [pick]
+cask "localsend"                 # AirDrop alternative [pick]
 
 # Media & Streaming
-cask "iina"                      # Video player (replaces VLC)
-cask "spotify"                   # Music
-cask "ecamm-live"                # Live streaming & recording
-# gifski installed via Mac App Store (not available as brew cask)
+cask "iina"                      # Video player [pick]
+cask "spotify"                   # Music [pick]
+cask "ecamm-live"                # Live streaming & recording [pick]
 
 # Browsers
-cask "google-chrome"             # Web browser
+cask "google-chrome"             # Web browser [pick]
 
 # Networking & Security
-cask "nordvpn"                   # VPN
-# Tailscale installed via Mac App Store (network extension required for MagicDNS)
+cask "nordvpn"                   # VPN [pick]
+
+# Mobile Development (dependencies auto-installed with Android Studio)
+brew "watchman"                  # File watcher (Metro) [pick]
+brew "fswatch"                   # File watcher (RAG pipeline) [pick]
+brew "applesimutils"             # iOS simulator utilities [pick]
+brew "ccache"                    # Compiler cache [pick]
+brew "mas"                       # Mac App Store CLI [pick]
+brew "aria2"                     # Parallel downloader [pick]
+brew "xcodes"                    # Fast Xcode installer [pick]
+
+# Docker & Cloud
+brew "colima"                    # Docker runtime [pick]
+brew "docker"                    # Docker CLI [pick]
+brew "docker-completion"         # Docker shell completions [pick]
+brew "kubernetes-cli"            # kubectl [pick]
+cask "gcloud-cli"                # gcloud CLI [pick]
+
+# Database
+brew "mysql-client"              # MySQL CLI tools [pick]
+brew "sqlite"                    # SQLite [pick]
 
 # Hardware & Display
-cask "elgato-control-center"     # Elgato lights
-cask "logi-options+"              # Logitech mouse configuration
-cask "betterdisplay"             # Monitor management
-cask "aldente"                   # Battery charge limiter
-cask "displaylink"               # DisplayLink Manager (deprecated: unsigned, still installable)
-
-# Cloud SDKs
-cask "gcloud-cli"                # gcloud CLI
+cask "elgato-control-center"     # Elgato lights [pick]
+cask "logi-options+"             # Logitech mouse configuration [pick]
+cask "betterdisplay"             # Monitor management [pick]
+cask "aldente"                   # Battery charge limiter [pick]
+cask "displaylink"               # DisplayLink Manager [pick]
 
 # ============================================================================
-# Mac App Store Apps (requires `mas` + App Store sign-in)
+# Mac App Store Apps (requires sign-in)
 # ============================================================================
-mas "Amphetamine", id: 937984704      # Keep Mac awake
-mas "Gifski", id: 1351639930          # GIF encoder
-mas "Tailscale", id: 1475387142       # Mesh VPN (App Store for MagicDNS + network extension)
+mas "Amphetamine", id: 937984704      # Keep Mac awake [pick]
+mas "Gifski", id: 1351639930          # GIF encoder [pick]
+mas "Tailscale", id: 1475387142       # Mesh VPN [pick]
 # Xcode installed separately in setup.sh (background download, ~12GB)

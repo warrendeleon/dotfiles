@@ -209,7 +209,10 @@ cleanup_widget() {
   restore_scroll_region
   echo ""
 }
-trap cleanup_widget EXIT INT TERM
+trap cleanup_widget EXIT
+
+# Ctrl+C: clean up and exit immediately
+trap 'cleanup_widget; echo -e "\n${RED}✗${NC}  Cancelled by user."; exit 130' INT TERM
 
 info()    { echo -e "${BLUE}ℹ${NC}  $1"; }
 success() { echo -e "${GREEN}✓${NC}  $1"; }
@@ -317,24 +320,173 @@ fi
 # ===========================================================================
 section "Homebrew Packages (Brewfile)"
 
-info "This will install:"
-info "  - CLI tools: git, ripgrep, wget, watchman, etc."
-info "  - Languages: nvm, ruby, python, java (Temurin 17)"
-info "  - Apps: Android Studio, WebStorm, iTerm2, Claude, IINA, etc."
-info "  - Mac App Store: Amphetamine (requires App Store sign-in)"
+# Split Brewfile into core (auto-install) and pick (interactive)
+BREWFILE="${DOTFILES_DIR}/Brewfile"
+CORE_BREWFILE=$(mktemp)
+PICK_LINES=()
+PICK_LABELS=()
+PICK_SELECTED=()
+PICK_SECTIONS=()
+
+# Always include taps
+grep '^tap ' "$BREWFILE" > "$CORE_BREWFILE"
+
+current_section=""
+while IFS= read -r line; do
+  # Track section headers from comments
+  if [[ "$line" =~ ^#\ =+ ]]; then
+    continue
+  elif [[ "$line" =~ ^#\ ([A-Z][A-Za-z\ \&/,\(\)\-]+) ]]; then
+    current_section="${BASH_REMATCH[1]}"
+    # Strip [pick] marker from section headers
+    current_section="${current_section% \[pick\]}"
+    current_section="${current_section% }"
+    continue
+  fi
+
+  # Skip empty, comments, taps
+  [[ -z "$line" ]] && continue
+  [[ "$line" =~ ^# ]] && continue
+  [[ "$line" =~ ^tap\  ]] && continue
+
+  if [[ "$line" =~ \[pick\] ]]; then
+    # Extract name and description (strip [pick] marker)
+    local_name=""
+    local_desc=""
+    if [[ "$line" =~ ^(brew|cask|mas)\ +\"([^\"]+)\" ]]; then
+      local_name="${BASH_REMATCH[2]}"
+    fi
+    if [[ "$line" =~ \#\ *(.+)\ *\[pick\] ]]; then
+      local_desc="${BASH_REMATCH[1]}"
+    fi
+    [[ -z "$local_name" ]] && continue
+
+    # Strip [pick] from the line for the actual Brewfile
+    clean_line=$(echo "$line" | sed 's/ *\[pick\]//')
+    PICK_LINES+=("$clean_line")
+    if [[ -n "$local_desc" ]]; then
+      PICK_LABELS+=("${local_name} — ${local_desc}")
+    else
+      PICK_LABELS+=("${local_name}")
+    fi
+    PICK_SELECTED+=(1)
+
+    if [[ -n "$current_section" ]]; then
+      PICK_SECTIONS+=("$current_section")
+      current_section=""
+    else
+      PICK_SECTIONS+=("")
+    fi
+  else
+    # Core package — always install
+    echo "$line" >> "$CORE_BREWFILE"
+  fi
+done < "$BREWFILE"
+
+TOTAL_PICK=${#PICK_LINES[@]}
+
+# Install core packages first (no interaction needed)
+info "Installing core CLI tools and runtimes..."
+brew bundle --file="$CORE_BREWFILE" --verbose || warn "Some core packages failed"
+rm -f "$CORE_BREWFILE"
+success "Core packages installed"
+
+# Interactive picker for apps
 echo ""
-warn "Make sure you're signed in to the Mac App Store before continuing."
+info "Select which apps to install (${TOTAL_PICK} available)."
+info "All are selected by default. Deselect what you don't need."
+echo ""
+info "↑/↓ move  SPACE toggle  a select all  n deselect all  ENTER confirm"
 echo ""
 
-if ask "Install all Homebrew packages from Brewfile?"; then
-  brew bundle --file="${DOTFILES_DIR}/Brewfile" --verbose || {
-    warn "Some packages failed to install (check output above)"
-    warn "Re-run 'brew bundle --file=${DOTFILES_DIR}/Brewfile' after fixing"
-  }
-  success "Brewfile processing complete"
-else
-  warn "Skipped. Run 'brew bundle --file=${DOTFILES_DIR}/Brewfile' later."
-fi
+_draw_picker() {
+  local current=$1 rows
+  rows=$(tput lines 2>/dev/null || echo 40)
+
+  local max_visible=$((rows - 10))
+  ((max_visible < 10)) && max_visible=10
+  ((max_visible > TOTAL_PICK)) && max_visible=$TOTAL_PICK
+
+  local visible_start=$((current - max_visible / 2))
+  ((visible_start < 0)) && visible_start=0
+  local visible_end=$((visible_start + max_visible))
+  ((visible_end > TOTAL_PICK)) && visible_end=$TOTAL_PICK
+  ((visible_start > TOTAL_PICK - max_visible)) && visible_start=$((TOTAL_PICK - max_visible))
+  ((visible_start < 0)) && visible_start=0
+
+  if [[ "${2:-}" == "redraw" ]]; then
+    printf '\033[%dA' "${_prev_lines:-$max_visible}"
+  fi
+
+  local drawn=0
+  for ((i=visible_start; i<visible_end; i++)); do
+    if [[ -n "${PICK_SECTIONS[$i]}" ]]; then
+      printf '\r\033[K'
+      echo -e "  ${BOLD}${CYAN}── ${PICK_SECTIONS[$i]} ──${NC}"
+      drawn=$((drawn + 1))
+    fi
+
+    local check=" "
+    [[ "${PICK_SELECTED[$i]}" -eq 1 ]] && check="${GREEN}✓${NC}" || check=" "
+    local ptr="  "
+    [[ "$i" -eq "$current" ]] && ptr="${YELLOW}▸${NC} " || ptr="  "
+    printf '\r\033[K'
+    echo -e "${ptr}[${check}] ${PICK_LABELS[$i]}"
+    drawn=$((drawn + 1))
+  done
+
+  _prev_lines=$drawn
+}
+
+_cur=0
+_draw_picker $_cur "first"
+
+while true; do
+  IFS= read -rsn1 key </dev/tty
+  case "$key" in
+    $'\x1b')
+      read -rsn2 seq </dev/tty
+      case "$seq" in
+        '[A') ((_cur > 0)) && _cur=$((_cur - 1)) ;;
+        '[B') ((_cur < TOTAL_PICK - 1)) && _cur=$((_cur + 1)) ;;
+      esac
+      _draw_picker $_cur "redraw"
+      ;;
+    ' ')
+      [[ "${PICK_SELECTED[$_cur]}" -eq 1 ]] && PICK_SELECTED[$_cur]=0 || PICK_SELECTED[$_cur]=1
+      _draw_picker $_cur "redraw"
+      ;;
+    'a')
+      for ((i=0; i<TOTAL_PICK; i++)); do PICK_SELECTED[$i]=1; done
+      _draw_picker $_cur "redraw"
+      ;;
+    'n')
+      for ((i=0; i<TOTAL_PICK; i++)); do PICK_SELECTED[$i]=0; done
+      _draw_picker $_cur "redraw"
+      ;;
+    '')
+      break
+      ;;
+  esac
+done
+
+echo ""
+
+# Build temp Brewfile with taps + selected apps
+PICK_BREWFILE=$(mktemp)
+grep '^tap ' "$BREWFILE" > "$PICK_BREWFILE"
+selected_count=0
+for ((i=0; i<TOTAL_PICK; i++)); do
+  if [[ "${PICK_SELECTED[$i]}" -eq 1 ]]; then
+    echo "${PICK_LINES[$i]}" >> "$PICK_BREWFILE"
+    selected_count=$((selected_count + 1))
+  fi
+done
+
+info "Installing ${selected_count} selected apps..."
+brew bundle --file="$PICK_BREWFILE" --verbose || warn "Some packages failed to install"
+rm -f "$PICK_BREWFILE"
+success "Brewfile processing complete (${selected_count} apps installed)"
 
 # Start Xcode download in the background (~12GB, takes a while)
 XCODE_PID=""
