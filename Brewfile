@@ -4,7 +4,6 @@
 # ============================================================================
 # Taps
 # ============================================================================
-tap "homebrew/bundle"
 tap "oven-sh/bun"
 tap "wix/brew"
 
@@ -43,7 +42,7 @@ brew "lazygit"                   # Terminal UI for git
 # Languages & Runtimes
 # ============================================================================
 brew "nvm"                       # Node version manager
-brew "bun"                       # Fast JS runtime
+brew "oven-sh/bun/bun"           # Fast JS runtime
 # Yarn Berry managed via corepack (bundled with Node.js)
 brew "rbenv"                     # Ruby version manager
 brew "ruby-build"                # rbenv plugin for building Ruby
@@ -61,7 +60,7 @@ brew "watchman"                  # File watcher (required by Metro)
 brew "fswatch"                   # File watcher (RAG indexing pipeline)
 # CocoaPods installed via rbenv gem (avoids conflicts with Homebrew Ruby)
 brew "applesimutils"             # iOS simulator utilities (Detox)
-brew "detox"                     # E2E testing framework
+# Detox CLI is an npm package (detox-cli), not a Homebrew formula
 brew "ccache"                    # Compiler cache for faster native builds
 
 # ============================================================================
@@ -126,6 +125,7 @@ cask "google-drive"              # Cloud storage
 cask "raycast"                   # Spotlight replacement (launcher, clipboard, window management)
 cask "the-unarchiver"            # Archive extraction (zip, rar, 7z, etc.)
 cask "notion"                    # Notes and project management
+cask "localsend"                 # AirDrop alternative (local WiFi, no account)
 
 # Media & Streaming
 cask "iina"                      # Video player (replaces VLC)
@@ -144,10 +144,11 @@ cask "nordvpn"                   # VPN
 cask "elgato-control-center"     # Elgato lights
 cask "logi-options+"              # Logitech mouse configuration
 cask "betterdisplay"             # Monitor management
+cask "aldente"                   # Battery charge limiter
 cask "displaylink"               # DisplayLink Manager (deprecated: unsigned, still installable)
 
 # Cloud SDKs
-cask "google-cloud-sdk"          # gcloud CLI
+cask "gcloud-cli"                # gcloud CLI
 
 # ============================================================================
 # Mac App Store Apps (requires `mas` + App Store sign-in)

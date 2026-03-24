@@ -352,11 +352,7 @@ fi
 # ===========================================================================
 # Keyboard
 # ===========================================================================
-# Fastest key repeat rate (1 = fastest)
-defaults write NSGlobalDomain KeyRepeat -int 2
-
-# Shortest delay before key repeat starts (15 = shortest)
-defaults write NSGlobalDomain InitialKeyRepeat -int 15
+# Key repeat rate and delay: leave as macOS defaults
 
 # Disable auto-capitalise (keep auto-correct enabled)
 defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false

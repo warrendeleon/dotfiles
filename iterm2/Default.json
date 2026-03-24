@@ -18,7 +18,7 @@
       },
       "Custom Directory" : "Advanced",
       "AWDS Window Option" : "Yes",
-      "AWDS Window Directory" : "/Users/warrendeleon/Developer",
+      "AWDS Window Directory" : "__HOME_DIR__/Developer",
       "AWDS Tab Option" : "Recycle",
       "AWDS Tab Directory" : "",
       "AWDS Pane Option" : "Recycle",
@@ -36,62 +36,16 @@
         "Blue Component" : 0.59599999999999997
       },
       "Rows" : 35,
-      "Key Mappings" : [
-        {
-          "Modifiers" : [
-            "Option"
-          ],
-          "Action" : 25,
-          "Text" : " ",
-          "Comment" : "Option+Backspace: delete word",
-          "Key" : "0x7f"
-        },
-        {
-          "Modifiers" : [
-            "Option"
-          ],
-          "Action" : 10,
-          "Text" : "b",
-          "Comment" : "Option+Left: jump word left",
-          "Key" : "0xf702"
-        },
-        {
-          "Modifiers" : [
-            "Option"
-          ],
-          "Action" : 10,
-          "Text" : "f",
-          "Comment" : "Option+Right: jump word right",
-          "Key" : "0xf703"
-        },
-        {
-          "Modifiers" : [
-            "Command"
-          ],
-          "Action" : 10,
-          "Text" : "0x01",
-          "Comment" : "Cmd+Left: jump to start of line",
-          "Key" : "0xf702"
-        },
-        {
-          "Modifiers" : [
-            "Command"
-          ],
-          "Action" : 10,
-          "Text" : "0x05",
-          "Comment" : "Cmd+Right: jump to end of line",
-          "Key" : "0xf703"
-        },
-        {
-          "Modifiers" : [
-            "Command"
-          ],
-          "Action" : 10,
-          "Text" : "0x15",
-          "Comment" : "Cmd+Backspace: delete to start of line",
-          "Key" : "0x7f"
-        }
-      ],
+      "Keyboard Map" : {
+        "0x7f-0x100000" : { "Action" : 11, "Text" : "0x15" },
+        "0x7f-0x80000"  : { "Action" : 11, "Text" : "0x1b 0x7f" },
+        "0xf702-0x280000" : { "Action" : 10, "Text" : "b" },
+        "0xf702-0x300000" : { "Action" : 11, "Text" : "0x1" },
+        "0xf703-0x280000" : { "Action" : 10, "Text" : "f" },
+        "0xf703-0x300000" : { "Action" : 11, "Text" : "0x5" },
+        "0xf728-0x0"      : { "Action" : 11, "Text" : "0x4" },
+        "0xf728-0x80000"  : { "Action" : 10, "Text" : "d" }
+      },
       "Non-ASCII Anti Aliased" : true,
       "Ansi 10 Color" : {
         "Green Component" : 0.43099999999999999,
@@ -157,7 +111,7 @@
         "Red Component" : 0.57599999999999996,
         "Blue Component" : 0.63100000000000001
       },
-      "Name" : "Default",
+      "Name" : "Dotfiles Profile",
       "Cursor Text Color" : {
         "Green Component" : 0.16900000000000001,
         "Red Component" : 0,
@@ -169,7 +123,7 @@
         "Blue Component" : 0.58799999999999997
       },
       "Transparency" : 0,
-      "Guid" : "dotfiles-default-profile",
+      "Guid" : "dotfiles-profile",
       "Horizontal Spacing" : 1,
       "Ansi 3 Color" : {
         "Green Component" : 0.53700000000000003,

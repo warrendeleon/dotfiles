@@ -1,6 +1,7 @@
 # Secrets — never commit
 .secrets.env
 shell/.secrets.env
+secrets/
 .env
 .env.*
 *.env

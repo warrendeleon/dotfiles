@@ -501,32 +501,6 @@ if ask "Symlink dotfiles? (existing files will be backed up)"; then
   chmod 700 "$HOME/.ssh"
   symlink "${DOTFILES_DIR}/ssh/config"         "$HOME/.ssh/config"
 
-  # Claude Code config
-  mkdir -p "$HOME/.claude"
-  CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-  if [[ -f "$CLAUDE_SETTINGS" ]]; then
-    info "Claude Code settings already exist"
-  else
-    cat > "$CLAUDE_SETTINGS" << 'CLAUDEEOF'
-{
-  "includeCoAuthoredBy": false
-}
-CLAUDEEOF
-    success "Claude Code settings created (co-authored-by disabled)"
-  fi
-  symlink "${DOTFILES_DIR}/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
-  # Symlink global skills (commands)
-  if [[ -d "${DOTFILES_DIR}/claude/commands" ]]; then
-    mkdir -p "$HOME/.claude/commands"
-    for cmd in "${DOTFILES_DIR}/claude/commands/"*.md; do
-      [[ -f "$cmd" ]] && symlink "$cmd" "$HOME/.claude/commands/$(basename "$cmd")"
-    done
-  fi
-  # Symlink global docs
-  if [[ -d "${DOTFILES_DIR}/claude/docs" ]]; then
-    symlink "${DOTFILES_DIR}/claude/docs" "$HOME/.claude/docs"
-  fi
-
   success "All dotfiles linked"
 else
   warn "Skipped dotfiles. Link manually later."
@@ -537,10 +511,16 @@ fi
 # ===========================================================================
 section "Secrets"
 
+LOCAL_SECRETS="${DOTFILES_DIR}/secrets/.secrets.env"
 ICLOUD_SECRETS="$HOME/Library/Mobile Documents/com~apple~CloudDocs/.secrets.env"
 
 if [[ -f "$HOME/.secrets.env" ]]; then
   success "~/.secrets.env already exists"
+elif [[ -f "$LOCAL_SECRETS" ]]; then
+  info "Found secrets in dotfiles (secrets/.secrets.env)"
+  cp "$LOCAL_SECRETS" "$HOME/.secrets.env"
+  chmod 600 "$HOME/.secrets.env"
+  success "Copied ~/.secrets.env from dotfiles (permissions: 600)"
 elif [[ -f "$ICLOUD_SECRETS" ]]; then
   info "Found secrets in iCloud Drive"
   cp "$ICLOUD_SECRETS" "$HOME/.secrets.env"
@@ -665,12 +645,56 @@ if command -v npm &>/dev/null; then
   corepack enable || warn "corepack enable failed. Run manually if needed."
   success "Corepack enabled"
 
-  if ask "Install global npm packages (claude-code, gitmoji-cli)?"; then
-    npm install -g @anthropic-ai/claude-code gitmoji-cli
-    success "Global npm packages installed"
+  if ask "Install gitmoji-cli?"; then
+    npm install -g gitmoji-cli
+    success "gitmoji-cli installed"
+  fi
+
+  if ask "Install Claude Code (AI coding assistant)?"; then
+    npm install -g @anthropic-ai/claude-code
+    CLAUDE_CODE_INSTALLED=true
+    success "Claude Code installed"
+  fi
+
+  if ask "Install Amazon Q / Kiro CLI (AI coding assistant)?"; then
+    brew install --cask kiro-cli
+    success "Kiro CLI installed (formerly Amazon Q)"
   fi
 else
   warn "npm not found. Install Node.js first (Step 9)."
+fi
+
+# ---------------------------------------------------------------------------
+# Claude Code Configuration
+# ---------------------------------------------------------------------------
+if command -v claude &>/dev/null || [[ "${CLAUDE_CODE_INSTALLED:-}" == "true" ]]; then
+  section "Claude Code Configuration"
+
+  mkdir -p "$HOME/.claude"
+  CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+  if [[ -f "$CLAUDE_SETTINGS" ]]; then
+    info "Claude Code settings already exist"
+  else
+    cat > "$CLAUDE_SETTINGS" << 'CLAUDEEOF'
+{
+  "includeCoAuthoredBy": false
+}
+CLAUDEEOF
+    success "Claude Code settings created (co-authored-by disabled)"
+  fi
+  symlink "${DOTFILES_DIR}/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+  # Symlink global skills (commands)
+  if [[ -d "${DOTFILES_DIR}/claude/commands" ]]; then
+    mkdir -p "$HOME/.claude/commands"
+    for cmd in "${DOTFILES_DIR}/claude/commands/"*.md; do
+      [[ -f "$cmd" ]] && symlink "$cmd" "$HOME/.claude/commands/$(basename "$cmd")"
+    done
+  fi
+  # Symlink global docs
+  if [[ -d "${DOTFILES_DIR}/claude/docs" ]]; then
+    symlink "${DOTFILES_DIR}/claude/docs" "$HOME/.claude/docs"
+  fi
+  success "Claude Code configured"
 fi
 
 # ===========================================================================
@@ -820,6 +844,7 @@ fi
 section "SSH Key"
 
 SSH_KEY="$HOME/.ssh/id_rsa"
+LOCAL_SSH="${DOTFILES_DIR}/secrets/id_rsa"
 ICLOUD_SSH="$HOME/Library/Mobile Documents/com~apple~CloudDocs/ssh/id_rsa"
 
 if [[ -f "$SSH_KEY" ]]; then
@@ -828,9 +853,18 @@ else
   mkdir -p "$HOME/.ssh"
   chmod 700 "$HOME/.ssh"
 
-  if [[ -f "$ICLOUD_SSH" ]]; then
-    info "Copying SSH key from iCloud Drive..."
-    cp "$ICLOUD_SSH" "$SSH_KEY"
+  # Pick the first available source: dotfiles local copy, then iCloud
+  SSH_SOURCE=""
+  if [[ -f "$LOCAL_SSH" ]]; then
+    SSH_SOURCE="$LOCAL_SSH"
+    info "Found SSH key in dotfiles (secrets/id_rsa)"
+  elif [[ -f "$ICLOUD_SSH" ]]; then
+    SSH_SOURCE="$ICLOUD_SSH"
+    info "Found SSH key in iCloud Drive"
+  fi
+
+  if [[ -n "$SSH_SOURCE" ]]; then
+    cp "$SSH_SOURCE" "$SSH_KEY"
     chmod 600 "$SSH_KEY"
 
     # Derive public key from private key
@@ -841,14 +875,13 @@ else
     eval "$(ssh-agent -s)"
     ssh-add --apple-use-keychain "$SSH_KEY"
 
-    success "SSH key copied from iCloud Drive and added to keychain"
+    success "SSH key installed and added to keychain"
     echo ""
     info "Public key:"
     cat "${SSH_KEY}.pub"
   else
-    warn "SSH key not found in iCloud Drive (expected at: iCloud Drive/ssh/id_rsa)"
-    info "To set up: mkdir -p ~/Library/Mobile Documents/com~apple~CloudDocs/ssh"
-    info "           cp ~/.ssh/id_rsa ~/Library/Mobile Documents/com~apple~CloudDocs/ssh/id_rsa"
+    warn "SSH key not found in dotfiles (secrets/id_rsa) or iCloud Drive"
+    info "To use an existing key: cp ~/.ssh/id_rsa ${DOTFILES_DIR}/secrets/id_rsa"
     echo ""
     if ask "Generate a new RSA SSH key instead?"; then
       GIT_EMAIL_FOR_SSH=$(git config --global user.email 2>/dev/null || echo "")
@@ -910,11 +943,11 @@ if ask "Configure iTerm2 (font, scrollback, colours)?"; then
   if [[ -f "$ITERM_PROFILES_DIR/Default.json" ]]; then
     cp "$ITERM_PROFILES_DIR/Default.json" "$ITERM_PROFILES_DIR/Default.json.backup.$(date +%Y%m%d_%H%M%S)"
   fi
-  cp "${DOTFILES_DIR}/iterm2/Default.json" "$ITERM_PROFILES_DIR/Default.json"
-  success "Dynamic profile installed"
+  sed "s|__HOME_DIR__|${HOME}|g" "${DOTFILES_DIR}/iterm2/Default.json" > "$ITERM_PROFILES_DIR/Default.json"
+  success "Dynamic profile installed (home directory: ${HOME})"
 
   # Set iTerm2 preferences via defaults
-  defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "dotfiles-default-profile"
+  defaults write com.googlecode.iterm2 "Default Bookmark Guid" -string "dotfiles-profile"
 
   # Appearance: compact tabs
   defaults write com.googlecode.iterm2 TabViewType -int 1
@@ -1447,7 +1480,9 @@ section "RAG System"
 RAG_DIR="${DOTFILES_DIR}/rag"
 RAG_HOME="$HOME/.rag"
 
-if [[ -d "$RAG_DIR" ]]; then
+if ! command -v claude &>/dev/null && [[ "${CLAUDE_CODE_INSTALLED:-}" != "true" ]]; then
+  info "Skipping RAG system (Claude Code not installed)"
+elif [[ -d "$RAG_DIR" ]]; then
   if ask "Set up the local RAG system (semantic search for conversations and code)?"; then
     # Create runtime directories
     mkdir -p "$RAG_HOME/logs"
