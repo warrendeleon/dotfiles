@@ -408,6 +408,8 @@ echo ""
 info "↑/↓ move  SPACE toggle  a select all  n deselect all  ENTER confirm"
 echo ""
 
+_picker_height=0
+
 _draw_picker() {
   local current=$1 rows
   rows=$(tput lines 2>/dev/null || echo 40)
@@ -423,9 +425,20 @@ _draw_picker() {
   [[ $visible_start -gt $((TOTAL_PICK - max_visible)) ]] && visible_start=$((TOTAL_PICK - max_visible))
   [[ $visible_start -lt 0 ]] && visible_start=0
 
+  # Count how many lines this draw will produce (items + section headers)
+  local total_lines=0
+  for ((i=visible_start; i<visible_end; i++)); do
+    [[ -n "${PICK_SECTIONS[$i]}" ]] && total_lines=$((total_lines + 1))
+    total_lines=$((total_lines + 1))
+  done
+
+  # On redraw, move up the fixed height (padded from previous draw)
   if [[ "${2:-}" == "redraw" ]]; then
-    printf '\033[%dA' "${_prev_lines:-$max_visible}"
+    printf '\033[%dA' "$_picker_height"
   fi
+
+  # Set fixed height to the max we'll ever need (first draw sets it)
+  [[ $total_lines -gt $_picker_height ]] && _picker_height=$total_lines
 
   local drawn=0
   for ((i=visible_start; i<visible_end; i++)); do
@@ -444,7 +457,11 @@ _draw_picker() {
     drawn=$((drawn + 1))
   done
 
-  _prev_lines=$drawn
+  # Pad with empty lines to maintain fixed height
+  while [[ $drawn -lt $_picker_height ]]; do
+    printf '\r\033[K\n'
+    drawn=$((drawn + 1))
+  done
 }
 
 _cur=0
@@ -493,9 +510,45 @@ for ((i=0; i<TOTAL_PICK; i++)); do
 done
 
 info "Installing ${selected_count} selected apps..."
-brew bundle --file="$PICK_BREWFILE" --verbose || warn "Some packages failed to install"
+brew bundle --file="$PICK_BREWFILE" --verbose || warn "Some packages failed to install via Homebrew"
 rm -f "$PICK_BREWFILE"
-success "Brewfile processing complete (${selected_count} apps installed)"
+
+# Retry failed casks with direct download as fallback
+declare -A DIRECT_DOWNLOADS=(
+  ["bitwarden"]="https://vault.bitwarden.com/download/?app=desktop&platform=macos|Bitwarden.dmg"
+  ["1password"]="https://downloads.1password.com/mac/1Password.dmg|1Password.dmg"
+  ["ecamm-live"]="https://www.ecamm.com/cgi-bin/customercenter?action=download&product=ecammlive&platform=mac|EcammLive.zip"
+)
+
+for ((i=0; i<TOTAL_PICK; i++)); do
+  [[ "${PICK_SELECTED[$i]}" -eq 1 ]] || continue
+  # Extract cask name from the line
+  if [[ "${PICK_LINES[$i]}" =~ ^cask\ +\"([^\"]+)\" ]]; then
+    cask_name="${BASH_REMATCH[1]}"
+    # Check if brew installed it
+    if ! brew list --cask "$cask_name" &>/dev/null; then
+      if [[ -n "${DIRECT_DOWNLOADS[$cask_name]:-}" ]]; then
+        url="${DIRECT_DOWNLOADS[$cask_name]%%|*}"
+        filename="${DIRECT_DOWNLOADS[$cask_name]#*|}"
+        warn "${cask_name} failed via Homebrew. Trying direct download..."
+        if curl -fsSL -o "$HOME/Downloads/${filename}" "$url" 2>/dev/null; then
+          if [[ "$filename" == *.dmg ]]; then
+            open "$HOME/Downloads/${filename}"
+            success "Downloaded ${cask_name} to ~/Downloads. Install from the opened DMG."
+          elif [[ "$filename" == *.zip ]]; then
+            unzip -qo "$HOME/Downloads/${filename}" -d /Applications/ 2>/dev/null \
+              && success "${cask_name} installed from direct download" \
+              || open "$HOME/Downloads/${filename}"
+          fi
+        else
+          warn "Direct download also failed for ${cask_name}. Install manually."
+        fi
+      fi
+    fi
+  fi
+done
+
+success "Brewfile processing complete (${selected_count} apps selected)"
 
 # Start Xcode download in the background (~12GB, takes a while)
 XCODE_PID=""
