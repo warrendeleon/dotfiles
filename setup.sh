@@ -1165,9 +1165,9 @@ ITERM_PROFILES_DIR="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
 
 if ask "Configure iTerm2 (font, scrollback, colours)?"; then
   mkdir -p "$ITERM_PROFILES_DIR"
-  # Back up existing profile if present
+  # Back up existing profile outside DynamicProfiles dir (iTerm2 reads all JSON in this dir)
   if [[ -f "$ITERM_PROFILES_DIR/Default.json" ]]; then
-    cp "$ITERM_PROFILES_DIR/Default.json" "$ITERM_PROFILES_DIR/Default.json.backup.$(date +%Y%m%d_%H%M%S)"
+    cp "$ITERM_PROFILES_DIR/Default.json" "${DOTFILES_DIR}/iterm2/Default.json.backup.$(date +%Y%m%d_%H%M%S)"
   fi
   sed "s|__HOME_DIR__|${HOME}|g" "${DOTFILES_DIR}/iterm2/Default.json" > "$ITERM_PROFILES_DIR/Default.json"
   success "Dynamic profile installed (home directory: ${HOME})"
