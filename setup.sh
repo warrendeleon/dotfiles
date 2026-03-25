@@ -1454,10 +1454,10 @@ if [[ -f "$PAM_SUDO" ]] && grep -q "pam_tid" "$PAM_SUDO" 2>/dev/null; then
 else
   info "This lets you use Touch ID instead of typing your password for sudo."
   if ask "Enable Touch ID for sudo?"; then
-    sudo bash -c 'cat > /etc/pam.d/sudo_local << EOF
+    sudo tee /etc/pam.d/sudo_local > /dev/null << 'EOF'
 # sudo_local: local config for sudo (survives macOS updates)
 auth       sufficient     pam_tid.so
-EOF'
+EOF
     success "Touch ID for sudo enabled"
   fi
 fi

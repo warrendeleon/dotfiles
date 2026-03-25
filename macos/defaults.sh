@@ -46,8 +46,8 @@ defaults write com.apple.screencapture type -string "png"
 # ===========================================================================
 # Safari (Development)
 # ===========================================================================
-# Enable Develop menu
-defaults write com.apple.Safari IncludeDevelopMenu -bool true
+# Enable Develop menu (sandboxed on macOS 14+, use open command fallback)
+defaults write com.apple.Safari IncludeDevelopMenu -bool true 2>/dev/null || true
 
 # ===========================================================================
 # Locale
@@ -215,16 +215,16 @@ if command -v duti &>/dev/null; then
   )
 
   for uti in "${VIDEO_TYPES[@]}"; do
-    duti -s com.colliderli.iina "$uti" all 2>/dev/null
+    duti -s com.colliderli.iina "$uti" all 2>/dev/null || true
   done
 
   for ext in "${VIDEO_EXTENSIONS[@]}"; do
-    duti -s com.colliderli.iina ".$ext" all 2>/dev/null
+    duti -s com.colliderli.iina ".$ext" all 2>/dev/null || true
   done
 
   # Sublime Text for Markdown files
-  duti -s com.sublimetext.4 .md all 2>/dev/null
-  duti -s com.sublimetext.4 .markdown all 2>/dev/null
+  duti -s com.sublimetext.4 .md all 2>/dev/null || true
+  duti -s com.sublimetext.4 .markdown all 2>/dev/null || true
   # Sublime Text for plain text and config files
   TEXT_EXTENSIONS=(
     txt log json yaml yml xml csv
@@ -232,7 +232,7 @@ if command -v duti &>/dev/null; then
   )
 
   for ext in "${TEXT_EXTENSIONS[@]}"; do
-    duti -s com.sublimetext.4 ".$ext" all 2>/dev/null
+    duti -s com.sublimetext.4 ".$ext" all 2>/dev/null || true
   done
   # Sublime Text for source code files
   CODE_EXTENSIONS=(
@@ -242,7 +242,7 @@ if command -v duti &>/dev/null; then
   )
 
   for ext in "${CODE_EXTENSIONS[@]}"; do
-    duti -s com.sublimetext.4 ".$ext" all 2>/dev/null
+    duti -s com.sublimetext.4 ".$ext" all 2>/dev/null || true
   done
   echo "Sublime Text set as default for source code files"
 
@@ -258,15 +258,15 @@ if command -v duti &>/dev/null; then
   )
 
   for ext in "${ARCHIVE_EXTENSIONS[@]}"; do
-    duti -s cx.c3.theunarchiver ".$ext" all 2>/dev/null
+    duti -s cx.c3.theunarchiver ".$ext" all 2>/dev/null || true
   done
   echo "The Unarchiver set as default for archive formats"
 
   # Google Chrome as default browser
-  duti -s com.google.Chrome http all 2>/dev/null
-  duti -s com.google.Chrome https all 2>/dev/null
-  duti -s com.google.Chrome .html all 2>/dev/null
-  duti -s com.google.Chrome .htm all 2>/dev/null
+  duti -s com.google.Chrome http all 2>/dev/null || true
+  duti -s com.google.Chrome https all 2>/dev/null || true
+  duti -s com.google.Chrome .html all 2>/dev/null || true
+  duti -s com.google.Chrome .htm all 2>/dev/null || true
   echo "Google Chrome set as default browser"
 
   # IINA for audio files (avoids Music.app importing)
@@ -276,7 +276,7 @@ if command -v duti &>/dev/null; then
   )
 
   for ext in "${AUDIO_EXTENSIONS[@]}"; do
-    duti -s com.colliderli.iina ".$ext" all 2>/dev/null
+    duti -s com.colliderli.iina ".$ext" all 2>/dev/null || true
   done
   # Preview for image files (explicit, prevents other apps claiming them)
   IMAGE_EXTENSIONS=(
@@ -285,14 +285,14 @@ if command -v duti &>/dev/null; then
   )
 
   for ext in "${IMAGE_EXTENSIONS[@]}"; do
-    duti -s com.apple.Preview ".$ext" all 2>/dev/null
+    duti -s com.apple.Preview ".$ext" all 2>/dev/null || true
   done
   # Preview for PDFs (prevents Chrome/Adobe hijacking)
-  duti -s com.apple.Preview .pdf all 2>/dev/null
+  duti -s com.apple.Preview .pdf all 2>/dev/null || true
   # DB Browser for SQLite database files
-  duti -s net.sourceforge.sqlitebrowser .db all 2>/dev/null
-  duti -s net.sourceforge.sqlitebrowser .sqlite all 2>/dev/null
-  duti -s net.sourceforge.sqlitebrowser .sqlite3 all 2>/dev/null
+  duti -s net.sourceforge.sqlitebrowser .db all 2>/dev/null || true
+  duti -s net.sourceforge.sqlitebrowser .sqlite all 2>/dev/null || true
+  duti -s net.sourceforge.sqlitebrowser .sqlite3 all 2>/dev/null || true
   echo "DB Browser set as default for SQLite files"
 
   echo "Preview set as default for PDFs"
