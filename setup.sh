@@ -1768,40 +1768,53 @@ elif [[ -d "$RAG_DIR" ]]; then
       success "Loaded $plist_name"
     done
 
+    # Create wrapper script (Claude Code doesn't reliably apply cwd)
+    cat > "$RAG_HOME/start-server.sh" <<WRAPEOF
+#!/bin/bash
+cd "$RAG_DIR"
+exec "$RAG_HOME/venv/bin/python" -m src.server "\$@"
+WRAPEOF
+    chmod +x "$RAG_HOME/start-server.sh"
+    success "Created server wrapper at $RAG_HOME/start-server.sh"
+
     # Register MCP server with Claude Code
-    # Claude Code reads MCP config from ~/.claude/mcp_servers.json
-    MCP_CONFIG="$HOME/.claude/mcp_servers.json"
-    mkdir -p "$HOME/.claude"
-    if [[ -f "$MCP_CONFIG" ]]; then
-      # Merge rag entry into existing config
+    # Claude Code reads MCP config from ~/.claude.json under mcpServers
+    CLAUDE_JSON="$HOME/.claude.json"
+    if [[ -f "$CLAUDE_JSON" ]]; then
       python3 -c "
 import json, pathlib
-p = pathlib.Path('$MCP_CONFIG')
+p = pathlib.Path('$CLAUDE_JSON')
 cfg = json.loads(p.read_text()) if p.stat().st_size > 0 else {}
-cfg['rag'] = {
+cfg.setdefault('mcpServers', {})
+cfg['mcpServers']['rag'] = {
     'type': 'stdio',
-    'command': '$RAG_HOME/venv/bin/python',
-    'args': ['-m', 'src.server'],
-    'cwd': '$RAG_DIR',
-    'env': {}
+    'command': '$RAG_HOME/start-server.sh',
+    'args': [],
+    'env': {
+        'ANONYMIZED_TELEMETRY': 'false',
+        'CHROMA_TELEMETRY': 'false'
+    }
 }
 p.write_text(json.dumps(cfg, indent=2) + '\n')
-" 2>/dev/null && success "MCP server registered (merged into existing config)" \
-        || warn "MCP registration failed. Add rag entry to $MCP_CONFIG manually."
+" 2>/dev/null && success "MCP server registered in $CLAUDE_JSON" \
+        || warn "MCP registration failed. Add rag entry to $CLAUDE_JSON manually."
     else
-      # Create new config
-      cat > "$MCP_CONFIG" <<MCPEOF
+      cat > "$CLAUDE_JSON" <<MCPEOF
 {
-  "rag": {
-    "type": "stdio",
-    "command": "$RAG_HOME/venv/bin/python",
-    "args": ["-m", "src.server"],
-    "cwd": "$RAG_DIR",
-    "env": {}
+  "mcpServers": {
+    "rag": {
+      "type": "stdio",
+      "command": "$RAG_HOME/start-server.sh",
+      "args": [],
+      "env": {
+        "ANONYMIZED_TELEMETRY": "false",
+        "CHROMA_TELEMETRY": "false"
+      }
+    }
   }
 }
 MCPEOF
-      success "MCP server registered (created $MCP_CONFIG)"
+      success "MCP server registered (created $CLAUDE_JSON)"
     fi
 
     # Start bulk indexing (recent conversations first)
