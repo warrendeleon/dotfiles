@@ -1769,24 +1769,39 @@ elif [[ -d "$RAG_DIR" ]]; then
     done
 
     # Register MCP server with Claude Code
-    if command -v claude &>/dev/null; then
-      info "Registering RAG MCP server..."
-      claude mcp add -s user rag -- "$RAG_HOME/venv/bin/python" -m src.server 2>/dev/null || \
-        warn "MCP registration failed. Register manually later."
-      # Add cwd so the server can find its source modules
-      if command -v python3 &>/dev/null; then
-        python3 -c "
+    # Claude Code reads MCP config from ~/.claude/mcp_servers.json
+    MCP_CONFIG="$HOME/.claude/mcp_servers.json"
+    mkdir -p "$HOME/.claude"
+    if [[ -f "$MCP_CONFIG" ]]; then
+      # Merge rag entry into existing config
+      python3 -c "
 import json, pathlib
-p = pathlib.Path.home() / '.claude.json'
-cfg = json.loads(p.read_text())
-if 'rag' in cfg.get('mcpServers', {}):
-    cfg['mcpServers']['rag']['cwd'] = '$RAG_DIR'
-    p.write_text(json.dumps(cfg, indent=2))
-" 2>/dev/null
-      fi
-      success "MCP server registered"
+p = pathlib.Path('$MCP_CONFIG')
+cfg = json.loads(p.read_text()) if p.stat().st_size > 0 else {}
+cfg['rag'] = {
+    'type': 'stdio',
+    'command': '$RAG_HOME/venv/bin/python',
+    'args': ['-m', 'src.server'],
+    'cwd': '$RAG_DIR',
+    'env': {}
+}
+p.write_text(json.dumps(cfg, indent=2) + '\n')
+" 2>/dev/null && success "MCP server registered (merged into existing config)" \
+        || warn "MCP registration failed. Add rag entry to $MCP_CONFIG manually."
     else
-      warn "Claude CLI not found. Register MCP manually after installing claude-code."
+      # Create new config
+      cat > "$MCP_CONFIG" <<MCPEOF
+{
+  "rag": {
+    "type": "stdio",
+    "command": "$RAG_HOME/venv/bin/python",
+    "args": ["-m", "src.server"],
+    "cwd": "$RAG_DIR",
+    "env": {}
+  }
+}
+MCPEOF
+      success "MCP server registered (created $MCP_CONFIG)"
     fi
 
     # Start bulk indexing (recent conversations first)
