@@ -10,8 +10,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Max file size: 100MB (conversation files can be large but not unbounded)
-MAX_FILE_SIZE = 100_000_000
+# No hard file size limit. Large files are streamed line by line.
+# Individual turns that exceed the summary threshold get flagged.
 
 # Content block types to strip from assistant messages
 STRIP_CONTENT_TYPES = {"tool_use", "tool_result", "thinking"}
@@ -53,6 +53,27 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
+def _get_message_content(msg: dict[str, Any]) -> str:
+    """Extract content from a JSONL message, handling the nested structure.
+
+    Claude Code JSONL uses: {"type": "user", "message": {"role": "user", "content": "..."}}
+    The content is inside the nested 'message' object, not at the top level.
+    """
+    # Try nested message.content first (Claude Code format)
+    inner = msg.get("message")
+    if isinstance(inner, dict):
+        content = inner.get("content", "")
+        if content:
+            return _extract_text(content)
+
+    # Fall back to top-level content
+    content = msg.get("content", "")
+    if content:
+        return _extract_text(content)
+
+    return ""
+
+
 def _extract_session_metadata(path: Path) -> dict[str, str]:
     """Extract metadata from the JSONL file path."""
     meta: dict[str, str] = {}
@@ -65,7 +86,6 @@ def _extract_session_metadata(path: Path) -> dict[str, str]:
     # Pattern: ~/.claude/projects/<encoded-project-path>/<session>.jsonl
     parent = path.parent.name
     if parent and parent != "projects":
-        # Decode the directory name (uses - as separator for path components)
         meta["project_path"] = parent
         meta["project"] = parent
 
@@ -77,24 +97,18 @@ def parse_conversation(path: str | Path) -> list[dict[str, Any]]:
 
     Each turn pairs a user message with its assistant response.
     Returns a list of dicts with keys: text, metadata, needs_summary.
+
+    Streams the file line by line so large files (300MB+) are handled
+    without loading the entire file into memory.
     """
     path = Path(path)
     if not path.exists() or not path.suffix == ".jsonl":
         return []
 
-    try:
-        size = path.stat().st_size
-        if size > MAX_FILE_SIZE:
-            logger.warning("Skipping oversized JSONL: %s (%d bytes)", path, size)
-            return []
-    except OSError:
-        return []
-
     session_meta = _extract_session_metadata(path)
-    turns: list[dict[str, Any]] = []
 
-    # Read all messages
-    messages: list[dict[str, Any]] = []
+    # Stream and filter to user/assistant messages only
+    filtered: list[tuple[str, dict[str, Any]]] = []
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             for line in f:
@@ -103,38 +117,33 @@ def parse_conversation(path: str | Path) -> list[dict[str, Any]]:
                     continue
                 try:
                     msg = json.loads(line)
-                    messages.append(msg)
                 except json.JSONDecodeError:
                     continue
+
+                msg_type = msg.get("type")
+
+                if msg_type in ("human", "user"):
+                    filtered.append(("user", msg))
+                elif msg_type == "assistant":
+                    filtered.append(("assistant", msg))
     except OSError:
         logger.exception("Failed to read %s", path)
         return []
 
-    # Filter to user and assistant messages only
-    filtered = []
-    for msg in messages:
-        msg_type = msg.get("type")
-        role = msg.get("role")
-
-        # Support both {type: "human/assistant"} and {role: "user/assistant"}
-        if msg_type in ("human", "user") or role == "user":
-            filtered.append(("user", msg))
-        elif msg_type == "assistant" or role == "assistant":
-            filtered.append(("assistant", msg))
-
     # Group into turns (user Q + assistant A)
+    turns: list[dict[str, Any]] = []
     i = 0
     turn_number = 0
     while i < len(filtered):
         role, msg = filtered[i]
 
         if role == "user":
-            user_text = _clean_text(_extract_text(msg.get("content", msg.get("message", ""))))
+            user_text = _clean_text(_get_message_content(msg))
 
             # Look for the next assistant response
             assistant_text = ""
             if i + 1 < len(filtered) and filtered[i + 1][0] == "assistant":
-                assistant_text = _clean_text(_extract_text(filtered[i + 1][1].get("content", "")))
+                assistant_text = _clean_text(_get_message_content(filtered[i + 1][1]))
                 i += 2
             else:
                 i += 1
