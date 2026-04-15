@@ -1832,6 +1832,79 @@ else
 fi
 
 # ===========================================================================
+# Step 29: LLM Wiki
+# ===========================================================================
+section "LLM Wiki"
+
+WIKI_DIR="$HOME/.wiki"
+WIKI_REPO="git@github.com:warrendeleon/wiki.git"
+
+if ask "Set up the LLM Wiki (AI-maintained knowledge base)?"; then
+  if [[ -d "$WIKI_DIR/.git" ]]; then
+    success "Wiki already cloned at $WIKI_DIR"
+  else
+    info "Cloning wiki repository..."
+    git clone "$WIKI_REPO" "$WIKI_DIR" 2>/dev/null \
+      && success "Wiki cloned to $WIKI_DIR" \
+      || warn "Failed to clone wiki. Clone manually: git clone $WIKI_REPO $WIKI_DIR"
+  fi
+
+  # Install sync launchd service
+  if [[ -f "$WIKI_DIR/sync.sh" ]]; then
+    PLIST_NAME="com.dotfiles.wiki-sync.plist"
+    PLIST_TARGET="$HOME/Library/LaunchAgents/$PLIST_NAME"
+
+    if [[ -f "$PLIST_TARGET" ]]; then
+      launchctl unload "$PLIST_TARGET" 2>/dev/null || true
+    fi
+
+    cat > "$PLIST_TARGET" <<WIKIPLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dotfiles.wiki-sync</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>$WIKI_DIR/sync.sh</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>$HOME/.rag/logs/wiki-sync.log</string>
+    <key>StandardErrorPath</key>
+    <string>$HOME/.rag/logs/wiki-sync.err</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>$HOME</string>
+    </dict>
+</dict>
+</plist>
+WIKIPLIST
+
+    mkdir -p "$HOME/.rag/logs"
+    launchctl load "$PLIST_TARGET"
+    success "Wiki sync service installed (every 10 minutes)"
+  fi
+
+  # Check if Obsidian is installed
+  if [[ -d "/Applications/Obsidian.app" ]]; then
+    success "Obsidian is installed. Open $WIKI_DIR as a vault."
+  else
+    info "Install Obsidian (obsidian.md) to browse the wiki with graph view."
+  fi
+
+  success "LLM Wiki set up"
+fi
+
+# ===========================================================================
 # Done!
 # ===========================================================================
 finish_all
