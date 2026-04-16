@@ -397,10 +397,7 @@ defaults -currentHost write com.apple.screensaver idleTime -int 120
 # Show clock on screensaver
 defaults -currentHost write com.apple.screensaver showClock -bool true
 
-# Auto-hide menu bar (prevents OLED burn-in from static pixels)
-defaults write NSGlobalDomain _HIHideMenuBar -bool true
-
-echo "Screensaver: 2 min idle, clock enabled, menu bar auto-hides (OLED protection)"
+echo "Screensaver: 2 min idle, clock enabled"
 
 # ===========================================================================
 # Spotlight (exclude dev directories from indexing)
