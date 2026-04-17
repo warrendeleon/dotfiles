@@ -64,7 +64,7 @@ class RateLimiter:
                     return
                 # Calculate wait time
                 oldest = self._calls[0]
-                wait_time = self._window - (now - oldest) + 0.1
+                wait_time = max(0.1, self._window - (now - oldest) + 0.1)
             time.sleep(wait_time)
 
 

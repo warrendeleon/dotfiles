@@ -97,7 +97,7 @@ class Indexer:
                     summarised = True
                 else:
                     text = fallback_extract(text)
-                    summarised = True
+                    summarised = False
 
             turn["metadata"]["summarised"] = summarised
 

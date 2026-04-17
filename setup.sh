@@ -84,6 +84,7 @@ STEP_NAMES=(
   "Login Items"
   "Amphetamine Power Protect"
   "RAG System"
+  "LLM Wiki"
 )
 TOTAL_STEPS=${#STEP_NAMES[@]}
 

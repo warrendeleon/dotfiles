@@ -515,16 +515,17 @@ defaults write com.nickvdp.singlebox hideOnLaunch -bool true 2>/dev/null || true
 echo "All login items configured to start hidden or in menu bar"
 
 # ===========================================================================
-# Remote Access
+# Remote Access (opt-in)
 # ===========================================================================
-# SSH
-sudo systemsetup -setremotelogin on
-
-# Screen Sharing (VNC)
-sudo launchctl enable system/com.apple.screensharing
-sudo launchctl kickstart -k system/com.apple.screensharing
-
-echo "Remote access enabled (SSH + Screen Sharing)"
+read -r -p "Enable remote access (SSH + Screen Sharing)? [y/N] " _remote_reply </dev/tty
+if [[ "${_remote_reply:-}" =~ ^[Yy]$ ]]; then
+  sudo systemsetup -setremotelogin on
+  sudo launchctl enable system/com.apple.screensharing
+  sudo launchctl kickstart -k system/com.apple.screensharing
+  echo "Remote access enabled (SSH + Screen Sharing)"
+else
+  echo "Remote access skipped"
+fi
 
 # ===========================================================================
 # Raycast (Spotlight replacement)

@@ -155,6 +155,7 @@ class Store:
     ) -> None:
         db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
         db_path.mkdir(parents=True, exist_ok=True, mode=0o700)
+        db_path.chmod(0o700)
 
         self._client = chromadb.PersistentClient(path=str(db_path))
         self._embed_fn = embedding_fn or OllamaEmbeddingFunction()

@@ -31,8 +31,28 @@ def warn(msg: str) -> None:
     print(f"  {YELLOW}!{NC} {msg}")
 
 
+def _expected_embedding_model() -> str:
+    """Detect the expected embedding model for this machine."""
+    import platform, subprocess
+    if platform.system() == "Darwin":
+        try:
+            ram = int(subprocess.run(
+                ["sysctl", "-n", "hw.memsize"],
+                capture_output=True, text=True, timeout=5,
+            ).stdout.strip()) / (1024 ** 3)
+            chip = subprocess.run(
+                ["sysctl", "-n", "machdep.cpu.brand_string"],
+                capture_output=True, text=True, timeout=5,
+            ).stdout.strip()
+            if "Apple" in chip and ram >= 32:
+                return "qwen3-embedding:8b"
+        except Exception:
+            pass
+    return "mxbai-embed-large"
+
+
 def check_ollama() -> bool:
-    """Check if Ollama is running and the embedding model is available."""
+    """Check if Ollama is running and the expected embedding model is available."""
     print(f"\n{BOLD}Ollama{NC}")
 
     try:
@@ -46,12 +66,13 @@ def check_ollama() -> bool:
 
     ok("Ollama running")
 
-    if any("mxbai-embed-large" in m for m in models):
-        ok("mxbai-embed-large model available")
+    expected = _expected_embedding_model()
+    if any(expected in m for m in models):
+        ok(f"{expected} model available")
         return True
     else:
-        fail(f"mxbai-embed-large not found. Available: {', '.join(models)}")
-        warn("Run: ollama pull mxbai-embed-large")
+        fail(f"{expected} not found. Available: {', '.join(models)}")
+        warn(f"Run: ollama pull {expected}")
         return False
 
 

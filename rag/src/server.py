@@ -34,11 +34,17 @@ MAX_SEARCH_RESULTS = 100
 MAX_AUDIT_ENTRIES = 500
 
 
+MAX_RAW_FETCH_SIZE = 50 * 1024 * 1024  # 50MB
+
+
 def _fetch_raw_turn(file_path: str | None, turn_number: Any) -> str | None:
     """Read the original unsummarised turn from a JSONL file."""
     if not file_path or not turn_number:
         return None
     try:
+        p = Path(file_path)
+        if not p.exists() or p.stat().st_size > MAX_RAW_FETCH_SIZE:
+            return None
         turn_num = int(turn_number)
         turns = parse_conversation(file_path)
         for turn in turns:
