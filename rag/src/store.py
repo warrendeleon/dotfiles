@@ -8,26 +8,93 @@ from pathlib import Path
 from typing import Any
 
 import chromadb
+import yaml
 from chromadb.api.types import EmbeddingFunction, Documents, Embeddings
 
 logger = logging.getLogger(__name__)
 
 COLLECTIONS = ("conversations", "code", "docs")
 DEFAULT_DB_PATH = Path.home() / ".rag" / "chromadb"
-OLLAMA_MODEL = "mxbai-embed-large"
+DEFAULT_CONFIG_PATH = Path.home() / ".rag" / "config.yaml"
+DEFAULT_OLLAMA_MODEL = "mxbai-embed-large"
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_KEEP_ALIVE = "5m"
 
 
+def _detect_embedding_model() -> str:
+    """Pick the best embedding model based on system specs.
+
+    Apple Silicon (unified GPU memory = RAM):
+      32GB+: qwen3-embedding:8b
+      <32GB: mxbai-embed-large
+    Linux/CPU-only:
+      Always mxbai-embed-large (8B is too slow without GPU)
+    """
+    import platform
+    import subprocess
+
+    is_apple_silicon = False
+    ram_gb = 0
+
+    if platform.system() == "Darwin":
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "hw.memsize"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0:
+                ram_gb = int(result.stdout.strip()) / (1024 ** 3)
+            chip = subprocess.run(
+                ["sysctl", "-n", "machdep.cpu.brand_string"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if chip.returncode == 0 and "Apple" in chip.stdout:
+                is_apple_silicon = True
+        except Exception:
+            pass
+    else:
+        try:
+            with open("/proc/meminfo") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        ram_gb = int(line.split()[1]) / (1024 ** 2)
+                        break
+        except Exception:
+            pass
+
+    if is_apple_silicon and ram_gb >= 32:
+        return "qwen3-embedding:8b"
+
+    return "mxbai-embed-large"
+
+
+def _load_embedding_model() -> str:
+    """Read embedding_model from config.yaml, or auto-detect from machine specs."""
+    try:
+        if DEFAULT_CONFIG_PATH.exists():
+            with open(DEFAULT_CONFIG_PATH) as f:
+                config = yaml.safe_load(f) or {}
+            model = config.get("embedding_model")
+            if model and model != "auto":
+                return str(model)
+    except Exception:
+        logger.debug("Failed to read config")
+
+    model = _detect_embedding_model()
+    logger.info("Auto-detected embedding model: %s (based on system RAM)", model)
+    return model
+
+
 class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
-    """Embed text via a local Ollama instance (mxbai-embed-large)."""
+    """Embed text via a local Ollama instance."""
 
     def __init__(
         self,
-        model: str = OLLAMA_MODEL,
+        model: str | None = None,
         base_url: str = OLLAMA_BASE_URL,
         keep_alive: str = OLLAMA_KEEP_ALIVE,
     ) -> None:
+        model = model or _load_embedding_model()
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.keep_alive = keep_alive

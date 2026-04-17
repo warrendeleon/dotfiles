@@ -7,9 +7,11 @@ watch_paths:
   - ~/Developer
   - ~/.claude/projects
 
-# Note: Ollama, summariser, and indexer settings are currently
-# hardcoded. This file controls watcher paths only. Future versions
-# may read additional settings from here.
+# Embedding model. Set to "auto" to pick based on system RAM:
+#   32GB+: qwen3-embedding:8b
+#   8-31GB: mxbai-embed-large
+# Or set a specific model name to override.
+embedding_model: auto
 
 # Data paths (created automatically at defaults shown below)
 # db_path: ~/.rag/chromadb

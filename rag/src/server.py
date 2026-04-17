@@ -13,6 +13,7 @@ from .store import Store
 from .queue_db import JobQueue, JobType
 from .audit import AuditLog
 from .parsers.code import SUPPORTED_EXTENSIONS
+from .parsers.jsonl import parse_conversation
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,21 @@ _ALLOWED_ROOTS = (
 
 MAX_SEARCH_RESULTS = 100
 MAX_AUDIT_ENTRIES = 500
+
+
+def _fetch_raw_turn(file_path: str | None, turn_number: Any) -> str | None:
+    """Read the original unsummarised turn from a JSONL file."""
+    if not file_path or not turn_number:
+        return None
+    try:
+        turn_num = int(turn_number)
+        turns = parse_conversation(file_path)
+        for turn in turns:
+            if turn["metadata"].get("turn_number") == turn_num:
+                return turn["text"]
+    except Exception:
+        logger.debug("Failed to fetch raw turn from %s", file_path)
+    return None
 
 
 def _get_store() -> Store:
@@ -122,9 +138,21 @@ def search(query: str, scope: str | None = None, n_results: int = 10) -> str:
             header += f" [{', '.join(meta_parts)}]"
 
         doc = r.get("document", "")
+
+        # If this conversation turn was summarised, fetch the raw text
+        if meta.get("summarised") and collection == "conversations":
+            raw_turn = _fetch_raw_turn(meta.get("file_path"), meta.get("turn_number"))
+            if raw_turn:
+                doc = raw_turn
+
         # Truncate long documents for display
         if len(doc) > 500:
             doc = doc[:500] + "..."
+
+        if meta.get("summarised"):
+            header += " [summarised]"
+        if meta.get("tags"):
+            header += f" [tags: {meta['tags']}]"
 
         parts.append(f"{header}\n{doc}")
 

@@ -515,6 +515,18 @@ defaults write com.nickvdp.singlebox hideOnLaunch -bool true 2>/dev/null || true
 echo "All login items configured to start hidden or in menu bar"
 
 # ===========================================================================
+# Remote Access
+# ===========================================================================
+# SSH
+sudo systemsetup -setremotelogin on
+
+# Screen Sharing (VNC)
+sudo launchctl enable system/com.apple.screensharing
+sudo launchctl kickstart -k system/com.apple.screensharing
+
+echo "Remote access enabled (SSH + Screen Sharing)"
+
+# ===========================================================================
 # Raycast (Spotlight replacement)
 # ===========================================================================
 # Disable Spotlight shortcut (Cmd+Space) so Raycast can use it

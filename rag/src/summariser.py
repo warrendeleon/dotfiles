@@ -6,6 +6,7 @@ import logging
 import subprocess
 import threading
 import time
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,96 @@ def summarise(text: str, content_type: str = "conversation") -> str | None:
     except Exception:
         logger.exception("Unexpected error in summarise")
         return None
+
+
+TAGS_FILE = Path.home() / ".rag" / "tags.txt"
+
+
+def _load_existing_tags() -> list[str]:
+    """Load existing tags from the tags file."""
+    if not TAGS_FILE.exists():
+        return []
+    return [
+        line.strip()
+        for line in TAGS_FILE.read_text().splitlines()
+        if line.strip()
+    ]
+
+
+def _save_new_tags(new_tags: list[str]) -> None:
+    """Append new tags to the tags file."""
+    existing = set(_load_existing_tags())
+    to_add = [t for t in new_tags if t not in existing]
+    if not to_add:
+        return
+    TAGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(TAGS_FILE, "a") as f:
+        for tag in to_add:
+            f.write(f"{tag}\n")
+
+
+def extract_tags(text: str) -> list[str]:
+    """Extract topic tags from text using Claude Haiku.
+
+    Sends existing tags as suggestions to keep the taxonomy consistent,
+    but allows new tags when the content doesn't match existing ones.
+    Returns a list of lowercase, hyphenated tags.
+    """
+    existing = _load_existing_tags()
+    existing_block = ", ".join(existing) if existing else "(none yet)"
+
+    prompt = (
+        "Extract 1-3 topic tags from this text. "
+        "Tags should be specific enough to filter conversations. "
+        "Good tags: project names (hl-mobile-app), specific features (graphql-migration, dark-mode), specific workflows (blog-publishing). "
+        "Bad tags: broad technologies (typescript, react-native), generic activities (debugging, testing, architecture). "
+        "A tag is only useful if it would NOT apply to most other conversations. "
+        "Tags must be lowercase, hyphenated. "
+        f"Prefer these existing tags when they fit: {existing_block}. "
+        "Create new tags only when nothing existing matches and the topic is specific enough. "
+        "If nothing specific stands out, output NONE. "
+        "Output ONLY a comma-separated list of tags (or NONE), nothing else."
+    )
+
+    # Truncate input
+    max_input = 10_000
+    if len(text) > max_input:
+        text = text[:max_input]
+
+    _rate_limiter.wait()
+
+    try:
+        result = subprocess.run(
+            ["claude", "-p", "--model", "haiku", prompt],
+            input=text,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode != 0:
+            logger.warning("Tag extraction failed (exit %d)", result.returncode)
+            return []
+
+        raw = result.stdout.strip()
+        if not raw or raw.upper() == "NONE":
+            return []
+
+        tags = [t.strip().lower().replace(" ", "-") for t in raw.split(",") if t.strip()]
+        tags = [t for t in tags if 1 < len(t) < 50 and t != "none"]
+
+        _save_new_tags(tags)
+        return tags
+
+    except subprocess.TimeoutExpired:
+        logger.warning("Tag extraction timed out")
+        return []
+    except FileNotFoundError:
+        logger.warning("claude CLI not found for tagging")
+        return []
+    except Exception:
+        logger.exception("Unexpected error in extract_tags")
+        return []
 
 
 def fallback_extract(text: str, max_chars: int = 2000) -> str:

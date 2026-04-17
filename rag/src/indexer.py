@@ -10,7 +10,7 @@ from typing import Any
 
 from .queue_db import JobQueue, JobType
 from .store import Store
-from .summariser import summarise, fallback_extract
+from .summariser import summarise, fallback_extract, extract_tags
 from .parsers.jsonl import parse_conversation
 from .parsers.code import parse_code_file
 from .parsers.markdown import parse_markdown
@@ -88,13 +88,22 @@ class Indexer:
 
         for turn in turns:
             text = turn["text"]
+            summarised = False
 
             if turn["needs_summary"]:
                 summary = summarise(text, "conversation")
                 if summary:
                     text = summary
+                    summarised = True
                 else:
                     text = fallback_extract(text)
+                    summarised = True
+
+            turn["metadata"]["summarised"] = summarised
+
+            tags = extract_tags(turn["text"])
+            if tags:
+                turn["metadata"]["tags"] = ",".join(tags)
 
             self.store.upsert(
                 collection_name="conversations",

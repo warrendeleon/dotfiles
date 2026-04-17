@@ -928,27 +928,41 @@ fi
 # ===========================================================================
 section "Clone Repositories"
 
-REPO_DIR="$HOME/Developer/rn-warrendeleon"
+WARREN_DIR="$HOME/Developer/warrendeleon"
+mkdir -p "$WARREN_DIR"
 
-if [[ -d "$REPO_DIR" ]]; then
-  success "rn-warrendeleon already cloned at ${REPO_DIR}"
+RN_REPO_DIR="$WARREN_DIR/rn-warrendeleon"
+
+if [[ -d "$RN_REPO_DIR" ]]; then
+  success "rn-warrendeleon already cloned at ${RN_REPO_DIR}"
 else
-  if ask "Clone rn-warrendeleon to ~/Developer/rn-warrendeleon?"; then
-    # Use HTTPS (SSH key is set up later in Step 15)
-    git clone https://github.com/warrendeleon/rn-warrendeleon.git "$REPO_DIR"
-    success "Cloned to ${REPO_DIR}"
+  if ask "Clone rn-warrendeleon to ~/Developer/warrendeleon/rn-warrendeleon?"; then
+    git clone git@github.com:warrendeleon/rn-warrendeleon.git "$RN_REPO_DIR"
+    success "Cloned to ${RN_REPO_DIR}"
+  fi
+fi
 
-    (cd "$REPO_DIR" && yarn install) && success "Dependencies installed" \
-      || warn "yarn install failed. Run manually in $REPO_DIR."
+SITE_REPO_DIR="$WARREN_DIR/warrendeleon.com"
 
-    # iOS pods
-    if [[ -d "$REPO_DIR/ios" ]] && command -v pod &>/dev/null; then
-      info "Installing CocoaPods dependencies..."
-      (cd "$REPO_DIR/ios" && pod install) && success "Pods installed" \
-        || warn "pod install failed. Run manually in $REPO_DIR/ios."
-    elif [[ -d "$REPO_DIR/ios" ]]; then
-      warn "CocoaPods not found. Run 'pod install' in $REPO_DIR/ios after installing CocoaPods."
-    fi
+if [[ -d "$SITE_REPO_DIR" ]]; then
+  success "warrendeleon.com already cloned at ${SITE_REPO_DIR}"
+else
+  if ask "Clone warrendeleon.com to ~/Developer/warrendeleon/warrendeleon.com?"; then
+    git clone git@github.com:warrendeleon/warrendeleon.com.git "$SITE_REPO_DIR"
+    success "Cloned to ${SITE_REPO_DIR}"
+  fi
+fi
+
+HL_REPO_DIR="$HOME/Developer/HL/hl-mobile-app"
+
+if [[ -d "$HL_REPO_DIR" ]]; then
+  success "hl-mobile-app already cloned at ${HL_REPO_DIR}"
+else
+  if ask "Clone hl-mobile-app to ~/Developer/HL/hl-mobile-app?"; then
+    mkdir -p "$HOME/Developer/HL"
+    # Uses SSH (requires SSH key from Step 15; re-run this step if cloning on first setup)
+    git clone git@gitlab.com:hldev/mobile/ucx-mobile-platform/hl-mobile-app.git "$HL_REPO_DIR"
+    success "Cloned to ${HL_REPO_DIR}"
   fi
 fi
 

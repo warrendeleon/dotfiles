@@ -57,27 +57,24 @@ cask "iterm2"                    # Terminal emulator [pick]
 cask "fork"                      # Git GUI [pick]
 cask "reactotron"                # Redux debugging [pick]
 cask "sim-genie"                 # iOS Simulator management [pick]
-cask "db-browser-for-sqlite"     # SQLite GUI [pick]
 cask "sublime-text"              # Text editor [pick]
 
 # AI
 cask "claude"                    # Claude Desktop app [pick]
 cask "chatgpt"                   # ChatGPT Desktop app [pick]
 brew "ollama"                    # Local LLM runner [pick]
-brew "mlx"                       # Apple Silicon ML framework [pick]
 
 # Communication
 cask "slack"                     # Team chat [pick]
-cask "microsoft-teams"           # Video calls [pick]
 cask "zoom"                      # Video calls [pick]
 cask "mattermost"                # Team messaging [pick]
 cask "singlebox"                 # Multi-account browser [pick]
 
 # Productivity
 cask "bitwarden"                 # Password manager [pick]
-brew "bitwarden-cli"             # Bitwarden CLI [pick]
+brew "bitwarden-cli"             # Bitwarden CLI (installed with Bitwarden)
 cask "1password"                 # Password manager (legacy) [pick]
-cask "1password-cli"             # 1Password CLI [pick]
+cask "1password-cli"             # 1Password CLI (installed with 1Password)
 cask "rocket"                    # Emoji picker [pick]
 cask "google-drive"              # Cloud storage [pick]
 cask "raycast"                   # Spotlight replacement [pick]
@@ -110,11 +107,6 @@ brew "colima"                    # Docker runtime [pick]
 brew "docker"                    # Docker CLI [pick]
 brew "docker-completion"         # Docker shell completions [pick]
 brew "kubernetes-cli"            # kubectl [pick]
-cask "gcloud-cli"                # gcloud CLI [pick]
-
-# Database
-brew "mysql-client"              # MySQL CLI tools [pick]
-brew "sqlite"                    # SQLite [pick]
 
 # Hardware & Display
 cask "elgato-control-center"     # Elgato lights [pick]

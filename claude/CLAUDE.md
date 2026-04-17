@@ -49,7 +49,11 @@ Five tools are available automatically via MCP. Use them proactively:
 | `index_file(path)` | Manually trigger indexing for a file you just created or modified. |
 | `get_audit_log(since?, limit=20)` | View what was done recently. `since` accepts "24h", "7d", or a timestamp. |
 
-**When to search**: user says "we discussed", "remember when", "like before", "last time"; or you need background on a topic.
+**When to search**:
+- User references a past discussion ("we discussed", "remember when", "like before", "last time")
+- The wiki doesn't have the answer to a knowledge question
+- You need background on a topic before making a suggestion
+- User asks about a project, decision, or workflow that may have been discussed before
 **When to log** (call `log_action` proactively, don't wait to be asked):
 - After creating a commit
 - After completing a multi-step task (setup, refactor, migration, bug fix)
@@ -57,6 +61,18 @@ Five tools are available automatically via MCP. Use them proactively:
 - After resolving a non-obvious bug (include root cause)
 - After significant config changes (dotfiles, CI, deploy)
 - Include files affected when relevant
+
+### Wiki (`~/.wiki`)
+A personal knowledge base of structured markdown pages, organised into `wiki/personal/` and `wiki/hl/`. Full rules are in `~/.wiki/CLAUDE.md`.
+
+**When answering questions**, check the wiki first:
+1. Read relevant pages from `~/.wiki/wiki/` before answering
+2. Cite specific wiki pages in your answer
+3. If the wiki doesn't cover the topic, say so clearly
+
+**When to consult the wiki**: questions about HL codebase, architecture, team structure, project decisions, personal projects, dotfiles setup, or any topic that may have been ingested.
+
+**Lookup order**: Wiki (structured knowledge) → RAG search (conversation history) → codebase (source of truth)
 
 ---
 
