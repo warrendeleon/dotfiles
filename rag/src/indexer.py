@@ -101,7 +101,7 @@ class Indexer:
 
             turn["metadata"]["summarised"] = summarised
 
-            tags = extract_tags(turn["text"])
+            tags = extract_tags(text)
             if tags:
                 turn["metadata"]["tags"] = ",".join(tags)
 

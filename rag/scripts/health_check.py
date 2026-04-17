@@ -32,19 +32,26 @@ def warn(msg: str) -> None:
 
 
 def _expected_embedding_model() -> str:
-    """Detect the expected embedding model for this machine."""
+    """Detect the expected embedding model for this machine.
+
+    Matches logic in store.py _detect_embedding_model:
+    Apple Silicon + 32GB+ = qwen3-embedding:8b, else mxbai-embed-large.
+    """
     import platform, subprocess
     if platform.system() == "Darwin":
         try:
-            ram = int(subprocess.run(
+            result = subprocess.run(
                 ["sysctl", "-n", "hw.memsize"],
                 capture_output=True, text=True, timeout=5,
-            ).stdout.strip()) / (1024 ** 3)
+            )
+            if result.returncode != 0:
+                return "mxbai-embed-large"
+            ram_gb = int(result.stdout.strip()) / (1024 ** 3)
             chip = subprocess.run(
                 ["sysctl", "-n", "machdep.cpu.brand_string"],
                 capture_output=True, text=True, timeout=5,
-            ).stdout.strip()
-            if "Apple" in chip and ram >= 32:
+            )
+            if chip.returncode == 0 and "Apple" in chip.stdout and ram_gb >= 32:
                 return "qwen3-embedding:8b"
         except Exception:
             pass

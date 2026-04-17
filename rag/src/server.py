@@ -52,8 +52,10 @@ def _fetch_raw_turn(file_path: str | None, turn_number: Any) -> str | None:
         turn_num = int(turn_number)
         current_turn = 0
 
+        # Mirrors parse_conversation logic: filter to user/assistant,
+        # then pair user messages with the next assistant response.
+        filtered: list[tuple[str, dict]] = []
         with open(p, "r", encoding="utf-8", errors="replace") as f:
-            pending_user: str | None = None
             for line in f:
                 line = line.strip()
                 if not line:
@@ -62,28 +64,32 @@ def _fetch_raw_turn(file_path: str | None, turn_number: Any) -> str | None:
                     msg = _json.loads(line)
                 except _json.JSONDecodeError:
                     continue
-
                 msg_type = msg.get("type")
                 if msg_type in ("human", "user"):
-                    pending_user = _clean_text(_get_message_content(msg))
-                elif msg_type == "assistant" and pending_user is not None:
-                    assistant_text = _clean_text(_get_message_content(msg))
-                    current_turn += 1
-                    if current_turn == turn_num:
-                        return f"User: {pending_user}\n\nAssistant: {assistant_text}"
-                    pending_user = None
-                elif msg_type in ("human", "user"):
-                    if pending_user is not None:
-                        current_turn += 1
-                        if current_turn == turn_num:
-                            return f"User: {pending_user}"
-                    pending_user = _clean_text(_get_message_content(msg))
+                    filtered.append(("user", msg))
+                elif msg_type == "assistant":
+                    filtered.append(("assistant", msg))
 
-            # Handle trailing user message with no assistant response
-            if pending_user is not None:
+        i = 0
+        while i < len(filtered):
+            role, msg = filtered[i]
+            if role == "user":
+                user_text = _clean_text(_get_message_content(msg))
+                assistant_text = ""
+                if i + 1 < len(filtered) and filtered[i + 1][0] == "assistant":
+                    assistant_text = _clean_text(_get_message_content(filtered[i + 1][1]))
+                    i += 2
+                else:
+                    i += 1
+                if not user_text and not assistant_text:
+                    continue
                 current_turn += 1
                 if current_turn == turn_num:
-                    return f"User: {pending_user}"
+                    if assistant_text:
+                        return f"User: {user_text}\n\nAssistant: {assistant_text}"
+                    return f"User: {user_text}"
+            else:
+                i += 1
 
     except Exception:
         logger.debug("Failed to fetch raw turn from %s", file_path)
