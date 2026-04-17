@@ -36,7 +36,7 @@ def _extract_text(content: Any) -> str:
         for block in content:
             if isinstance(block, dict):
                 if block.get("type") == "text":
-                    parts.append(block.get("text", ""))
+                    parts.append(block.get("text") or "")
                 # Skip tool_use, tool_result, thinking, image blocks
             elif isinstance(block, str):
                 parts.append(block)
