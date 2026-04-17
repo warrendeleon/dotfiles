@@ -1759,13 +1759,21 @@ elif [[ -d "$RAG_DIR" ]]; then
       warn "Some Python dependencies failed to install. Run pip install manually."
     fi
 
-    # Pull Ollama embedding model
+    # Pull Ollama embedding model (auto-detect based on machine specs)
     if command -v ollama &>/dev/null; then
-      info "Pulling mxbai-embed-large model (one-time, ~670MB)..."
-      ollama pull mxbai-embed-large || warn "Failed to pull model. Run: ollama pull mxbai-embed-large"
-      ollama list 2>/dev/null | grep -q "mxbai-embed-large" && success "Embedding model ready"
+      RAM_BYTES=$(sysctl -n hw.memsize 2>/dev/null || echo 0)
+      RAM_GB=$((RAM_BYTES / 1073741824))
+      CHIP=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo "")
+      if [[ "$CHIP" == *"Apple"* ]] && [[ "$RAM_GB" -ge 32 ]]; then
+        EMBED_MODEL="qwen3-embedding:8b"
+      else
+        EMBED_MODEL="mxbai-embed-large"
+      fi
+      info "Pulling ${EMBED_MODEL} embedding model (detected ${RAM_GB}GB RAM)..."
+      ollama pull "$EMBED_MODEL" || warn "Failed to pull model. Run: ollama pull $EMBED_MODEL"
+      ollama list 2>/dev/null | grep -q "$EMBED_MODEL" && success "Embedding model ready: $EMBED_MODEL"
     else
-      warn "Ollama not found. Install it first, then run: ollama pull mxbai-embed-large"
+      warn "Ollama not found. Install it first, then run: ollama pull <model>"
     fi
 
     # Install launchd plists (substitute username in paths)
