@@ -13,7 +13,6 @@ from .store import Store
 from .queue_db import JobQueue, JobType
 from .audit import AuditLog
 from .parsers.code import SUPPORTED_EXTENSIONS
-from .parsers.jsonl import parse_conversation
 
 logger = logging.getLogger(__name__)
 
@@ -34,22 +33,58 @@ MAX_SEARCH_RESULTS = 100
 MAX_AUDIT_ENTRIES = 500
 
 
-MAX_RAW_FETCH_SIZE = 50 * 1024 * 1024  # 50MB
-
-
 def _fetch_raw_turn(file_path: str | None, turn_number: Any) -> str | None:
-    """Read the original unsummarised turn from a JSONL file."""
+    """Read a single turn from a JSONL file without parsing the entire file.
+
+    Streams line-by-line, pairing user+assistant messages into turns,
+    and stops as soon as the target turn is found. Safe for 300MB+ files.
+    """
     if not file_path or not turn_number:
         return None
     try:
+        import json as _json
+        from .parsers.jsonl import _get_message_content, _clean_text
+
         p = Path(file_path)
-        if not p.exists() or p.stat().st_size > MAX_RAW_FETCH_SIZE:
+        if not p.exists():
             return None
+
         turn_num = int(turn_number)
-        turns = parse_conversation(file_path)
-        for turn in turns:
-            if turn["metadata"].get("turn_number") == turn_num:
-                return turn["text"]
+        current_turn = 0
+
+        with open(p, "r", encoding="utf-8", errors="replace") as f:
+            pending_user: str | None = None
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    msg = _json.loads(line)
+                except _json.JSONDecodeError:
+                    continue
+
+                msg_type = msg.get("type")
+                if msg_type in ("human", "user"):
+                    pending_user = _clean_text(_get_message_content(msg))
+                elif msg_type == "assistant" and pending_user is not None:
+                    assistant_text = _clean_text(_get_message_content(msg))
+                    current_turn += 1
+                    if current_turn == turn_num:
+                        return f"User: {pending_user}\n\nAssistant: {assistant_text}"
+                    pending_user = None
+                elif msg_type in ("human", "user"):
+                    if pending_user is not None:
+                        current_turn += 1
+                        if current_turn == turn_num:
+                            return f"User: {pending_user}"
+                    pending_user = _clean_text(_get_message_content(msg))
+
+            # Handle trailing user message with no assistant response
+            if pending_user is not None:
+                current_turn += 1
+                if current_turn == turn_num:
+                    return f"User: {pending_user}"
+
     except Exception:
         logger.debug("Failed to fetch raw turn from %s", file_path)
     return None
