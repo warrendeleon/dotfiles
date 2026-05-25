@@ -94,6 +94,11 @@
     colorMoved = default
 [merge]
     conflictstyle = zdiff3
-# User identity is in ~/.gitconfig.local (per-machine, not tracked)
+# User identity and per-machine state (e.g. [maintenance].repo lists) live in
+# ~/.gitconfig.local, which is gitignored. Setup step 6 creates it on a fresh
+# machine; step 13 appends cloned repo paths to its [maintenance] block.
 [include]
     path = ~/.gitconfig.local
+[user]
+	name = Warren de Leon
+	email = hi@warrendeleon.com

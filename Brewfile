@@ -7,6 +7,7 @@
 # ============================================================================
 tap "oven-sh/bun"
 tap "wix/brew"
+tap "supabase/tap"
 
 # ============================================================================
 # Core CLI Tools (always installed)
@@ -32,6 +33,11 @@ brew "lazygit"
 brew "gnupg"
 brew "openssl@3"
 brew "duti"
+brew "sshpass"                   # Non-interactive ssh password auth
+brew "qrencode"                  # Generate QR codes from the CLI
+brew "ffmpeg"                    # Audio/video codec swiss army knife
+brew "poppler"                   # PDF utilities (pdftotext, pdfimages)
+brew "zbar"                      # Barcode/QR decoder
 
 # ============================================================================
 # Languages & Runtimes (always installed)
@@ -80,7 +86,9 @@ cask "google-drive"              # Cloud storage [pick]
 cask "raycast"                   # Spotlight replacement [pick]
 cask "the-unarchiver"            # Archive extraction [pick]
 cask "notion"                    # Notes and project management [pick]
+cask "obsidian"                  # Markdown knowledge base (used by the LLM Wiki step) [pick]
 cask "localsend"                 # AirDrop alternative [pick]
+cask "superwhisper"              # Voice-to-text dictation [pick]
 
 # Media & Streaming
 cask "iina"                      # Video player [pick]
@@ -114,6 +122,17 @@ cask "logi-options+"             # Logitech mouse configuration [pick]
 cask "betterdisplay"             # Monitor management [pick]
 cask "aldente"                   # Battery charge limiter [pick]
 cask "displaylink"               # DisplayLink Manager [pick]
+
+# Monitoring
+cask "istat-menus"               # System monitoring (menu bar) [pick]
+cask "tg-pro"                    # Temperature & fan control [pick]
+
+# Menu bar & Dock
+cask "bartender"                 # Menu bar item manager (paid; licence stays per-machine) [pick]
+cask "dockdoor"                  # Dock window previews [pick]
+
+# Backend / DB tooling
+brew "supabase/tap/supabase"     # Supabase CLI [pick]
 
 # ============================================================================
 # Mac App Store Apps (requires sign-in)

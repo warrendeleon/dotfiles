@@ -30,9 +30,22 @@ defaults write com.apple.finder _FXSortFoldersFirst -bool true
 # Disable warning when changing file extension
 defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
 
+# Search current folder by default (not whole Mac)
+defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
+
+# New Finder windows open in the home folder (not Recents)
+defaults write com.apple.finder NewWindowTarget -string "PfHm"
+defaults write com.apple.finder NewWindowTargetPath -string "file://$HOME/"
+
 # Avoid creating .DS_Store files on network or USB volumes
 defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
 defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
+
+# Manual: hide the Recents item from the Finder sidebar.
+# No public defaults key exists for this — must be done in the UI.
+echo ""
+echo "⚠️  Manual step needed: open Finder → Settings (Cmd+,) → Sidebar tab → uncheck 'Recents'"
+read -rp "Press ENTER once done... " _ </dev/tty
 
 # ===========================================================================
 # Screenshots
@@ -66,9 +79,41 @@ defaults write NSGlobalDomain NSSpellCheckerAutomaticallyIdentifiesLanguages -bo
 defaults write com.spotify.client AutoStartSettingIsHidden -int 0
 defaults write com.spotify.client HasAutoStartBeenModified -int 1
 
-# Disable Chrome's built-in password manager (use 1Password instead)
-defaults write com.google.Chrome PasswordManagerEnabled -bool false
-defaults write com.google.Chrome AutofillCreditCardEnabled -bool false
+# Stop Photos.app from auto-opening when an iPhone/camera connects
+defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
+
+# App Store: auto-update apps in the background
+defaults write com.apple.commerce AutoUpdate -bool true
+
+# Disable Chrome's built-in password manager and autofill (use Bitwarden instead).
+# Must go in /Library/Managed Preferences/ for Chrome to treat as Mandatory;
+# user-domain keys are only Recommended and can be overridden via UI or sync.
+# Using PlistBuddy because `defaults` mishandles paths with spaces.
+CHROME_MANAGED_PLIST="/Library/Managed Preferences/com.google.Chrome.plist"
+sudo mkdir -p "/Library/Managed Preferences"
+sudo /usr/libexec/PlistBuddy \
+  -c "Delete :PasswordManagerEnabled" -c "Add :PasswordManagerEnabled bool false" \
+  -c "Delete :PasswordLeakDetectionEnabled" -c "Add :PasswordLeakDetectionEnabled bool false" \
+  -c "Delete :AutofillCreditCardEnabled" -c "Add :AutofillCreditCardEnabled bool false" \
+  -c "Delete :AutofillAddressEnabled" -c "Add :AutofillAddressEnabled bool false" \
+  -c "Save" \
+  "$CHROME_MANAGED_PLIST" 2>/dev/null \
+  || sudo /usr/libexec/PlistBuddy \
+    -c "Add :PasswordManagerEnabled bool false" \
+    -c "Add :PasswordLeakDetectionEnabled bool false" \
+    -c "Add :AutofillCreditCardEnabled bool false" \
+    -c "Add :AutofillAddressEnabled bool false" \
+    -c "Save" \
+    "$CHROME_MANAGED_PLIST"
+# Clear stale user-domain and /Library/Preferences copies so nothing shadows Mandatory.
+defaults delete com.google.Chrome PasswordManagerEnabled 2>/dev/null || true
+defaults delete com.google.Chrome PasswordLeakDetectionEnabled 2>/dev/null || true
+defaults delete com.google.Chrome AutofillCreditCardEnabled 2>/dev/null || true
+defaults delete com.google.Chrome AutofillAddressEnabled 2>/dev/null || true
+sudo defaults delete /Library/Preferences/com.google.Chrome PasswordManagerEnabled 2>/dev/null || true
+sudo defaults delete /Library/Preferences/com.google.Chrome PasswordLeakDetectionEnabled 2>/dev/null || true
+sudo defaults delete /Library/Preferences/com.google.Chrome AutofillCreditCardEnabled 2>/dev/null || true
+sudo defaults delete /Library/Preferences/com.google.Chrome AutofillAddressEnabled 2>/dev/null || true
 
 # ===========================================================================
 # Appearance
@@ -175,9 +220,14 @@ defaults write com.apple.AppleMultitouchTrackpad FirstClickThreshold -int 1
 # Mission Control: three-finger swipe up
 defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerVertSwipeGesture -int 2
 
-# Three-finger drag (Accessibility setting)
-defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerDrag -bool true
-defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadThreeFingerDrag -bool true
+# Switch between full-screen apps / spaces: three-finger swipe left/right
+defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerHorizSwipeGesture -int 2
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadThreeFingerHorizSwipeGesture -int 2
+
+# Three-finger drag disabled — conflicts with three-finger swipe up for Mission Control.
+# Use click-and-drag instead.
+defaults write com.apple.AppleMultitouchTrackpad TrackpadThreeFingerDrag -bool false
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad TrackpadThreeFingerDrag -bool false
 
 # ===========================================================================
 # Siri
@@ -315,8 +365,11 @@ GPU_LIMIT_MB=$(( TOTAL_RAM_MB * 3 / 4 ))
 CURRENT_LIMIT=$(sysctl -n iogpu.wired_limit_mb 2>/dev/null || echo "0")
 
 if (( GPU_LIMIT_MB > CURRENT_LIMIT )); then
-  sudo sysctl iogpu.wired_limit_mb="$GPU_LIMIT_MB"
-  echo "GPU wired memory set to ${GPU_LIMIT_MB}MB (75% of ${TOTAL_RAM_MB}MB)"
+  if sudo sysctl iogpu.wired_limit_mb="$GPU_LIMIT_MB" 2>/dev/null; then
+    echo "GPU wired memory set to ${GPU_LIMIT_MB}MB (75% of ${TOTAL_RAM_MB}MB)"
+  else
+    echo "Could not set iogpu.wired_limit_mb (sealed volume / SIP / non-Apple-Silicon)"
+  fi
 else
   echo "GPU wired memory already at ${CURRENT_LIMIT}MB"
 fi
@@ -324,7 +377,7 @@ fi
 # Persist across reboots via launchd
 PLIST="/Library/LaunchDaemons/com.dotfiles.gpu-wired-memory.plist"
 if [[ ! -f "$PLIST" ]]; then
-  sudo tee "$PLIST" > /dev/null << GPUEOF
+  if ! sudo tee "$PLIST" > /dev/null << GPUEOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -342,9 +395,19 @@ if [[ ! -f "$PLIST" ]]; then
 </dict>
 </plist>
 GPUEOF
-  sudo chmod 644 "$PLIST"
-  sudo launchctl load "$PLIST"
-  echo "GPU wired memory will persist across reboots"
+  then
+    echo "Could not write GPU launchd plist (sudo refused)"
+  else
+    sudo chmod 644 "$PLIST" 2>/dev/null || true
+    # launchctl load is deprecated on macOS 26 for sealed-volume services; try
+    # modern bootstrap first, fall back to load, warn if both fail.
+    if sudo launchctl bootstrap system "$PLIST" 2>/dev/null \
+       || sudo launchctl load "$PLIST" 2>/dev/null; then
+      echo "GPU wired memory will persist across reboots"
+    else
+      echo "Could not load GPU plist. Reboot will reapply the sysctl from the LaunchDaemon on retry."
+    fi
+  fi
 else
   echo "GPU wired memory launchd plist already exists"
 fi
@@ -357,12 +420,20 @@ fi
 # Disable auto-capitalise (keep auto-correct enabled)
 defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
 
-# Disable press-and-hold for accent characters (enables key repeat in all apps)
-defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
+# Enable press-and-hold for accent characters (needed for Spanish á, é, í, ó, ú, ñ)
+defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool true
 
 # Disable smart quotes and dashes (breaks code when pasting)
 defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
 defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
+
+# Disable double-space replaced with ". " (annoying for code and notes)
+defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
+
+# Don't reopen old windows when relaunching apps (cleaner state on launch)
+defaults write NSGlobalDomain NSQuitAlwaysKeepsWindows -bool false
+# Preview overrides the global setting — disable explicitly so it stops reopening old PDFs
+defaults write com.apple.Preview NSQuitAlwaysKeepsWindows -bool false
 
 # ===========================================================================
 # Sound
@@ -379,12 +450,14 @@ defaults write NSGlobalDomain com.apple.sound.beep.feedback -int 1
 # ===========================================================================
 # Energy (prevent sleep when plugged in)
 # ===========================================================================
-# Power adapter: display off at 15 min, system never sleeps
-sudo pmset -c displaysleep 15 2>/dev/null
-sudo pmset -c sleep 0 2>/dev/null
+# Power adapter: display off at 15 min, system never sleeps.
+# Suppress stderr and exit code — on macOS 26 pmset needs Full Disk Access
+# from some terminals and may reject otherwise-valid sudo calls.
+sudo pmset -c displaysleep 15 2>/dev/null || true
+sudo pmset -c sleep 0        2>/dev/null || true
 # Battery: display off at 5 min, system sleep at 10 min
-sudo pmset -b displaysleep 5 2>/dev/null
-sudo pmset -b sleep 10 2>/dev/null
+sudo pmset -b displaysleep 5  2>/dev/null || true
+sudo pmset -b sleep 10        2>/dev/null || true
 
 echo "Energy: OLED-safe sleep settings applied"
 
@@ -402,11 +475,18 @@ echo "Screensaver: 2 min idle, clock enabled"
 # ===========================================================================
 # Spotlight (exclude dev directories from indexing)
 # ===========================================================================
-if command -v mdutil &>/dev/null; then
-  # Disable Spotlight indexing for Developer folder
-  if [[ -d "$HOME/Developer" ]]; then
-    sudo mdutil -i off "$HOME/Developer" 2>/dev/null
-    echo "Spotlight indexing disabled for ~/Developer"
+# Exclude ~/Developer from Spotlight via the .metadata_never_index marker file.
+# Works on every macOS version; doesn't need sudo. macOS 26 dropped subdirectory
+# support in `mdutil -i off`, but the marker file has always been honored at any
+# directory level, so we use that as the durable mechanism and only attempt
+# mdutil as a nice-to-have on older systems.
+if [[ -d "$HOME/Developer" ]]; then
+  touch "$HOME/Developer/.metadata_never_index"
+  echo "Spotlight indexing excluded for ~/Developer (via .metadata_never_index)"
+  # Flush anything already indexed. Non-fatal on macOS 26+ where the subdir form
+  # is rejected — the marker file takes over on the next Spotlight pass.
+  if command -v mdutil &>/dev/null; then
+    sudo mdutil -i off "$HOME/Developer" >/dev/null 2>&1 || true
   fi
 fi
 
@@ -427,11 +507,14 @@ TM_EXCLUDES=(
 )
 
 for path in "${TM_EXCLUDES[@]}"; do
-  # Expand globs — each matching directory gets excluded
+  # Expand globs — each matching directory gets excluded.
+  # macOS 26 requires Full Disk Access for tmutil; swallow failures instead of
+  # crashing the whole setup.
   for expanded in $path; do
     if [[ -d "$expanded" ]]; then
-      sudo tmutil addexclusion "$expanded" 2>/dev/null
-      echo "Time Machine: excluded $expanded"
+      if sudo tmutil addexclusion "$expanded" 2>/dev/null; then
+        echo "Time Machine: excluded $expanded"
+      fi
     fi
   done
 done
@@ -457,21 +540,24 @@ if [[ -n "$ACTIVE_SERVICE" ]]; then
   echo ""
   echo "If you have a Pi-hole on your network, enter its IP address."
   echo "Example: 192.168.10.171"
-  read -rp "Pi-hole IP (press ENTER to skip): " PIHOLE_IP </dev/tty
+  PIHOLE_IP=""
+  read -rp "Pi-hole IP (press ENTER to skip): " PIHOLE_IP </dev/tty || PIHOLE_IP=""
 
   if [[ -n "$PIHOLE_IP" ]]; then
     # Pi-hole first, then Cloudflare, then Quad9
-    networksetup -setdnsservers "$ACTIVE_SERVICE" "$PIHOLE_IP" 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112
-    echo "DNS set on $ACTIVE_SERVICE: Pi-hole ($PIHOLE_IP) → Cloudflare → Quad9"
+    networksetup -setdnsservers "$ACTIVE_SERVICE" "$PIHOLE_IP" 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112 \
+      && echo "DNS set on $ACTIVE_SERVICE: Pi-hole ($PIHOLE_IP) → Cloudflare → Quad9" \
+      || echo "Could not set DNS on $ACTIVE_SERVICE (may need sudo or Network privilege)"
   else
     # Cloudflare + Quad9 only (no Pi-hole)
-    networksetup -setdnsservers "$ACTIVE_SERVICE" 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112
-    echo "DNS set on $ACTIVE_SERVICE: Cloudflare → Quad9"
+    networksetup -setdnsservers "$ACTIVE_SERVICE" 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112 \
+      && echo "DNS set on $ACTIVE_SERVICE: Cloudflare → Quad9" \
+      || echo "Could not set DNS on $ACTIVE_SERVICE (may need sudo or Network privilege)"
   fi
 
-  # Flush DNS cache
-  sudo dscacheutil -flushcache 2>/dev/null
-  sudo killall -HUP mDNSResponder 2>/dev/null
+  # Flush DNS cache — best-effort; macOS 26 can refuse with sealed-volume errors.
+  sudo dscacheutil -flushcache 2>/dev/null || true
+  sudo killall -HUP mDNSResponder 2>/dev/null || true
   echo "DNS cache flushed"
 else
   echo "No active network service found — set DNS manually"
@@ -480,22 +566,27 @@ fi
 # ===========================================================================
 # Login Items
 # ===========================================================================
-# Remove unwanted auto-launchers (legacy login items)
+# macOS 13+ replaced the "System Events → login items" AppleScript API with
+# Background Task Management / SMAppService. The old API no longer actually
+# registers items and returns "UNKNOWN" to stdout — which clutters output
+# without doing anything useful. So redirect stdout to /dev/null as well, and
+# print a clear manual-configuration hint after each group.
+
+# Best-effort remove of legacy entries that may still exist from older macOS.
 for app in "Spotify" "Microsoft Teams" "Zoom" "Slack" "NordVPN" "Notion" "Rectangle"; do
-  osascript -e "tell application \"System Events\" to delete login item \"$app\"" 2>/dev/null || true
+  osascript -e "tell application \"System Events\" to delete login item \"$app\"" >/dev/null 2>&1 || true
 done
-echo "Removed unwanted login items (Spotify, Teams, Zoom, Slack, NordVPN, Notion, Rectangle)"
+echo "Attempted removal of legacy login items: Spotify, Teams, Zoom, Slack, NordVPN, Notion, Rectangle"
+echo "  On macOS 13+ these are managed via System Settings → General → Login Items & Extensions."
+echo "  Disable any remaining entries there after first launch of each app."
 
-# Note: macOS 13+ uses Background Task Management for app auto-launch.
-# These cannot be disabled programmatically. After first login, manually go to:
-#   System Settings → General → Login Items & Extensions
-# and disable: Spotify, Microsoft Teams, Zoom, Slack, NordVPN, Notion
-
-# Add apps that should start at login
+# Best-effort add of login items. On macOS 13+ this usually no-ops silently; the
+# apps themselves register via SMAppService on first launch.
 for app in "Rocket" "Raycast" "Google Drive" "Tailscale" "1Password" "BetterDisplay" "Elgato Control Center" "Singlebox" "DisplayLink Manager"; do
-  osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"/Applications/$app.app\", hidden:true}" 2>/dev/null || true
+  osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"/Applications/$app.app\", hidden:true}" >/dev/null 2>&1 || true
 done
-echo "Added login items (all hidden): Rocket, Raycast, Google Drive, Tailscale, 1Password, BetterDisplay, Elgato Control Center, Singlebox, DisplayLink Manager"
+echo "Attempted to add login items: Rocket, Raycast, Google Drive, Tailscale, 1Password, BetterDisplay, Elgato Control Center, Singlebox, DisplayLink Manager"
+echo "  On macOS 13+ each app registers its own login item when first launched; open each once to complete setup."
 
 # 1Password: menu bar only, no main window
 defaults write com.1password.1password showInMenuBar -bool true
@@ -517,12 +608,20 @@ echo "All login items configured to start hidden or in menu bar"
 # ===========================================================================
 # Remote Access (opt-in)
 # ===========================================================================
-read -r -p "Enable remote access (SSH + Screen Sharing)? [y/N] " _remote_reply </dev/tty
+_remote_reply=""
+read -r -p "Enable remote access (SSH + Screen Sharing)? [y/N] " _remote_reply </dev/tty || _remote_reply=""
 if [[ "${_remote_reply:-}" =~ ^[Yy]$ ]]; then
-  sudo systemsetup -setremotelogin on
-  sudo launchctl enable system/com.apple.screensharing
-  sudo launchctl kickstart -k system/com.apple.screensharing
-  echo "Remote access enabled (SSH + Screen Sharing)"
+  sudo systemsetup -setremotelogin on || echo "Could not enable Remote Login (sudo refused or not supported)"
+  # Screen Sharing: the launchctl service name was locked down in macOS 26+.
+  # Attempts below are best-effort; if they fail, enable manually in
+  # System Settings → General → Sharing → Screen Sharing.
+  if sudo launchctl enable system/com.apple.screensharing 2>/dev/null; then
+    sudo launchctl kickstart -k system/com.apple.screensharing 2>/dev/null || true
+    echo "Remote access enabled (SSH + Screen Sharing)"
+  else
+    echo "Remote Login enabled. Screen Sharing must be toggled manually on this macOS:"
+    echo "  System Settings → General → Sharing → Screen Sharing"
+  fi
 else
   echo "Remote access skipped"
 fi
@@ -565,14 +664,16 @@ echo "Gatekeeper first-open dialog disabled"
 # ===========================================================================
 # Firewall
 # ===========================================================================
-# Enable macOS firewall (off by default)
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null
+# Enable macOS firewall (off by default). On macOS 26, socketfilterfw often
+# requires Full Disk Access for the invoking terminal; swallow failures and let
+# the user toggle manually from System Settings if needed.
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on  2>/dev/null || true
 # Allow signed apps automatically
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setallowsigned on 2>/dev/null
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setallowsigned on  2>/dev/null || true
 # Enable stealth mode (don't respond to pings)
-sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on  2>/dev/null || true
 
-echo "Firewall enabled with stealth mode"
+echo "Firewall settings applied (verify in System Settings → Network → Firewall)"
 
 # ===========================================================================
 # FileVault (disk encryption)

@@ -1,3 +1,5 @@
+Include ~/.colima/ssh_config
+
 # ===========================================================================
 # SSH Config
 # Symlinked to ~/.ssh/config by setup.sh

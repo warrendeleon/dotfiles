@@ -25,3 +25,10 @@ setup.log
 
 # macOS
 .DS_Store
+
+# Local backups (e.g. iterm2/Default.json.backup.<timestamp>)
+*.backup.*
+*.pre-dotfile-backup*
+
+# Claude Code per-user permission grants (accumulates over time, per machine)
+**/settings.local.json

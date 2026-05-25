@@ -25,7 +25,7 @@ cd ~/Developer/dotfiles
 ./setup.sh
 ```
 
-The script runs **28 steps** with a live progress widget pinned to the bottom of the terminal. Each step can be skipped individually.
+The script runs **30 steps** with a live progress widget pinned to the bottom of the terminal. Each step can be skipped individually.
 
 ## What's Inside
 
@@ -51,7 +51,7 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 
 | # | Step | Description |
 |--:|------|-------------|
-| 1 | **Xcode CLI Tools** | Command-line tools + full Xcode download in background |
+| 1 | **Xcode CLI Tools** | Command-line tools; full Xcode installed interactively via `xcodes` (Step 3, prompts for Apple ID) |
 | 2 | **Homebrew** | Package manager for macOS |
 | 3 | **Brewfile** | Packages, casks, and Mac App Store apps |
 | 4 | **Password Manager** | Bitwarden + 1Password (legacy) setup and CLI authentication |
@@ -62,10 +62,10 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 | 9 | **Node.js** | Node 24 via nvm, Corepack enabled |
 | 10 | **Ruby** | Latest Ruby via rbenv |
 | 11 | **npm Packages** | Claude Code, gitmoji-cli, and global tools |
-| 12 | **Clone Repos** | Project repositories |
-| 13 | **Android SDK** | SDK command-line tools + licence acceptance |
-| 14 | **iOS Development** | Verifies CocoaPods availability (installed via rbenv gem in Step 10) |
-| 15 | **SSH Key** | Copied from iCloud Drive (`iCloud Drive/ssh/id_rsa`) |
+| 12 | **SSH Key** | Restores private key from `secrets/id_rsa` or iCloud Drive (`iCloud Drive/ssh/id_rsa`), adds to `ssh-agent` with `--apple-use-keychain` so the passphrase lives in the login keychain. Runs before clones so SSH auth works first pass. See `CLAUDE.md` for the full mechanism. |
+| 13 | **Clone Repos** | Project repositories |
+| 14 | **Android SDK** | SDK command-line tools + licence acceptance |
+| 15 | **iOS Development** | Verifies CocoaPods availability (installed via rbenv gem in Step 10) |
 | 16 | **GitHub CLI** | Authentication + SSH protocol + editor config |
 | 17 | **iTerm2** | Profile and preferences |
 | 18 | **macOS Defaults** | System preferences (Dock, Finder, keyboard, etc.) |
@@ -79,6 +79,8 @@ The script runs **28 steps** with a live progress widget pinned to the bottom of
 | 26 | **Login Items** | Accessibility permissions + startup apps |
 | 27 | **Amphetamine** | Power Protect helper for closed-lid mode |
 | 28 | **RAG System** | Local semantic search for Claude Code |
+| 29 | **LLM Wiki** | AI-maintained markdown knowledge base (clones `~/.wiki` + sync timer) |
+| 30 | **NAS Auto-mount** | Synology SMB auto-mount on login + network change (LAN first, Tailscale fallback) |
 
 ### Brewfile Highlights
 
@@ -138,23 +140,26 @@ dotfiles/
 ├── .editorconfig                # Editor defaults (indent, charset, newlines)
 │
 ├── claude/
-│   ├── CLAUDE.md                # Claude Code project instructions
-│   └── commands/                # Global skills (audit, debug, recall, etc.)
+│   ├── CLAUDE.md                # Global Claude Code instructions
+│   ├── commands/                # Global skills (audit, debug, recall, voice-review, etc.)
+│   ├── output-styles/           # Per-person voice profiles (warren.md = Warren's; copy & rename for your own)
+│   └── docs/                    # Shell reference, knowledge-system explainer, output-style guide
 │
-└── rag/                         # Local RAG system
+└── rag/                         # Local RAG system (see rag/README.md)
     ├── src/
-    │   ├── server.py            # FastMCP server (5 tools)
-    │   ├── store.py             # ChromaDB wrapper (3 collections)
+    │   ├── server.py            # FastMCP server (7 tools)
+    │   ├── store.py             # ChromaDB wrapper (conversations collection)
     │   ├── queue_db.py          # SQLite job queue (retry + backoff)
     │   ├── audit.py             # Append-only audit log
-    │   ├── summariser.py        # claude -p haiku with rate limiting
     │   ├── indexer.py           # Queue worker
     │   ├── watcher.py           # fswatch file monitor
-    │   └── parsers/             # JSONL, code, markdown, config parsers
+    │   ├── dashboard.py         # Local web dashboard
+    │   └── parsers/jsonl.py     # Claude Code JSONL parser
     ├── scripts/
     │   ├── bulk_index.py        # First-run indexer (resumable)
+    │   ├── sync.sh              # Multi-machine rsync (optional, personal)
     │   └── health_check.py      # Diagnostics
-    └── launchd/                 # Background service plists
+    └── launchd/                 # Background service plists (indexer, watcher, sync)
 ```
 
 ---
@@ -170,31 +175,34 @@ dotfiles/
 
 </div>
 
-A local semantic search system that gives Claude Code persistent memory across sessions. Indexes conversation history, source code, and documentation.
+A local semantic search system that gives Claude Code persistent memory across sessions. Indexes Claude Code conversation history (the JSONLs under `~/.claude/projects/`) and serves it back via MCP.
+
+Full architecture in [`rag/README.md`](rag/README.md). Companion explainer on RAG vs the wiki in [`claude/docs/knowledge-system.md`](claude/docs/knowledge-system.md).
 
 ```
-Claude Code ──► MCP Server (stdio) ──► ChromaDB + Ollama Embeddings
+Claude Code ──► MCP Server (stdio) ──► ChromaDB + local embeddings
                      │
-              ┌──────┴──────┐
-              │  5 Tools     │
-              │  search      │
-              │  get_context │
-              │  log_action  │
-              │  index_file  │
-              │  get_audit   │
-              └──────────────┘
+              ┌──────┴────────────────┐
+              │  7 Tools              │
+              │  search               │
+              │  get_context          │
+              │  log_action           │
+              │  index_file           │
+              │  get_indexing_status  │
+              │  get_failed_jobs      │
+              │  get_audit_log        │
+              └───────────────────────┘
 
-fswatch ──► SQLite Queue ──► Indexer ──► Summarise (haiku) ──► Embed ──► Store
+fswatch ──► SQLite Queue ──► Indexer ──► Embed ──► ChromaDB
 ```
 
 | Component | Detail |
 |-----------|--------|
-| **Embeddings** | `mxbai-embed-large` via Ollama (auto-unloads after 5 min idle) |
-| **Vector store** | ChromaDB with 3 collections: `conversations`, `code`, `docs` |
-| **Summarisation** | `claude -p --model haiku` with sliding-window rate limiting |
-| **Queue** | SQLite with retry, exponential backoff (30s, 120s, 480s), and deduplication |
-| **File watching** | fswatch monitors `~/.claude/projects/` and `~/Developer/` |
-| **Background** | Two launchd services: watcher + indexer |
+| **Embeddings** | Auto-detects: `Qwen/Qwen3-Embedding-4B` (Apple Silicon ≥32GB), `mxbai-embed-large-v1` otherwise. Runs via sentence-transformers + MPS. |
+| **Vector store** | ChromaDB, single `conversations` collection. |
+| **Queue** | SQLite with retry, exponential backoff, deduplication. |
+| **File watching** | fswatch monitors `~/.claude/projects/`. |
+| **Background** | Three launchd services: watcher, indexer, and (optional) multi-machine sync. |
 
 Installed automatically as Step 28 of `setup.sh`. Runtime data lives in `~/.rag/`.
 

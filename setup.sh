@@ -67,10 +67,10 @@ STEP_NAMES=(
   "Node.js"
   "Ruby"
   "npm Packages"
+  "SSH Key"
   "Clone Repos"
   "Android SDK"
   "iOS Development"
-  "SSH Key"
   "GitHub CLI"
   "iTerm2"
   "macOS Defaults"
@@ -85,6 +85,7 @@ STEP_NAMES=(
   "Amphetamine Power Protect"
   "RAG System"
   "LLM Wiki"
+  "NAS Auto-mount"
 )
 TOTAL_STEPS=${#STEP_NAMES[@]}
 
@@ -207,6 +208,22 @@ init_widget() {
   draw_widget
 }
 
+# Run an interactive subprocess with the widget torn down so its prompts render
+# normally (xcodes, bw login, gh auth login, etc. break inside the scroll region).
+run_interactive() {
+  # Hand the terminal fully back to the child: reset the scroll region, issue a
+  # full RIS reset so iTerm2 redraws cleanly, and bind stdio to /dev/tty so the
+  # child's prompts and input cannot be swallowed by any redirection.
+  restore_scroll_region
+  printf '\033c'
+  stty sane </dev/tty 2>/dev/null || true
+  "$@" </dev/tty >/dev/tty 2>&1
+  local rc=$?
+  setup_scroll_region
+  draw_widget
+  return $rc
+}
+
 # Clean up on exit
 cleanup_widget() {
   # Kill background Xcode download if still running
@@ -255,8 +272,9 @@ finish_all() {
 }
 
 ask() {
+  local response=""
   printf "${YELLOW}→${NC} %s ${BOLD}[y/N]${NC} " "$1"
-  read -r response </dev/tty
+  read -r response </dev/tty || response=""
   [[ "$response" =~ ^[Yy]$ ]]
 }
 
@@ -302,7 +320,7 @@ else
     xcode-select --install
     echo ""
     warn "Press ENTER after the installation finishes."
-    read -r </dev/tty
+    read -r </dev/tty || true
   fi
 fi
 
@@ -514,12 +532,15 @@ info "Installing ${selected_count} selected apps..."
 brew bundle --file="$PICK_BREWFILE" --verbose || warn "Some packages failed to install via Homebrew"
 rm -f "$PICK_BREWFILE"
 
-# Retry failed casks with direct download as fallback
-declare -A DIRECT_DOWNLOADS=(
-  ["bitwarden"]="https://vault.bitwarden.com/download/?app=desktop&platform=macos|Bitwarden.dmg"
-  ["1password"]="https://downloads.1password.com/mac/1Password.dmg|1Password.dmg"
-  ["ecamm-live"]="https://www.ecamm.com/cgi-bin/customercenter?action=download&product=ecammlive&platform=mac|EcammLive.zip"
-)
+# Retry failed casks with direct download as fallback.
+# Uses a case statement because macOS ships bash 3.2, which lacks associative arrays.
+direct_download_url() {
+  case "$1" in
+    bitwarden)  echo "https://vault.bitwarden.com/download/?app=desktop&platform=macos|Bitwarden.dmg" ;;
+    1password)  echo "https://downloads.1password.com/mac/1Password.dmg|1Password.dmg" ;;
+    ecamm-live) echo "https://www.ecamm.com/cgi-bin/customercenter?action=download&product=ecammlive&platform=mac|EcammLive.zip" ;;
+  esac
+}
 
 for ((i=0; i<TOTAL_PICK; i++)); do
   [[ "${PICK_SELECTED[$i]}" -eq 1 ]] || continue
@@ -528,7 +549,7 @@ for ((i=0; i<TOTAL_PICK; i++)); do
     cask_name="${BASH_REMATCH[1]}"
     # Check if brew installed it
     if ! brew list --cask "$cask_name" &>/dev/null; then
-      fallback="${DIRECT_DOWNLOADS[$cask_name]+${DIRECT_DOWNLOADS[$cask_name]}}"
+      fallback="$(direct_download_url "$cask_name")"
       if [[ -n "$fallback" ]]; then
         url="${fallback%%|*}"
         filename="${fallback#*|}"
@@ -552,24 +573,23 @@ done
 
 success "Brewfile processing complete (${selected_count} apps selected)"
 
-# Start Xcode download in the background (~12GB, takes a while)
+# Install Xcode. Runs in the foreground because xcodes needs an interactive
+# Apple ID login and may prompt for a 2FA code mid-download — backgrounding it
+# silently drops those prompts and auth fails.
 XCODE_PID=""
-if ! [[ -d "/Applications/Xcode.app" ]] && [[ -z "${XCODE_PID:-}" ]]; then
-  if command -v xcodes &>/dev/null; then
-    info "Starting Xcode download in the background via xcodes + aria2 (~12GB)..."
-    xcodes install --latest --experimental-unxip &
-    XCODE_PID=$!
-    success "Xcode downloading (PID: ${XCODE_PID}) — continuing with other steps"
-  elif command -v mas &>/dev/null; then
-    info "Starting Xcode download in the background via App Store (~12GB)..."
-    mas install 497799835 &
-    XCODE_PID=$!
-    success "Xcode downloading (PID: ${XCODE_PID}) — continuing with other steps"
+if [[ -d "/Applications/Xcode.app" ]]; then
+  success "Xcode already installed"
+elif command -v xcodes &>/dev/null; then
+  info "Xcode is not installed (~12GB download, 20-30 min)."
+  info "xcodes needs your Apple ID (free Developer account works) and will prompt for a 2FA code."
+  if ask "Install Xcode now via xcodes?"; then
+    run_interactive xcodes install --latest --experimental-unxip \
+      || warn "Xcode install failed. Retry manually: xcodes install --latest --experimental-unxip"
   else
-    warn "Neither xcodes nor mas available. Install Xcode manually from the App Store."
+    info "Skipping Xcode. Install later with: xcodes install --latest --experimental-unxip"
   fi
 else
-  success "Xcode already installed"
+  warn "xcodes not available. Install Xcode manually from the App Store."
 fi
 
 # ===========================================================================
@@ -585,7 +605,7 @@ if [[ -d "/Applications/Bitwarden.app" ]]; then
   if ask "Open Bitwarden to sign in?"; then
     open -a "Bitwarden" 2>/dev/null || warn "Could not open Bitwarden"
     warn "Press ENTER after you've signed in to Bitwarden."
-    read -r </dev/tty
+    read -r </dev/tty || true
     success "Bitwarden ready"
   fi
 
@@ -610,7 +630,7 @@ if [[ -d "/Applications/1Password.app" ]]; then
   if ask "Open 1Password to sign in?"; then
     open -a "1Password" 2>/dev/null || warn "Could not open 1Password"
     warn "Press ENTER after you've signed in to 1Password."
-    read -r </dev/tty
+    read -r </dev/tty || true
     success "1Password ready"
   fi
 
@@ -713,8 +733,10 @@ if ask "Symlink dotfiles? (existing files will be backed up)"; then
     info "  name:  $(git config --global user.name 2>/dev/null || echo '(not set)')"
     info "  email: $(git config --global user.email 2>/dev/null || echo '(not set)')"
   else
-    read -rp "Git full name (e.g. Warren de Leon): " GIT_NAME </dev/tty
-    read -rp "Git email (e.g. hi@warrendeleon.com): " GIT_EMAIL </dev/tty
+    GIT_NAME=""
+    GIT_EMAIL=""
+    read -rp "Git full name (e.g. Warren de Leon): " GIT_NAME </dev/tty || true
+    read -rp "Git email (e.g. hi@warrendeleon.com): " GIT_EMAIL </dev/tty || true
     cat > "$GIT_LOCAL" << GITEOF
 [user]
 	name = ${GIT_NAME}
@@ -850,10 +872,12 @@ if command -v rbenv &>/dev/null; then
       rbenv global "$RUBY_LATEST"
       success "Ruby ${RUBY_LATEST} installed and set as global"
 
-      # Install essential gems for the new Ruby version
+      # Install essential gems for the new Ruby version.
+      # rbenv rehash first so the freshly-installed Ruby's `gem` is on PATH.
       info "Installing CocoaPods gem..."
+      rbenv rehash 2>/dev/null || true
       gem install cocoapods || warn "Failed to install CocoaPods gem."
-      command -v pod &>/dev/null && success "CocoaPods gem installed for Ruby ${RUBY_LATEST}"
+      command -v pod &>/dev/null && success "CocoaPods gem installed for Ruby ${RUBY_LATEST}" || true
     fi
     fi
   fi
@@ -899,16 +923,15 @@ if command -v claude &>/dev/null || [[ "${CLAUDE_CODE_INSTALLED:-}" == "true" ]]
 
   mkdir -p "$HOME/.claude"
   CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-  if [[ -f "$CLAUDE_SETTINGS" ]]; then
-    info "Claude Code settings already exist"
-  else
-    cat > "$CLAUDE_SETTINGS" << 'CLAUDEEOF'
-{
-  "includeCoAuthoredBy": false
-}
-CLAUDEEOF
-    success "Claude Code settings created (co-authored-by disabled)"
+  # Back up any pre-existing real settings.json before symlinking. This carries
+  # outputStyle, hooks, enabled plugins, voice config, etc. so the friend's
+  # Claude Code matches the owner's defaults out of the box.
+  if [[ -f "$CLAUDE_SETTINGS" && ! -L "$CLAUDE_SETTINGS" ]]; then
+    cp "$CLAUDE_SETTINGS" "${CLAUDE_SETTINGS}.pre-dotfile-backup.$(date +%Y%m%d_%H%M%S)"
+    rm "$CLAUDE_SETTINGS"
+    info "Backed up pre-existing settings.json before symlinking"
   fi
+  symlink "${DOTFILES_DIR}/claude/settings.json" "$CLAUDE_SETTINGS"
   symlink "${DOTFILES_DIR}/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
   # Symlink global skills (commands)
   if [[ -d "${DOTFILES_DIR}/claude/commands" ]]; then
@@ -921,51 +944,137 @@ CLAUDEEOF
   if [[ -d "${DOTFILES_DIR}/claude/docs" ]]; then
     symlink "${DOTFILES_DIR}/claude/docs" "$HOME/.claude/docs"
   fi
+  # Symlink output styles
+  if [[ -d "${DOTFILES_DIR}/claude/output-styles" ]]; then
+    mkdir -p "$HOME/.claude/output-styles"
+    for style in "${DOTFILES_DIR}/claude/output-styles/"*.md; do
+      [[ -f "$style" ]] && symlink "$style" "$HOME/.claude/output-styles/$(basename "$style")"
+    done
+  fi
   success "Claude Code configured"
 fi
 
 # ===========================================================================
-# Step 12: Clone Repositories
+# SSH Key (from iCloud Drive). Runs before Clone Repositories so SSH auth works
+# on a fresh Mac in a single pass.
+# ===========================================================================
+section "SSH Key"
+
+SSH_KEY="$HOME/.ssh/id_rsa"
+LOCAL_SSH="${DOTFILES_DIR}/secrets/id_rsa"
+ICLOUD_SSH="$HOME/Library/Mobile Documents/com~apple~CloudDocs/ssh/id_rsa"
+
+if [[ -f "$SSH_KEY" ]]; then
+  success "SSH key already exists (${SSH_KEY})"
+else
+  mkdir -p "$HOME/.ssh"
+  chmod 700 "$HOME/.ssh"
+
+  # Pick the first available source: dotfiles local copy, then iCloud
+  SSH_SOURCE=""
+  if [[ -f "$LOCAL_SSH" ]]; then
+    SSH_SOURCE="$LOCAL_SSH"
+    info "Found SSH key in dotfiles (secrets/id_rsa)"
+  elif [[ -f "$ICLOUD_SSH" ]]; then
+    SSH_SOURCE="$ICLOUD_SSH"
+    info "Found SSH key in iCloud Drive"
+  fi
+
+  if [[ -n "$SSH_SOURCE" ]]; then
+    cp "$SSH_SOURCE" "$SSH_KEY"
+    chmod 600 "$SSH_KEY"
+
+    # Derive public key from private key
+    ssh-keygen -y -f "$SSH_KEY" > "${SSH_KEY}.pub"
+    chmod 644 "${SSH_KEY}.pub"
+
+    # Add to macOS keychain
+    eval "$(ssh-agent -s)" >/dev/null 2>&1 || warn "ssh-agent start failed"
+    ssh-add --apple-use-keychain "$SSH_KEY" \
+      || warn "ssh-add failed (passphrase cancelled?). Run: ssh-add --apple-use-keychain ~/.ssh/id_rsa"
+
+    success "SSH key installed and added to keychain"
+    echo ""
+    info "Public key:"
+    cat "${SSH_KEY}.pub"
+  else
+    warn "SSH key not found in dotfiles (secrets/id_rsa) or iCloud Drive"
+    info "To use an existing key: cp ~/.ssh/id_rsa ${DOTFILES_DIR}/secrets/id_rsa"
+    echo ""
+    if ask "Generate a new RSA SSH key instead?"; then
+      GIT_EMAIL_FOR_SSH=$(git config --global user.email 2>/dev/null || echo "")
+      ssh-keygen -t rsa -b 4096 -C "${GIT_EMAIL_FOR_SSH:-$(whoami)@$(hostname)}" -f "$SSH_KEY"
+      eval "$(ssh-agent -s)" >/dev/null 2>&1 || warn "ssh-agent start failed"
+      ssh-add --apple-use-keychain "$SSH_KEY" \
+        || warn "ssh-add failed. Run: ssh-add --apple-use-keychain ~/.ssh/id_rsa"
+      success "SSH key generated and added to keychain"
+      echo ""
+      info "Add this public key to GitHub:"
+      cat "${SSH_KEY}.pub"
+      echo ""
+      info "https://github.com/settings/ssh/new"
+    fi
+  fi
+fi
+
+# ===========================================================================
+# Clone Repositories
 # ===========================================================================
 section "Clone Repositories"
 
 WARREN_DIR="$HOME/Developer/warrendeleon"
 mkdir -p "$WARREN_DIR"
 
-RN_REPO_DIR="$WARREN_DIR/rn-warrendeleon"
-
-if [[ -d "$RN_REPO_DIR" ]]; then
-  success "rn-warrendeleon already cloned at ${RN_REPO_DIR}"
-else
-  if ask "Clone rn-warrendeleon to ~/Developer/warrendeleon/rn-warrendeleon?"; then
-    git clone git@github.com:warrendeleon/rn-warrendeleon.git "$RN_REPO_DIR"
-    success "Cloned to ${RN_REPO_DIR}"
+# Clone wrapper: non-fatal on failure and checks SSH auth first so we get a
+# clear error instead of a cryptic "Could not resolve hostname" under set -e.
+clone_ssh() {
+  local host="$1" url="$2" dest="$3" label="$4"
+  if [[ -d "$dest" ]]; then
+    success "${label} already cloned at ${dest}"
+    return 0
   fi
-fi
-
-SITE_REPO_DIR="$WARREN_DIR/warrendeleon.com"
-
-if [[ -d "$SITE_REPO_DIR" ]]; then
-  success "warrendeleon.com already cloned at ${SITE_REPO_DIR}"
-else
-  if ask "Clone warrendeleon.com to ~/Developer/warrendeleon/warrendeleon.com?"; then
-    git clone git@github.com:warrendeleon/warrendeleon.com.git "$SITE_REPO_DIR"
-    success "Cloned to ${SITE_REPO_DIR}"
+  if ! ask "Clone ${label} to ${dest}?"; then
+    return 0
   fi
-fi
-
-HL_REPO_DIR="$HOME/Developer/HL/hl-mobile-app"
-
-if [[ -d "$HL_REPO_DIR" ]]; then
-  success "hl-mobile-app already cloned at ${HL_REPO_DIR}"
-else
-  if ask "Clone hl-mobile-app to ~/Developer/HL/hl-mobile-app?"; then
-    mkdir -p "$HOME/Developer/HL"
-    # Uses SSH (requires SSH key from Step 15; re-run this step if cloning on first setup)
-    git clone git@gitlab.com:hldev/mobile/ucx-mobile-platform/hl-mobile-app.git "$HL_REPO_DIR"
-    success "Cloned to ${HL_REPO_DIR}"
+  # Verify SSH auth works before attempting. GitHub/GitLab return exit 1 even
+  # on success (they don't allow shell), so capture output with `|| true` — a
+  # straight pipe would trip `set -o pipefail` and misreport auth as broken.
+  local ssh_out
+  ssh_out=$(ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "git@${host}" 2>&1 || true)
+  if ! echo "$ssh_out" | grep -qE "successfully authenticated|Welcome"; then
+    warn "SSH auth to ${host} not working yet. Skipping ${label}."
+    warn "Fix with Step 15 (SSH key) + Step 16 (gh auth), then re-run this step or clone manually:"
+    warn "  git clone ${url} ${dest}"
+    return 0
   fi
-fi
+  git clone "$url" "$dest" \
+    && success "Cloned to ${dest}" \
+    || warn "git clone failed for ${label}. Retry manually: git clone ${url} ${dest}"
+}
+
+clone_ssh "github.com" "git@github.com:warrendeleon/rn-warrendeleon.git"    "${WARREN_DIR}/rn-warrendeleon"       "rn-warrendeleon"
+clone_ssh "github.com" "git@github.com:warrendeleon/warrendeleon.com.git"   "${WARREN_DIR}/warrendeleon.com"      "warrendeleon.com"
+mkdir -p "$HOME/Developer/HL"
+clone_ssh "gitlab.com" "git@gitlab.com:hldev/mobile/ucx-mobile-platform/hl-mobile-app.git" "$HOME/Developer/HL/hl-mobile-app" "hl-mobile-app"
+
+# Register every cloned repo for scheduled maintenance. Writes into
+# ~/.gitconfig.local (not the tracked dotfile) via `git maintenance register`,
+# which appends absolute paths to [maintenance].repo.
+register_maintenance() {
+  local repo_path="$1"
+  [[ -d "$repo_path/.git" ]] || return 0
+  # `git maintenance register` writes to the global config (~/.gitconfig).
+  # We want it in ~/.gitconfig.local instead, so set GIT_CONFIG_GLOBAL.
+  GIT_CONFIG_GLOBAL="$HOME/.gitconfig.local" \
+    git -C "$repo_path" maintenance register --quiet 2>/dev/null || true
+}
+for repo in "${WARREN_DIR}/rn-warrendeleon" "${WARREN_DIR}/warrendeleon.com" \
+            "$HOME/Developer/HL/hl-mobile-app" "${DOTFILES_DIR}"; do
+  register_maintenance "$repo"
+done
+# Start the launchd schedule (idempotent; safe to re-run).
+GIT_CONFIG_GLOBAL="$HOME/.gitconfig.local" git maintenance start --quiet 2>/dev/null || true
+success "Registered cloned repos for scheduled git maintenance"
 
 # ===========================================================================
 # Step 13: Android SDK Setup
@@ -1020,12 +1129,14 @@ if [[ -n "$SDKMANAGER" ]]; then
   success "Android SDK components installed"
 
   if ask "Create an Android emulator (Pixel 8, API 35)?"; then
-    "$ANDROID_SDK/cmdline-tools/latest/bin/avdmanager" create avd \
+    # avdmanager prompts "Do you wish to create a custom hardware profile? [no]"
+    # on stdin — pipe `no` responses so it doesn't block without a tty.
+    yes "no" 2>/dev/null | "$ANDROID_SDK/cmdline-tools/latest/bin/avdmanager" create avd \
       --name "Pixel_8_API_35" \
       --package "system-images;android-35;google_apis;arm64-v8a" \
       --device "pixel_8" \
-      --force || warn "Failed to create emulator. Create it manually in Android Studio."
-    [[ -d "$HOME/.android/avd/Pixel_8_API_35.avd" ]] && success "Emulator 'Pixel_8_API_35' created"
+      --force 2>/dev/null || warn "Failed to create emulator. Create it manually in Android Studio."
+    [[ -d "$HOME/.android/avd/Pixel_8_API_35.avd" ]] && success "Emulator 'Pixel_8_API_35' created" || true
   fi
 else
   warn "Skipped Android SDK setup."
@@ -1051,11 +1162,16 @@ if [[ -d "/Applications/Xcode.app" ]]; then
 
   if ask "Accept Xcode licence and install additional components?"; then
     sudo xcodebuild -license accept 2>/dev/null || warn "Run 'sudo xcodebuild -license accept' manually"
-    sudo xcodebuild -runFirstLaunch 2>/dev/null || true
+    # runFirstLaunch can hang for several minutes installing simulators; cap it.
+    if command -v timeout &>/dev/null; then
+      timeout 900 sudo xcodebuild -runFirstLaunch 2>/dev/null || warn "xcodebuild -runFirstLaunch timed out or failed — retry manually later"
+    else
+      sudo xcodebuild -runFirstLaunch 2>/dev/null || true
+    fi
     success "Xcode licence accepted and components installed"
   fi
 else
-  warn "Xcode.app not found. Install from the App Store (or 'mas install 497799835')."
+  warn "Xcode.app not found. Install via 'xcodes install --latest --experimental-unxip' or from the App Store."
   warn "After installing, re-run this step."
 fi
 
@@ -1076,66 +1192,6 @@ if command -v xcrun &>/dev/null && [[ -d "/Applications/Xcode.app" ]]; then
     }
   else
     success "iOS Simulator runtime(s) already installed (${INSTALLED_RUNTIMES} found)"
-  fi
-fi
-
-# ===========================================================================
-# Step 15: SSH Key (from iCloud Drive)
-# ===========================================================================
-section "SSH Key"
-
-SSH_KEY="$HOME/.ssh/id_rsa"
-LOCAL_SSH="${DOTFILES_DIR}/secrets/id_rsa"
-ICLOUD_SSH="$HOME/Library/Mobile Documents/com~apple~CloudDocs/ssh/id_rsa"
-
-if [[ -f "$SSH_KEY" ]]; then
-  success "SSH key already exists (${SSH_KEY})"
-else
-  mkdir -p "$HOME/.ssh"
-  chmod 700 "$HOME/.ssh"
-
-  # Pick the first available source: dotfiles local copy, then iCloud
-  SSH_SOURCE=""
-  if [[ -f "$LOCAL_SSH" ]]; then
-    SSH_SOURCE="$LOCAL_SSH"
-    info "Found SSH key in dotfiles (secrets/id_rsa)"
-  elif [[ -f "$ICLOUD_SSH" ]]; then
-    SSH_SOURCE="$ICLOUD_SSH"
-    info "Found SSH key in iCloud Drive"
-  fi
-
-  if [[ -n "$SSH_SOURCE" ]]; then
-    cp "$SSH_SOURCE" "$SSH_KEY"
-    chmod 600 "$SSH_KEY"
-
-    # Derive public key from private key
-    ssh-keygen -y -f "$SSH_KEY" > "${SSH_KEY}.pub"
-    chmod 644 "${SSH_KEY}.pub"
-
-    # Add to macOS keychain
-    eval "$(ssh-agent -s)"
-    ssh-add --apple-use-keychain "$SSH_KEY"
-
-    success "SSH key installed and added to keychain"
-    echo ""
-    info "Public key:"
-    cat "${SSH_KEY}.pub"
-  else
-    warn "SSH key not found in dotfiles (secrets/id_rsa) or iCloud Drive"
-    info "To use an existing key: cp ~/.ssh/id_rsa ${DOTFILES_DIR}/secrets/id_rsa"
-    echo ""
-    if ask "Generate a new RSA SSH key instead?"; then
-      GIT_EMAIL_FOR_SSH=$(git config --global user.email 2>/dev/null || echo "")
-      ssh-keygen -t rsa -b 4096 -C "${GIT_EMAIL_FOR_SSH:-$(whoami)@$(hostname)}" -f "$SSH_KEY"
-      eval "$(ssh-agent -s)"
-      ssh-add --apple-use-keychain "$SSH_KEY"
-      success "SSH key generated and added to keychain"
-      echo ""
-      info "Add this public key to GitHub:"
-      cat "${SSH_KEY}.pub"
-      echo ""
-      info "https://github.com/settings/ssh/new"
-    fi
   fi
 fi
 
@@ -1162,9 +1218,9 @@ if command -v gh &>/dev/null; then
 
   # Set preferred defaults
   if gh auth status &>/dev/null 2>&1; then
-    gh config set git_protocol ssh --host github.com 2>/dev/null
-    gh config set editor "webstorm --wait" 2>/dev/null
-    gh config set pager "less" 2>/dev/null
+    gh config set git_protocol ssh --host github.com 2>/dev/null || true
+    gh config set editor "webstorm --wait" 2>/dev/null || true
+    gh config set pager "less" 2>/dev/null || true
     success "GitHub CLI configured (SSH protocol, WebStorm editor)"
   fi
 else
@@ -1298,11 +1354,17 @@ section "Tailscale SSH"
 TAILSCALE_CLI="/Applications/Tailscale.app/Contents/MacOS/tailscale"
 
 if [[ -d "/Applications/Tailscale.app" ]]; then
-  # Wrapper script for CLI (symlink breaks — App Store binary checks bundle path)
+  # Wrapper script for CLI (symlink breaks — App Store binary checks bundle path).
+  # /usr/local/bin doesn't exist by default on Apple Silicon (Homebrew uses
+  # /opt/homebrew), so create it first and install there for stable PATH.
   if [[ ! -x /usr/local/bin/tailscale ]]; then
-    printf '#!/bin/sh\nexec "%s" "$@"\n' "$TAILSCALE_CLI" | sudo tee /usr/local/bin/tailscale > /dev/null
-    sudo chmod +x /usr/local/bin/tailscale
-    success "Tailscale CLI wrapper installed at /usr/local/bin/tailscale"
+    if sudo mkdir -p /usr/local/bin \
+       && printf '#!/bin/sh\nexec "%s" "$@"\n' "$TAILSCALE_CLI" | sudo tee /usr/local/bin/tailscale > /dev/null \
+       && sudo chmod +x /usr/local/bin/tailscale; then
+      success "Tailscale CLI wrapper installed at /usr/local/bin/tailscale"
+    else
+      warn "Could not install Tailscale CLI wrapper. Use the full path: $TAILSCALE_CLI"
+    fi
   fi
 
   if ! pgrep -q Tailscale; then
@@ -1315,7 +1377,7 @@ if [[ -d "/Applications/Tailscale.app" ]]; then
     success "Tailscale connected"
   else
     info "Sign in to Tailscale via the menu bar icon."
-    read -rp "Press ENTER after you've signed in..." </dev/tty
+    read -rp "Press ENTER after you've signed in..." </dev/tty || true
     if "$TAILSCALE_CLI" status &>/dev/null 2>&1; then
       success "Tailscale connected"
     else
@@ -1326,12 +1388,13 @@ if [[ -d "/Applications/Tailscale.app" ]]; then
   # Set machine hostname (macOS + Tailscale together)
   CURRENT_HOSTNAME=$(scutil --get ComputerName 2>/dev/null || hostname -s)
   info "Current machine name: ${CURRENT_HOSTNAME}"
-  read -rp "Enter new hostname (or press ENTER to keep '${CURRENT_HOSTNAME}'): " NEW_HOSTNAME </dev/tty
+  NEW_HOSTNAME=""
+  read -rp "Enter new hostname (or press ENTER to keep '${CURRENT_HOSTNAME}'): " NEW_HOSTNAME </dev/tty || true
   if [[ -n "$NEW_HOSTNAME" ]]; then
-    # macOS has three hostname layers
-    sudo scutil --set ComputerName "$NEW_HOSTNAME"
-    sudo scutil --set LocalHostName "$NEW_HOSTNAME"
-    sudo scutil --set HostName "$NEW_HOSTNAME"
+    # macOS has three hostname layers — any of these may fail if user cancels sudo.
+    sudo scutil --set ComputerName  "$NEW_HOSTNAME" || warn "Failed to set ComputerName"
+    sudo scutil --set LocalHostName "$NEW_HOSTNAME" || warn "Failed to set LocalHostName"
+    sudo scutil --set HostName      "$NEW_HOSTNAME" || warn "Failed to set HostName"
     success "macOS hostname set to: ${NEW_HOSTNAME}"
 
     # Match Tailscale hostname
@@ -1389,9 +1452,11 @@ if [[ -d "/Applications/Fork.app" ]]; then
       cp "$FORK_PLIST" "${FORK_PLIST}.backup.$(date +%Y%m%d_%H%M%S)"
     fi
     info "Restoring Fork preferences (diff font, stash/rebase settings, hooks)..."
-    defaults import com.DanPristupov.Fork "${DOTFILES_DIR}/com.DanPristupov.Fork.plist"
+    defaults import com.DanPristupov.Fork "${DOTFILES_DIR}/com.DanPristupov.Fork.plist" \
+      || warn "Fork preferences import failed"
     # Update paths for new machine
-    defaults write com.DanPristupov.Fork defaultSourceFolder -string "$HOME/Developer"
+    defaults write com.DanPristupov.Fork defaultSourceFolder -string "$HOME/Developer" \
+      || warn "Could not set Fork defaultSourceFolder"
     success "Fork preferences restored"
   else
     warn "Fork plist not found in dotfiles"
@@ -1429,6 +1494,38 @@ else
   warn "Singlebox not installed yet"
 fi
 
+# Apply paid-app licences from ~/.secrets.env where the app stores them in its
+# preference plist (so `defaults write` is enough). Apps that gate behind their
+# own UI flow (TG Pro, etc.) are flagged at the end.
+if [[ -d "/Applications/AlDente.app" || -d "/Applications/AlDente Pro.app" ]]; then
+  if [[ -n "${ALDENTE_EMAIL:-}" && -n "${ALDENTE_KEY:-}" ]]; then
+    defaults write com.apphousekitchen.aldente-pro paddleEmail   -string "$ALDENTE_EMAIL"
+    defaults write com.apphousekitchen.aldente-pro paddleLicense -string "$ALDENTE_KEY"
+    success "AlDente Pro licence activated from \$ALDENTE_EMAIL/\$ALDENTE_KEY"
+  else
+    info "ALDENTE_EMAIL / ALDENTE_KEY not set in ~/.secrets.env; activate manually in AlDente preferences"
+  fi
+fi
+
+if [[ -d "/Applications/Bartender 5.app" || -d "/Applications/Bartender 6.app" ]]; then
+  if [[ -n "${BARTENDER_KEY:-}" ]]; then
+    defaults write com.surteesstudios.Bartender license6 -string "$BARTENDER_KEY"
+    defaults write com.surteesstudios.Bartender license6HoldersName -string "${BARTENDER_HOLDER:-$(git config --global user.email 2>/dev/null)}"
+    success "Bartender licence activated from \$BARTENDER_KEY"
+  else
+    info "BARTENDER_KEY not set in ~/.secrets.env; activate manually in Bartender preferences"
+  fi
+fi
+
+# TG Pro does not expose its licence via plist or CLI. The activation key must
+# be pasted into the app: TG Pro > Preferences > Registration. Keep TGPRO_KEY
+# in ~/.secrets.env as a record for re-entry on a fresh machine.
+if [[ -d "/Applications/TG Pro.app" ]]; then
+  if [[ -n "${TGPRO_KEY:-}" ]]; then
+    info "TG Pro: paste \$TGPRO_KEY into TG Pro > Preferences > Registration"
+  fi
+fi
+
 # ===========================================================================
 # Step 22: WebStorm Settings Sync
 # ===========================================================================
@@ -1453,7 +1550,7 @@ echo ""
 if ask "Open WebStorm now to set up Settings Sync?"; then
   open -a "WebStorm" 2>/dev/null || warn "WebStorm not found"
   warn "Press ENTER after you've synced your settings."
-  read -r </dev/tty
+  read -r </dev/tty || true
   success "WebStorm configured"
 fi
 
@@ -1469,11 +1566,15 @@ if [[ -f "$PAM_SUDO" ]] && grep -q "pam_tid" "$PAM_SUDO" 2>/dev/null; then
 else
   info "This lets you use Touch ID instead of typing your password for sudo."
   if ask "Enable Touch ID for sudo?"; then
-    sudo tee /etc/pam.d/sudo_local > /dev/null << 'EOF'
+    if sudo tee /etc/pam.d/sudo_local > /dev/null << 'EOF'
 # sudo_local: local config for sudo (survives macOS updates)
 auth       sufficient     pam_tid.so
 EOF
-    success "Touch ID for sudo enabled"
+    then
+      success "Touch ID for sudo enabled"
+    else
+      warn "Could not write /etc/pam.d/sudo_local. Re-run and approve the sudo prompt."
+    fi
   fi
 fi
 
@@ -1488,8 +1589,9 @@ if [[ "$FIREWALL_STATUS" -gt 0 ]]; then
   success "Firewall already enabled"
 else
   if ask "Enable macOS Firewall?"; then
-    sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
-    success "Firewall enabled"
+    sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on \
+      && success "Firewall enabled" \
+      || warn "Could not enable Firewall (needs Full Disk Access). Enable manually: System Settings → Network → Firewall"
   fi
 fi
 
@@ -1499,8 +1601,9 @@ if [[ "$FILEVAULT_STATUS" -gt 0 ]]; then
   success "FileVault already enabled"
 else
   if ask "Enable FileVault (full-disk encryption)?"; then
-    sudo fdesetup enable
-    success "FileVault enabled — save your recovery key somewhere safe!"
+    sudo fdesetup enable \
+      && success "FileVault enabled — save your recovery key somewhere safe!" \
+      || warn "FileVault not enabled (cancelled or failed). Enable manually: System Settings → Privacy & Security → FileVault"
   fi
 fi
 
@@ -1565,18 +1668,22 @@ for app in "${LOGIN_APPS[@]}"; do
   fi
 done
 
-# Import BetterDisplay display profiles (resolutions, brightness, DDC settings)
+# Import BetterDisplay display profiles (resolutions, brightness, DDC settings).
+# Bundle ID is pro.betterdisplay.BetterDisplay — the old me.waydabber.BetterDummy
+# was from the app's pre-rename "BetterDummy" era and no longer applies.
 BETTERDISPLAY_PLIST="${DOTFILES_DIR}/betterdisplay/BetterDisplay.plist"
 if [[ -f "$BETTERDISPLAY_PLIST" ]]; then
-  defaults import me.waydabber.BetterDummy "$BETTERDISPLAY_PLIST"
-  success "BetterDisplay display profiles imported"
+  defaults import pro.betterdisplay.BetterDisplay "$BETTERDISPLAY_PLIST" \
+    && success "BetterDisplay display profiles imported" \
+    || warn "BetterDisplay import failed (bundle ID mismatch or cfprefsd locked)"
 fi
 
 # Import Amphetamine preferences
 AMPHETAMINE_PLIST="${DOTFILES_DIR}/amphetamine/Amphetamine.plist"
 if [[ -f "$AMPHETAMINE_PLIST" ]]; then
-  defaults import com.if.Amphetamine "$AMPHETAMINE_PLIST"
-  success "Amphetamine preferences imported"
+  defaults import com.if.Amphetamine "$AMPHETAMINE_PLIST" \
+    && success "Amphetamine preferences imported" \
+    || warn "Amphetamine import failed"
 fi
 
 # Activate BetterDisplay Pro licence if key is available
@@ -1613,7 +1720,7 @@ done
 echo ""
 warn "Toggle each app ON in the System Settings window that just opened."
 warn "Press ENTER after you've granted all permissions."
-read -r </dev/tty
+read -r </dev/tty || true
 success "Accessibility permissions step complete"
 
 # Set up daily auto-updates for Homebrew (formulae, casks, and App Store apps)
@@ -1646,41 +1753,49 @@ POWER_PROTECT_URL="https://github.com/x74353/Amphetamine-Power-Protect/raw/main/
 
 if ask "Download and open Amphetamine Power Protect installer?"; then
   info "Downloading..."
+  POWER_PROTECT_MOUNT=""
   if ! curl -fsSL "$POWER_PROTECT_URL" -o "$POWER_PROTECT_DMG"; then
     warn "Failed to download Power Protect. Install manually later."
     rm -rf "${POWER_PROTECT_TMPDIR:-}"
-  elif ! hdiutil attach "$POWER_PROTECT_DMG" -nobrowse -quiet; then
-    warn "Failed to mount DMG. Install Power Protect manually."
-    rm -rf "${POWER_PROTECT_TMPDIR:-}"
   else
-    success "Downloaded and mounted"
-    open "/Volumes/Power Protect for Amphetamine"
-    success "Opened — run the installer inside the window"
-    echo ""
+    # Attach and capture the actual mount point — the volume name inside the
+    # DMG may differ from the filename (and macOS may add " 2" if a stale mount
+    # exists). hdiutil's text output ends each row with the mount path.
+    POWER_PROTECT_MOUNT=$(hdiutil attach "$POWER_PROTECT_DMG" -nobrowse 2>/dev/null \
+      | grep -Eo "/Volumes/.+$" | head -1)
+    if [[ -z "$POWER_PROTECT_MOUNT" || ! -d "$POWER_PROTECT_MOUNT" ]]; then
+      warn "Failed to mount DMG or locate mount point. Install Power Protect manually."
+      rm -rf "${POWER_PROTECT_TMPDIR:-}"
+    else
+      success "Downloaded and mounted at: $POWER_PROTECT_MOUNT"
+      open "$POWER_PROTECT_MOUNT" 2>/dev/null || warn "Could not open the installer window — browse it manually: $POWER_PROTECT_MOUNT"
+      success "Opened — run the installer inside the window"
+      echo ""
 
-    # Wait for installation to complete (timeout after 2 minutes)
-    info "Waiting for Power Protect to be installed..."
-    TIMEOUT=120
-    ELAPSED=0
-    while true; do
-      if [[ -f "/private/etc/sudoers.d/amphetamine-power-protect" ]] || \
-         ls /private/etc/sudoers.d/*mphetamine* &>/dev/null 2>&1; then
-        success "Power Protect installed successfully"
-        break
-      fi
-      sleep 3
-      ELAPSED=$((ELAPSED + 3))
-      if ((ELAPSED >= TIMEOUT)); then
-        warn "Timed out waiting. Install Power Protect manually later."
-        break
-      fi
-      echo -e "${DIM}  Still waiting... (${ELAPSED}s/${TIMEOUT}s)${NC}"
-    done
+      # Wait for installation to complete (timeout after 2 minutes)
+      info "Waiting for Power Protect to be installed..."
+      TIMEOUT=120
+      ELAPSED=0
+      while true; do
+        if [[ -f "/private/etc/sudoers.d/amphetamine-power-protect" ]] || \
+           ls /private/etc/sudoers.d/*mphetamine* &>/dev/null 2>&1; then
+          success "Power Protect installed successfully"
+          break
+        fi
+        sleep 3
+        ELAPSED=$((ELAPSED + 3))
+        if ((ELAPSED >= TIMEOUT)); then
+          warn "Timed out waiting. Install Power Protect manually later."
+          break
+        fi
+        echo -e "${DIM}  Still waiting... (${ELAPSED}s/${TIMEOUT}s)${NC}"
+      done
 
-    # Clean up
-    hdiutil detach "/Volumes/Power Protect for Amphetamine" -quiet 2>/dev/null || true
-    rm -rf "${POWER_PROTECT_TMPDIR:-}"
-    success "Cleaned up"
+      # Clean up — detach whatever we actually mounted.
+      hdiutil detach "$POWER_PROTECT_MOUNT" -quiet 2>/dev/null || true
+      rm -rf "${POWER_PROTECT_TMPDIR:-}"
+      success "Cleaned up"
+    fi
   fi
 fi
 
@@ -1690,10 +1805,11 @@ fi  # end of "already installed" check
 # Git Maintenance (all repos in ~/Developer)
 # ===========================================================================
 info "Enabling git maintenance for all repos in ~/Developer..."
-find "$HOME/Developer" -maxdepth 3 -name ".git" -type d 2>/dev/null | while read gitdir; do
+while IFS= read -r gitdir; do
+  [[ -z "$gitdir" ]] && continue
   repo=$(dirname "$gitdir")
   git -C "$repo" maintenance start 2>/dev/null && echo "  ✓ $(basename "$repo")" || true
-done
+done < <(find "$HOME/Developer" -maxdepth 3 -name ".git" -type d 2>/dev/null || true)
 success "Git maintenance enabled (background prefetch, commit-graph, loose-objects)"
 
 # ===========================================================================
@@ -1708,8 +1824,13 @@ if [[ -f "$CLEANUP_SCRIPT" ]]; then
   mkdir -p "$HOME/Library/LaunchAgents"
   sed "s|__HOME__|$HOME|g" "$CLEANUP_PLIST_SRC" > "$CLEANUP_PLIST_DST"
   launchctl unload "$CLEANUP_PLIST_DST" 2>/dev/null || true
-  launchctl load "$CLEANUP_PLIST_DST"
-  success "Weekly cleanup enabled (every 7 days, catches up after boot)"
+  # Try modern bootstrap first (macOS 10.10+), fall back to legacy load.
+  if launchctl bootstrap "gui/$(id -u)" "$CLEANUP_PLIST_DST" 2>/dev/null \
+     || launchctl load "$CLEANUP_PLIST_DST" 2>/dev/null; then
+    success "Weekly cleanup enabled (every 7 days, catches up after boot)"
+  else
+    warn "Could not load weekly cleanup launchd plist. Load manually: launchctl load $CLEANUP_PLIST_DST"
+  fi
 fi
 
 # ===========================================================================
@@ -1762,6 +1883,18 @@ elif [[ -d "$RAG_DIR" ]]; then
 
     # Pull Ollama embedding model (auto-detect based on machine specs)
     if command -v ollama &>/dev/null; then
+      # Start Ollama as a brew service if it's not already responding. `ollama pull`
+      # needs the daemon running; on a fresh Mac it isn't started automatically.
+      if ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+        info "Starting Ollama daemon..."
+        brew services start ollama >/dev/null 2>&1 || true
+        # Wait up to 15s for the daemon to come up.
+        for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+          curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1 && break
+          sleep 1
+        done
+      fi
+
       RAM_BYTES=$(sysctl -n hw.memsize 2>/dev/null || echo 0)
       RAM_GB=$((RAM_BYTES / 1073741824))
       CHIP=$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo "")
@@ -1771,8 +1904,11 @@ elif [[ -d "$RAG_DIR" ]]; then
         EMBED_MODEL="mxbai-embed-large"
       fi
       info "Pulling ${EMBED_MODEL} embedding model (detected ${RAM_GB}GB RAM)..."
-      ollama pull "$EMBED_MODEL" || warn "Failed to pull model. Run: ollama pull $EMBED_MODEL"
-      ollama list 2>/dev/null | grep -q "$EMBED_MODEL" && success "Embedding model ready: $EMBED_MODEL"
+      if ollama pull "$EMBED_MODEL"; then
+        success "Embedding model ready: $EMBED_MODEL"
+      else
+        warn "Failed to pull model. Start Ollama and retry: brew services start ollama && ollama pull $EMBED_MODEL"
+      fi
     else
       warn "Ollama not found. Install it first, then run: ollama pull <model>"
     fi
@@ -1787,8 +1923,12 @@ elif [[ -d "$RAG_DIR" ]]; then
       fi
       # Replace placeholder with current user's home directory
       sed "s|__HOME__|$HOME|g" "$plist" > "$target"
-      launchctl load "$target"
-      success "Loaded $plist_name"
+      if launchctl bootstrap "gui/$(id -u)" "$target" 2>/dev/null \
+         || launchctl load "$target" 2>/dev/null; then
+        success "Loaded $plist_name"
+      else
+        warn "Could not load $plist_name. Load manually: launchctl load $target"
+      fi
     done
 
     # Create wrapper script (Claude Code doesn't reliably apply cwd)
@@ -1860,16 +2000,24 @@ fi
 section "LLM Wiki"
 
 WIKI_DIR="$HOME/.wiki"
-WIKI_REPO="git@github.com:warrendeleon/wiki.git"
+# Default points at the dotfile owner's wiki. Override via WIKI_REPO env var
+# to point at your own (see claude/docs/knowledge-system.md for how to
+# bootstrap your own wiki repo from scratch).
+WIKI_REPO="${WIKI_REPO:-git@github.com:warrendeleon/wiki.git}"
 
 if ask "Set up the LLM Wiki (AI-maintained knowledge base)?"; then
   if [[ -d "$WIKI_DIR/.git" ]]; then
     success "Wiki already cloned at $WIKI_DIR"
   else
-    info "Cloning wiki repository..."
-    git clone "$WIKI_REPO" "$WIKI_DIR" 2>/dev/null \
-      && success "Wiki cloned to $WIKI_DIR" \
-      || warn "Failed to clone wiki. Clone manually: git clone $WIKI_REPO $WIKI_DIR"
+    info "Cloning wiki repository ($WIKI_REPO)..."
+    if git clone "$WIKI_REPO" "$WIKI_DIR" 2>/dev/null; then
+      success "Wiki cloned to $WIKI_DIR"
+    else
+      warn "Failed to clone $WIKI_REPO."
+      warn "If you don't have access to that repo, create your own:"
+      warn "  see ${DOTFILES_DIR}/claude/docs/knowledge-system.md"
+      warn "  then re-run with: WIKI_REPO=git@github.com:youruser/wiki.git ./setup.sh"
+    fi
   fi
 
   # Install sync launchd service
@@ -1913,8 +2061,12 @@ if ask "Set up the LLM Wiki (AI-maintained knowledge base)?"; then
 WIKIPLIST
 
     mkdir -p "$HOME/.rag/logs"
-    launchctl load "$PLIST_TARGET"
-    success "Wiki sync service installed (every 10 minutes)"
+    if launchctl bootstrap "gui/$(id -u)" "$PLIST_TARGET" 2>/dev/null \
+       || launchctl load "$PLIST_TARGET" 2>/dev/null; then
+      success "Wiki sync service installed (every 10 minutes)"
+    else
+      warn "Could not load wiki sync plist. Load manually: launchctl load $PLIST_TARGET"
+    fi
   fi
 
   # Check if Obsidian is installed
@@ -1925,6 +2077,67 @@ WIKIPLIST
   fi
 
   success "LLM Wiki set up"
+fi
+
+# ===========================================================================
+# Step 30: NAS Auto-mount (Synology SMB with LAN + Tailscale fallback)
+# ===========================================================================
+section "NAS Auto-mount"
+
+if ask "Set up Synology NAS auto-mount (requires your NAS on 192.168.10.2 or Tailscale)?"; then
+  NAS_SRC_DIR="${DOTFILES_DIR}/nas"
+  NAS_SCRIPT_SRC="${NAS_SRC_DIR}/mount-nas.sh"
+  NAS_SCRIPT_DST="$HOME/.local/bin/mount-nas.sh"
+  NAS_PLIST_SRC="${NAS_SRC_DIR}/com.warren.nas.plist"
+  NAS_PLIST_DST="$HOME/Library/LaunchAgents/com.warren.nas.plist"
+
+  if [[ -f "$NAS_SCRIPT_SRC" && -f "$NAS_PLIST_SRC" ]]; then
+    mkdir -p "$HOME/.local/bin" "$HOME/Library/LaunchAgents"
+
+    cp "$NAS_SCRIPT_SRC" "$NAS_SCRIPT_DST"
+    chmod +x "$NAS_SCRIPT_DST"
+    success "Installed mount-nas.sh to $NAS_SCRIPT_DST"
+
+    # Unload any existing agent before overwriting.
+    if [[ -f "$NAS_PLIST_DST" ]]; then
+      launchctl bootout "gui/$(id -u)/com.warren.nas" 2>/dev/null \
+        || launchctl unload "$NAS_PLIST_DST" 2>/dev/null || true
+    fi
+
+    sed "s|__HOME__|$HOME|g" "$NAS_PLIST_SRC" > "$NAS_PLIST_DST"
+
+    if launchctl bootstrap "gui/$(id -u)" "$NAS_PLIST_DST" 2>/dev/null \
+       || launchctl load "$NAS_PLIST_DST" 2>/dev/null; then
+      success "NAS auto-mount LaunchAgent loaded (runs at login + on network change)"
+    else
+      warn "Could not load NAS LaunchAgent. Load manually: launchctl load $NAS_PLIST_DST"
+    fi
+
+    # Provision Keychain from ~/.secrets.env if NAS_SMB_PASSWORD is set.
+    # Sourced in a subshell so the password doesn't leak into the main env.
+    NAS_PW=$(bash -c '[[ -f "$HOME/.secrets.env" ]] && source "$HOME/.secrets.env" && printf %s "${NAS_SMB_PASSWORD:-}"')
+    if [[ -n "$NAS_PW" ]]; then
+      for nas_server in 192.168.10.2 warrennasltd.tailc83e67.ts.net; do
+        security add-internet-password \
+          -a warren \
+          -s "$nas_server" \
+          -r "smb " \
+          -w "$NAS_PW" \
+          -U \
+          -T "" 2>/dev/null \
+          && success "Keychain entry set for $nas_server" \
+          || warn "Could not set Keychain entry for $nas_server"
+      done
+      unset NAS_PW
+    else
+      info "NAS_SMB_PASSWORD not set in ~/.secrets.env — will prompt on first Cmd+K"
+      info "  Finder → Cmd+K → smb://warren@192.168.10.2/video → tick 'Remember in keychain'"
+    fi
+  else
+    warn "NAS source files missing in $NAS_SRC_DIR — skipped"
+  fi
+else
+  info "NAS auto-mount skipped"
 fi
 
 # ===========================================================================
@@ -1947,5 +2160,6 @@ echo "  5. Open Amphetamine → start a session → configure preferences"
 echo "  6. Save your FileVault recovery key somewhere safe"
 echo "  7. Open DisplayLink Manager and sign in (installed via Brewfile)"
 echo "  8. Set up the SSH remote for rn-warrendeleon: git remote set-url origin git@github.com:warrendeleon/rn-warrendeleon.git"
+echo "  9. NAS: if NAS_SMB_PASSWORD is set in ~/.secrets.env, Keychain was provisioned automatically. Otherwise, open Finder → Cmd+K → smb://warren@192.168.10.2/video → tick 'Remember in keychain'"
 echo ""
 success "Enjoy your new Mac!"
