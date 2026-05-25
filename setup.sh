@@ -1508,12 +1508,35 @@ if [[ -d "/Applications/AlDente.app" || -d "/Applications/AlDente Pro.app" ]]; t
 fi
 
 if [[ -d "/Applications/Bartender 5.app" || -d "/Applications/Bartender 6.app" ]]; then
+  # Import menu bar layout (licence + trial timestamp stripped before commit).
+  BARTENDER_PLIST_SRC="${DOTFILES_DIR}/com.surteesstudios.Bartender.plist"
+  if [[ -f "$BARTENDER_PLIST_SRC" ]]; then
+    BARTENDER_PLIST_DST="$HOME/Library/Preferences/com.surteesstudios.Bartender.plist"
+    [[ -f "$BARTENDER_PLIST_DST" ]] && cp "$BARTENDER_PLIST_DST" "${BARTENDER_PLIST_DST}.backup.$(date +%Y%m%d_%H%M%S)"
+    defaults import com.surteesstudios.Bartender "$BARTENDER_PLIST_SRC" \
+      && success "Bartender menu bar layout restored" \
+      || warn "Bartender preferences import failed"
+  fi
+  # Apply licence on top (must come after import so it isn't blanked out).
   if [[ -n "${BARTENDER_KEY:-}" ]]; then
     defaults write com.surteesstudios.Bartender license6 -string "$BARTENDER_KEY"
     defaults write com.surteesstudios.Bartender license6HoldersName -string "${BARTENDER_HOLDER:-$(git config --global user.email 2>/dev/null)}"
     success "Bartender licence activated from \$BARTENDER_KEY"
   else
     info "BARTENDER_KEY not set in ~/.secrets.env; activate manually in Bartender preferences"
+  fi
+fi
+
+# iStat Menus: restore menu bar sensor layout (CPU/GPU/temps/clock). The
+# status.plist (location/weather data) and other plists stay per-machine.
+if [[ -d "/Applications/iStat Menus.app" ]]; then
+  ISTAT_PLIST_SRC="${DOTFILES_DIR}/com.bjango.istatmenus.menubar.7.plist"
+  if [[ -f "$ISTAT_PLIST_SRC" ]]; then
+    ISTAT_PLIST_DST="$HOME/Library/Preferences/com.bjango.istatmenus.menubar.7.plist"
+    [[ -f "$ISTAT_PLIST_DST" ]] && cp "$ISTAT_PLIST_DST" "${ISTAT_PLIST_DST}.backup.$(date +%Y%m%d_%H%M%S)"
+    defaults import com.bjango.istatmenus.menubar.7 "$ISTAT_PLIST_SRC" \
+      && success "iStat Menus menu bar layout restored" \
+      || warn "iStat Menus preferences import failed"
   fi
 fi
 
