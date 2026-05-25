@@ -27,9 +27,6 @@ class JobStatus(str, Enum):
 
 class JobType(str, Enum):
     CONVERSATION = "conversation"
-    CODE = "code"
-    MARKDOWN = "markdown"
-    CONFIG = "config"
 
 
 class Job:
@@ -132,6 +129,7 @@ class JobQueue:
         file_path: str,
         job_type: str | JobType,
         priority: int = 0,
+        next_retry: float = 0,
     ) -> int | None:
         """Add a job. Returns job ID, or None if deduplicated."""
         jtype = job_type.value if isinstance(job_type, JobType) else job_type
@@ -152,8 +150,9 @@ class JobQueue:
                     return None
                 # If hash differs, update the existing job (file changed again)
                 conn.execute(
-                    "UPDATE jobs SET file_hash = ?, priority = MAX(priority, ?) WHERE id = ?",
-                    (fhash, priority, row["id"]),
+                    """UPDATE jobs SET file_hash = ?, priority = MAX(priority, ?),
+                       next_retry = MAX(next_retry, ?) WHERE id = ?""",
+                    (fhash, priority, next_retry, row["id"]),
                 )
                 return row["id"]
 
@@ -171,8 +170,8 @@ class JobQueue:
             cursor = conn.execute(
                 """INSERT INTO jobs (file_path, job_type, status, priority,
                                      attempts, max_attempts, next_retry, created_at, file_hash)
-                   VALUES (?, ?, 'pending', ?, 0, ?, 0, ?, ?)""",
-                (file_path, jtype, priority, MAX_ATTEMPTS, time.time(), fhash),
+                   VALUES (?, ?, 'pending', ?, 0, ?, ?, ?, ?)""",
+                (file_path, jtype, priority, MAX_ATTEMPTS, next_retry, time.time(), fhash),
             )
             return cursor.lastrowid
 
@@ -185,9 +184,9 @@ class JobQueue:
             rows = conn.execute(
                 """SELECT * FROM jobs
                    WHERE status = 'pending' AND next_retry <= ?
-                   ORDER BY priority DESC, created_at ASC
+                   ORDER BY (priority + (? - created_at) / 3600.0) DESC, created_at ASC
                    LIMIT ?""",
-                (now, batch_size),
+                (now, now, batch_size),
             ).fetchall()
 
             for row in rows:
@@ -263,6 +262,27 @@ class JobQueue:
             if count:
                 logger.info("Recovered %d stale processing jobs", count)
             return count
+
+    def get_failed_jobs(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Return recent failed jobs with error details."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                """SELECT id, file_path, job_type, attempts, max_attempts, error, created_at
+                   FROM jobs WHERE status = 'failed'
+                   ORDER BY created_at DESC LIMIT ?""",
+                (limit,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_processing_jobs(self) -> list[dict[str, Any]]:
+        """Return jobs currently being processed."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                """SELECT id, file_path, job_type, attempts, created_at
+                   FROM jobs WHERE status = 'processing'
+                   ORDER BY created_at DESC""",
+            ).fetchall()
+            return [dict(row) for row in rows]
 
     def clear_completed(self, older_than_hours: int = 24) -> int:
         """Remove completed jobs older than N hours."""

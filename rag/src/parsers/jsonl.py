@@ -22,8 +22,6 @@ SYSTEM_REMINDER_RE = re.compile(
     re.DOTALL,
 )
 
-# Max chars before a turn needs summarisation
-SUMMARY_THRESHOLD = 10_000
 
 
 def _extract_text(content: Any) -> str:
@@ -169,7 +167,6 @@ def parse_conversation(path: str | Path) -> list[dict[str, Any]]:
             turns.append({
                 "text": combined,
                 "metadata": metadata,
-                "needs_summary": len(combined) > SUMMARY_THRESHOLD,
                 "identifier": f"{path.stem}:turn:{turn_number}",
             })
         else:

@@ -3,29 +3,26 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.dotfiles.rag-indexer</string>
+    <string>com.dotfiles.rag-sync</string>
     <key>ProgramArguments</key>
     <array>
-        <string>__HOME__/.rag/venv/bin/python</string>
-        <string>-m</string>
-        <string>src.indexer</string>
+        <string>/bin/bash</string>
+        <string>__HOME__/Developer/dotfiles/rag/scripts/sync.sh</string>
     </array>
-    <key>WorkingDirectory</key>
-    <string>__HOME__/Developer/dotfiles/rag</string>
+    <key>StartInterval</key>
+    <integer>300</integer>
     <key>RunAtLoad</key>
     <true/>
-    <key>KeepAlive</key>
-    <true/>
     <key>StandardOutPath</key>
-    <string>__HOME__/.rag/logs/indexer.log</string>
+    <string>__HOME__/.rag/logs/sync.log</string>
     <key>StandardErrorPath</key>
-    <string>__HOME__/.rag/logs/indexer.err</string>
+    <string>__HOME__/.rag/logs/sync.err</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
         <string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>__HOME__</string>
     </dict>
-    <key>ThrottleInterval</key>
-    <integer>5</integer>
 </dict>
 </plist>

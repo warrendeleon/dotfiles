@@ -12,88 +12,21 @@ from mcp.server.fastmcp import FastMCP
 from .store import Store
 from .queue_db import JobQueue, JobType
 from .audit import AuditLog
-from .parsers.code import SUPPORTED_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
 mcp = FastMCP("rag", log_level="WARNING")
 
-# Lazy-initialised singletons
 _store: Store | None = None
 _queue: JobQueue | None = None
 _audit: AuditLog | None = None
 
-# Allowed roots for index_file path validation
 _ALLOWED_ROOTS = (
-    Path.home() / "Developer",
     Path.home() / ".claude",
 )
 
 MAX_SEARCH_RESULTS = 100
 MAX_AUDIT_ENTRIES = 500
-
-
-def _fetch_raw_turn(file_path: str | None, turn_number: Any) -> str | None:
-    """Read a single turn from a JSONL file without parsing the entire file.
-
-    Streams line-by-line, pairing user+assistant messages into turns,
-    and stops as soon as the target turn is found. Safe for 300MB+ files.
-    """
-    if not file_path or not turn_number:
-        return None
-    try:
-        import json as _json
-        from .parsers.jsonl import _get_message_content, _clean_text
-
-        p = Path(file_path)
-        if not p.exists():
-            return None
-
-        turn_num = int(turn_number)
-        current_turn = 0
-
-        # Mirrors parse_conversation logic: filter to user/assistant,
-        # then pair user messages with the next assistant response.
-        filtered: list[tuple[str, dict]] = []
-        with open(p, "r", encoding="utf-8", errors="replace") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    msg = _json.loads(line)
-                except _json.JSONDecodeError:
-                    continue
-                msg_type = msg.get("type")
-                if msg_type in ("human", "user"):
-                    filtered.append(("user", msg))
-                elif msg_type == "assistant":
-                    filtered.append(("assistant", msg))
-
-        i = 0
-        while i < len(filtered):
-            role, msg = filtered[i]
-            if role == "user":
-                user_text = _clean_text(_get_message_content(msg))
-                assistant_text = ""
-                if i + 1 < len(filtered) and filtered[i + 1][0] == "assistant":
-                    assistant_text = _clean_text(_get_message_content(filtered[i + 1][1]))
-                    i += 2
-                else:
-                    i += 1
-                if not user_text and not assistant_text:
-                    continue
-                current_turn += 1
-                if current_turn == turn_num:
-                    if assistant_text:
-                        return f"User: {user_text}\n\nAssistant: {assistant_text}"
-                    return f"User: {user_text}"
-            else:
-                i += 1
-
-    except Exception:
-        logger.debug("Failed to fetch raw turn from %s", file_path)
-    return None
 
 
 def _get_store() -> Store:
@@ -131,29 +64,24 @@ def _is_allowed_path(path: Path) -> bool:
 
 
 @mcp.tool()
-def search(query: str, scope: str | None = None, n_results: int = 10) -> str:
-    """Search indexed conversations, code, and docs semantically.
+def search(query: str, n_results: int = 10) -> str:
+    """Search indexed conversations semantically.
 
-    Use this to find past discussions, code patterns, or documentation.
+    Use this to find past discussions, decisions, or context from previous
+    Claude Code sessions.
 
     Args:
         query: Natural language search query.
-        scope: Optional. One of "conversations", "code", "docs" to limit search.
-               If omitted, searches all collections.
         n_results: Number of results to return (default 10).
     """
     n_results = min(max(1, n_results), MAX_SEARCH_RESULTS)
     store = _get_store()
 
-    collection_names = None
-    if scope and scope in ("conversations", "code", "docs"):
-        collection_names = [scope]
-
     try:
-        results = store.search(query, collection_names=collection_names, n_results=n_results)
+        results = store.search(query, n_results=n_results)
     except Exception:
         logger.exception("Search failed")
-        return "Search failed. Check that Ollama is running (ollama serve)."
+        return "Search failed. Check that the embedding model is available."
 
     if not results:
         return "No results found."
@@ -162,22 +90,16 @@ def search(query: str, scope: str | None = None, n_results: int = 10) -> str:
     for i, r in enumerate(results, 1):
         meta = r.get("metadata", {})
         source = meta.get("file_path", "unknown")
-        collection = r.get("collection", "unknown")
         distance = r.get("distance", 0)
         relevance = f"{max(0, (1 - distance)) * 100:.0f}%" if distance < 1 else "low"
 
-        header = f"[{i}] ({collection}) {source} -- relevance: {relevance}"
+        header = f"[{i}] {source} -- relevance: {relevance}"
 
-        # Add useful metadata
         meta_parts = []
         if meta.get("session_id"):
             meta_parts.append(f"session: {meta['session_id']}")
         if meta.get("project"):
             meta_parts.append(f"project: {meta['project']}")
-        if meta.get("language"):
-            meta_parts.append(f"lang: {meta['language']}")
-        if meta.get("doc_type"):
-            meta_parts.append(f"type: {meta['doc_type']}")
         if meta.get("timestamp"):
             meta_parts.append(f"time: {meta['timestamp']}")
 
@@ -186,20 +108,8 @@ def search(query: str, scope: str | None = None, n_results: int = 10) -> str:
 
         doc = r.get("document", "")
 
-        # If this conversation turn was summarised, fetch the raw text
-        if meta.get("summarised") and collection == "conversations":
-            raw_turn = _fetch_raw_turn(meta.get("file_path"), meta.get("turn_number"))
-            if raw_turn:
-                doc = raw_turn
-
-        # Truncate long documents for display
         if len(doc) > 500:
             doc = doc[:500] + "..."
-
-        if meta.get("summarised"):
-            header += " [summarised]"
-        if meta.get("tags"):
-            header += f" [tags: {meta['tags']}]"
 
         parts.append(f"{header}\n{doc}")
 
@@ -208,10 +118,9 @@ def search(query: str, scope: str | None = None, n_results: int = 10) -> str:
 
 @mcp.tool()
 def get_context(topic: str, n_results: int = 5) -> str:
-    """Quick context retrieval for a topic. Searches all collections.
+    """Quick context retrieval for a topic.
 
-    Use this when you need quick background on a topic discussed previously
-    or documented in the codebase.
+    Use this when you need quick background on a topic discussed previously.
 
     Args:
         topic: The topic to get context for.
@@ -242,13 +151,13 @@ def log_action(description: str, files_affected: list[str] | None = None) -> str
 
 @mcp.tool()
 def index_file(path: str) -> str:
-    """Manually trigger indexing for a specific file.
+    """Manually trigger indexing for a conversation JSONL file.
 
     Use this when you want a file indexed immediately rather than
     waiting for the background watcher.
 
     Args:
-        path: Absolute path to the file to index.
+        path: Absolute path to the JSONL file to index.
     """
     file_path = Path(path)
     if not file_path.exists():
@@ -257,10 +166,15 @@ def index_file(path: str) -> str:
     if not file_path.is_file():
         return "Path is not a regular file."
 
+    if file_path.suffix != ".jsonl":
+        return "Only conversation JSONL files are supported."
+
     if not _is_allowed_path(file_path):
         return "Path is outside allowed directories."
 
-    # Reject symlinks pointing outside allowed roots
+    if "-dotfiles-rag" in str(file_path):
+        return "Files in the dotfiles-rag project are excluded (pipeline artifacts)."
+
     if file_path.is_symlink():
         resolved = file_path.resolve()
         if not _is_allowed_path(resolved):
@@ -272,30 +186,92 @@ def index_file(path: str) -> str:
         logger.exception("Failed to access job queue")
         return "Failed to access job queue."
 
-    # Determine job type
-    resolved = file_path.resolve()
-    claude_marker = f"{Path.home()}/.claude/projects/"
-    if resolved.suffix == ".jsonl" and str(resolved).startswith(claude_marker):
-        job_type = JobType.CONVERSATION.value
-    elif resolved.suffix in (".md", ".mdx"):
-        job_type = JobType.MARKDOWN.value
-    elif resolved.suffix in SUPPORTED_EXTENSIONS:
-        job_type = JobType.CODE.value
-    else:
-        from .parsers.config import _is_config_file
-        if _is_config_file(resolved):
-            job_type = JobType.CONFIG.value
-        else:
-            return f"Unsupported file type: {resolved.suffix}"
-
     try:
-        job_id = queue.enqueue(str(resolved), job_type, priority=100)
+        job_id = queue.enqueue(str(file_path.resolve()), JobType.CONVERSATION.value, priority=100)
     except Exception:
         logger.exception("Failed to enqueue file")
         return "Failed to enqueue file for indexing."
     if job_id:
         return f"Queued for indexing (job #{job_id}): {path}"
     return f"Already queued or unchanged: {path}"
+
+
+@mcp.tool()
+def get_indexing_status() -> str:
+    """Check whether the indexing queue is idle or still processing.
+
+    Returns job counts by status (pending, processing, completed, failed)
+    and details of any currently processing jobs.
+    """
+    try:
+        queue = _get_queue()
+    except Exception:
+        logger.exception("Failed to access job queue")
+        return "Job queue unavailable."
+
+    counts = queue.stats()
+    if not counts:
+        return "Queue is empty. No jobs have been submitted."
+
+    pending = counts.get("pending", 0)
+    processing = counts.get("processing", 0)
+    completed = counts.get("completed", 0)
+    failed = counts.get("failed", 0)
+
+    if pending == 0 and processing == 0:
+        status = "idle"
+    elif processing > 0:
+        status = "processing"
+    else:
+        status = "queued"
+
+    parts = [
+        f"Status: {status}",
+        f"Pending: {pending}  |  Processing: {processing}  |  Completed: {completed}  |  Failed: {failed}",
+    ]
+
+    if processing > 0:
+        active = queue.get_processing_jobs()
+        if active:
+            parts.append("\nCurrently processing:")
+            for job in active:
+                parts.append(f"  - [{job['job_type']}] {job['file_path']} (attempt {job['attempts']})")
+
+    if pending > 0:
+        parts.append(f"\n{pending} job(s) waiting in queue.")
+
+    return "\n".join(parts)
+
+
+@mcp.tool()
+def get_failed_jobs(limit: int = 20) -> str:
+    """View jobs that failed indexing, with error details.
+
+    Args:
+        limit: Maximum entries to return (default 20).
+    """
+    limit = min(max(1, limit), MAX_AUDIT_ENTRIES)
+
+    try:
+        queue = _get_queue()
+    except Exception:
+        logger.exception("Failed to access job queue")
+        return "Job queue unavailable."
+
+    jobs = queue.get_failed_jobs(limit=limit)
+    if not jobs:
+        return "No failed jobs."
+
+    parts: list[str] = []
+    for job in jobs:
+        ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(job["created_at"]))
+        error = job.get("error") or "unknown error"
+        parts.append(
+            f"[{ts}] #{job['id']} ({job['job_type']}) {job['file_path']}\n"
+            f"  Attempts: {job['attempts']}/{job['max_attempts']}  |  Error: {error}"
+        )
+
+    return "\n\n".join(parts)
 
 
 @mcp.tool()
@@ -332,7 +308,7 @@ def get_audit_log(since: str | None = None, limit: int = 20) -> str:
                 if parsed <= now:
                     since_ts = parsed
         except ValueError:
-            pass  # Invalid format; ignore and return all recent entries
+            pass
 
     entries = audit.get_entries(since=since_ts, limit=limit)
 

@@ -13,7 +13,7 @@ from chromadb.api.types import EmbeddingFunction, Documents, Embeddings
 
 logger = logging.getLogger(__name__)
 
-COLLECTIONS = ("conversations", "code", "docs")
+COLLECTIONS = ("conversations",)
 DEFAULT_DB_PATH = Path.home() / ".rag" / "chromadb"
 DEFAULT_CONFIG_PATH = Path.home() / ".rag" / "config.yaml"
 DEFAULT_OLLAMA_MODEL = "mxbai-embed-large"
@@ -24,11 +24,14 @@ OLLAMA_KEEP_ALIVE = "5m"
 def _detect_embedding_model() -> str:
     """Pick the best embedding model based on system specs.
 
+    Returns a HuggingFace model path (contains '/') for sentence-transformers,
+    or a bare Ollama model name otherwise.
+
     Apple Silicon (unified GPU memory = RAM):
-      32GB+: qwen3-embedding:8b
-      <32GB: mxbai-embed-large
+      32GB+: Qwen/Qwen3-Embedding-4B  (sentence-transformers + MPS)
+      <32GB: mixedbread-ai/mxbai-embed-large-v1  (sentence-transformers + MPS)
     Linux/CPU-only:
-      Always mxbai-embed-large (8B is too slow without GPU)
+      mixedbread-ai/mxbai-embed-large-v1  (sentence-transformers on CPU)
     """
     import platform
     import subprocess
@@ -63,26 +66,111 @@ def _detect_embedding_model() -> str:
             pass
 
     if is_apple_silicon and ram_gb >= 32:
-        return "qwen3-embedding:8b"
+        return "Qwen/Qwen3-Embedding-4B"
 
-    return "mxbai-embed-large"
+    return "mixedbread-ai/mxbai-embed-large-v1"
+
+
+def _load_config() -> dict:
+    """Read ~/.rag/config.yaml, returning an empty dict on failure."""
+    try:
+        if DEFAULT_CONFIG_PATH.exists():
+            with open(DEFAULT_CONFIG_PATH) as f:
+                return yaml.safe_load(f) or {}
+    except Exception:
+        logger.debug("Failed to read config")
+    return {}
 
 
 def _load_embedding_model() -> str:
     """Read embedding_model from config.yaml, or auto-detect from machine specs."""
-    try:
-        if DEFAULT_CONFIG_PATH.exists():
-            with open(DEFAULT_CONFIG_PATH) as f:
-                config = yaml.safe_load(f) or {}
-            model = config.get("embedding_model")
-            if model and model != "auto":
-                return str(model)
-    except Exception:
-        logger.debug("Failed to read config")
+    config = _load_config()
+    model = config.get("embedding_model")
+    if model and model != "auto":
+        return str(model)
 
     model = _detect_embedding_model()
     logger.info("Auto-detected embedding model: %s (based on system RAM)", model)
     return model
+
+
+def _load_embedding_device() -> str | None:
+    """Read embedding_device from config.yaml (cpu, mps, cuda, or auto-detect)."""
+    config = _load_config()
+    device = config.get("embedding_device")
+    if device and device != "auto":
+        return str(device)
+    return None
+
+
+class SentenceTransformersEmbeddingFunction(EmbeddingFunction[Documents]):
+    """Embed text via a local sentence-transformers model.
+
+    Auto-selects MPS (Apple Silicon), CUDA (NVIDIA), or CPU. Model is
+    lazy-loaded on first call so startup stays fast.
+    """
+
+    def __init__(self, model: str | None = None, device: str | None = None) -> None:
+        self.model_name = model or _load_embedding_model()
+
+        if device is None:
+            import torch
+            if torch.backends.mps.is_available():
+                device = "mps"
+            elif torch.cuda.is_available():
+                device = "cuda"
+            else:
+                device = "cpu"
+        self.device = device
+        self._model = None
+
+    def _ensure_loaded(self) -> None:
+        if self._model is None:
+            from sentence_transformers import SentenceTransformer
+            logger.info(
+                "Loading sentence-transformers model: %s (device=%s)",
+                self.model_name, self.device,
+            )
+            self._model = SentenceTransformer(
+                self.model_name,
+                device=self.device,
+                trust_remote_code=True,
+            )
+
+    def unload(self) -> None:
+        """Release model weights from memory. Reloads lazily on next embed call."""
+        if self._model is None:
+            return
+        import gc
+        import torch
+        del self._model
+        self._model = None
+        gc.collect()
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+        logger.info("Unloaded embedding model %s", self.model_name)
+
+    def __call__(self, input: Documents) -> Embeddings:
+        import torch
+
+        self._ensure_loaded()
+        assert self._model is not None
+        with torch.no_grad():
+            embeddings = self._model.encode(
+                list(input),
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+        result = embeddings.tolist()
+        del embeddings
+        # MUST call empty_cache() per batch on MPS. Without it the Metal
+        # allocator pool grows unbounded across batches — observed 123 GB
+        # graphics footprint in <1h on Qwen3-Embedding-8B. The sync cost is
+        # real but tolerable; the leak is not.
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+        return result
 
 
 class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
@@ -157,8 +245,22 @@ class Store:
         db_path.mkdir(parents=True, exist_ok=True, mode=0o700)
         db_path.chmod(0o700)
 
-        self._client = chromadb.PersistentClient(path=str(db_path))
-        self._embed_fn = embedding_fn or OllamaEmbeddingFunction()
+        self._db_path = db_path
+        self._client = chromadb.PersistentClient(
+            path=str(db_path),
+            settings=chromadb.Settings(anonymized_telemetry=False),
+        )
+        if embedding_fn is None:
+            model_name = _load_embedding_model()
+            # HuggingFace paths (e.g. "Qwen/Qwen3-Embedding-4B") use
+            # sentence-transformers. Bare names (e.g. "mxbai-embed-large")
+            # fall back to the legacy Ollama backend.
+            if "/" in model_name:
+                device = _load_embedding_device()
+                embedding_fn = SentenceTransformersEmbeddingFunction(model=model_name, device=device)
+            else:
+                embedding_fn = OllamaEmbeddingFunction(model=model_name)
+        self._embed_fn = embedding_fn
         self._collections: dict[str, chromadb.Collection] = {}
 
         for name in COLLECTIONS:
@@ -168,9 +270,70 @@ class Store:
                 metadata={"hnsw:space": "cosine"},
             )
 
+    def _ensure_client(self) -> None:
+        """Rebuild the ChromaDB client and collections if they were unloaded."""
+        if self._client is not None:
+            return
+        self._client = chromadb.PersistentClient(
+            path=str(self._db_path),
+            settings=chromadb.Settings(anonymized_telemetry=False),
+        )
+        for name in COLLECTIONS:
+            self._collections[name] = self._client.get_or_create_collection(
+                name=name,
+                embedding_function=self._embed_fn,
+                metadata={"hnsw:space": "cosine"},
+            )
+        logger.info("ChromaDB client reloaded")
+
+    def reset_client(self) -> None:
+        """Drop and rebuild the ChromaDB client to flush cached HNSW indexes."""
+        import gc
+
+        old_client = self._client
+        old_collections = dict(self._collections)
+
+        try:
+            new_client = chromadb.PersistentClient(
+                path=str(self._db_path),
+                settings=chromadb.Settings(anonymized_telemetry=False),
+            )
+            new_collections: dict[str, chromadb.Collection] = {}
+            for name in COLLECTIONS:
+                new_collections[name] = new_client.get_or_create_collection(
+                    name=name,
+                    embedding_function=self._embed_fn,
+                    metadata={"hnsw:space": "cosine"},
+                )
+        except Exception:
+            logger.exception("Failed to create new ChromaDB client, keeping old one")
+            return
+
+        self._client = new_client
+        self._collections = new_collections
+        del old_client
+        old_collections.clear()
+        gc.collect()
+
+    def unload(self) -> None:
+        """Release embedding model and ChromaDB client to free memory."""
+        import gc
+
+        if hasattr(self._embed_fn, 'unload'):
+            self._embed_fn.unload()
+
+        self._collections.clear()
+        if self._client is not None:
+            del self._client
+            self._client = None
+
+        gc.collect()
+        logger.info("Store unloaded, memory released")
+
     def collection(self, name: str) -> chromadb.Collection:
-        if name not in self._collections:
+        if name not in COLLECTIONS:
             raise ValueError(f"Unknown collection: {name}. Use one of {COLLECTIONS}")
+        self._ensure_client()
         return self._collections[name]
 
     def upsert(
@@ -180,14 +343,13 @@ class Store:
         document: str,
         metadata: dict[str, Any] | None = None,
     ) -> str | None:
-        """Add or update a document. Returns the document ID, or None if skipped."""
+        """Add or update a single document. Returns the document ID, or None if skipped."""
         if not document or not document.strip():
             logger.debug("Skipping empty document for %s", identifier)
             return None
 
         doc_id = _doc_id(collection_name, identifier)
         meta = metadata or {}
-        # ChromaDB metadata values must be str, int, float, or bool
         clean_meta = {
             k: v for k, v in meta.items()
             if isinstance(v, (str, int, float, bool))
@@ -200,6 +362,26 @@ class Store:
             metadatas=[clean_meta],
         )
         return doc_id
+
+    def upsert_batch(
+        self,
+        collection_name: str,
+        identifiers: list[str],
+        documents: list[str],
+        metadatas: list[dict[str, Any]],
+    ) -> None:
+        """Add or update multiple documents in a single embedding call."""
+        if not documents:
+            return
+
+        ids = [_doc_id(collection_name, ident) for ident in identifiers]
+        clean_metas = [
+            {k: v for k, v in meta.items() if isinstance(v, (str, int, float, bool))}
+            for meta in metadatas
+        ]
+
+        col = self.collection(collection_name)
+        col.upsert(ids=ids, documents=documents, metadatas=clean_metas)
 
     def search(
         self,
@@ -214,6 +396,7 @@ class Store:
         all_results: list[dict[str, Any]] = []
 
         per_collection = n_results
+        self._ensure_client()
 
         for name in targets:
             if name not in self._collections:

@@ -13,6 +13,14 @@ watch_paths:
 # Or set a specific model name to override.
 embedding_model: auto
 
+# Ollama model for summarising content (conversations, code, docs).
+# Needs good comprehension and concise output. Default: qwen3.5:27b
+# summarise_model: qwen3.5:27b
+
+# Ollama model for extracting topic tags.
+# Lightweight model is fine for structured output. Default: qwen3:4b
+# tag_model: gemma3:4b
+
 # Data paths (created automatically at defaults shown below)
 # db_path: ~/.rag/chromadb
 # queue_path: ~/.rag/queue.db
