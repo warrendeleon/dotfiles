@@ -442,6 +442,36 @@ class Store:
         all_results.sort(key=lambda r: r["distance"])
         return all_results[:n_results]
 
+    def get_documents(self, ids: list[str]) -> list[dict[str, Any]]:
+        """Fetch documents by their doc id, across all collections.
+
+        Backs progressive disclosure: search returns ids and short snippets, and
+        this returns the full text for the ids the caller chooses to open. Ids
+        not present in any collection are silently skipped.
+        """
+        if not ids:
+            return []
+        self._ensure_client()
+        found: list[dict[str, Any]] = []
+        for name in COLLECTIONS:
+            col = self._collections[name]
+            try:
+                res = col.get(ids=ids)
+            except Exception:
+                logger.exception("get failed on collection %s", name)
+                continue
+            got = res.get("ids") or []
+            docs = res.get("documents") or []
+            metas = res.get("metadatas") or []
+            for i, doc_id in enumerate(got):
+                found.append({
+                    "id": doc_id,
+                    "collection": name,
+                    "document": docs[i] if i < len(docs) else "",
+                    "metadata": metas[i] if i < len(metas) else {},
+                })
+        return found
+
     def delete(self, collection_name: str, identifier: str) -> None:
         """Delete a document by its identifier."""
         doc_id = _doc_id(collection_name, identifier)

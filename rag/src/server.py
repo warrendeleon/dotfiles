@@ -63,15 +63,86 @@ def _is_allowed_path(path: Path) -> bool:
     )
 
 
+def _estimate_tokens(text: str) -> int:
+    """Rough token count so the caller can budget before opening a chunk."""
+    return max(1, len(text) // 4)
+
+
+def _snippet(text: str, limit: int = 160) -> str:
+    """One-line preview: whitespace collapsed, capped, with an ellipsis."""
+    flat = " ".join(text.split())
+    return flat[:limit] + ("..." if len(flat) > limit else "")
+
+
+def _relevance(distance: float) -> str:
+    return f"{max(0, (1 - distance)) * 100:.0f}%" if distance < 1 else "low"
+
+
+def _result_header(index: int, r: dict[str, Any], *, with_relevance: bool) -> str:
+    """Source line for a result: tag, path, relevance, and source-specific meta."""
+    meta = r.get("metadata", {})
+    source = meta.get("file_path", "unknown")
+    is_wiki = r.get("collection", "conversations") == "wiki"
+    tag = "wiki" if is_wiki else "conversation"
+
+    header = f"[{index}] ({tag}) {source}"
+    if with_relevance:
+        header += f" -- relevance: {_relevance(r.get('distance', 1))}"
+
+    meta_parts: list[str] = []
+    if is_wiki:
+        if meta.get("title"):
+            meta_parts.append(f"page: {meta['title']}")
+        if meta.get("section") and meta.get("section") != "(intro)":
+            meta_parts.append(f"section: {meta['section']}")
+    else:
+        if meta.get("session_id"):
+            meta_parts.append(f"session: {meta['session_id']}")
+        if meta.get("project"):
+            meta_parts.append(f"project: {meta['project']}")
+        if meta.get("timestamp"):
+            meta_parts.append(f"time: {meta['timestamp']}")
+    if meta_parts:
+        header += f" [{', '.join(meta_parts)}]"
+    return header
+
+
+def format_index(results: list[dict[str, Any]]) -> str:
+    """Compact index: one block per hit with its id, a snippet, and token cost.
+
+    Progressive disclosure, the caller scans this and opens only what it needs
+    via get_chunks(ids), rather than every full document arriving inline.
+    """
+    parts: list[str] = []
+    for i, r in enumerate(results, 1):
+        doc = r.get("document", "")
+        header = _result_header(i, r, with_relevance=True)
+        parts.append(
+            f"{header}  |  id: {r.get('id', '?')}  |  ~{_estimate_tokens(doc)} tokens\n"
+            f"    {_snippet(doc)}"
+        )
+    return "\n\n".join(parts)
+
+
+def format_full(results: list[dict[str, Any]], *, with_relevance: bool) -> str:
+    """Full documents, one block per hit. Used by get_context and get_chunks."""
+    parts: list[str] = []
+    for i, r in enumerate(results, 1):
+        header = _result_header(i, r, with_relevance=with_relevance)
+        parts.append(f"{header}\n{r.get('document', '')}")
+    return "\n\n---\n\n".join(parts)
+
+
 @mcp.tool()
 def search(query: str, n_results: int = 10) -> str:
     """Search the curated wiki and past conversations semantically.
 
-    Returns merged, ranked hits from two sources: the curated wiki (section-level
-    chunks of human-reviewed knowledge, the conclusions) and past Claude Code
-    conversations (raw turns, for recall). Wiki hits name their page and section;
-    conversation hits name their session. Use this to find prior decisions,
-    knowledge, or context before answering.
+    Returns a COMPACT INDEX of merged, ranked hits from two sources: the curated
+    wiki (section-level chunks of human-reviewed knowledge) and past Claude Code
+    conversations (raw turns, for recall). Each hit shows its source, a one-line
+    snippet, an id, and an approximate token cost. To read the full text of the
+    hits you want, call get_chunks with their ids. Use get_context instead when
+    you want the full text of the top few hits in one go.
 
     Args:
         query: Natural language search query.
@@ -89,60 +160,62 @@ def search(query: str, n_results: int = 10) -> str:
     if not results:
         return "No results found."
 
-    parts: list[str] = []
-    for i, r in enumerate(results, 1):
-        meta = r.get("metadata", {})
-        source = meta.get("file_path", "unknown")
-        distance = r.get("distance", 0)
-        relevance = f"{max(0, (1 - distance)) * 100:.0f}%" if distance < 1 else "low"
+    return (
+        f"{len(results)} hit(s). Compact index below; call get_chunks([ids]) "
+        f"for full text.\n\n" + format_index(results)
+    )
 
-        collection = r.get("collection", "conversations")
-        is_wiki = collection == "wiki"
 
-        tag = "wiki" if is_wiki else "conversation"
-        header = f"[{i}] ({tag}) {source} -- relevance: {relevance}"
+@mcp.tool()
+def get_chunks(ids: list[str]) -> str:
+    """Fetch the full text of search hits by their ids.
 
-        meta_parts = []
-        if is_wiki:
-            if meta.get("title"):
-                meta_parts.append(f"page: {meta['title']}")
-            if meta.get("section") and meta.get("section") != "(intro)":
-                meta_parts.append(f"section: {meta['section']}")
-        else:
-            if meta.get("session_id"):
-                meta_parts.append(f"session: {meta['session_id']}")
-            if meta.get("project"):
-                meta_parts.append(f"project: {meta['project']}")
-            if meta.get("timestamp"):
-                meta_parts.append(f"time: {meta['timestamp']}")
+    Pass the ids from a search result to read their full documents. Ids that no
+    longer exist are skipped.
 
-        if meta_parts:
-            header += f" [{', '.join(meta_parts)}]"
+    Args:
+        ids: Document ids from a prior search.
+    """
+    if not ids:
+        return "No ids given."
+    store = _get_store()
+    try:
+        docs = store.get_documents(ids)
+    except Exception:
+        logger.exception("get_chunks failed")
+        return "Failed to fetch chunks."
 
-        doc = r.get("document", "")
+    if not docs:
+        return "No matching chunks found for those ids."
 
-        # Wiki chunks are curated and short; show more of them. Conversation
-        # turns are raw and noisy, so keep their preview tight.
-        limit = 1200 if is_wiki else 500
-        if len(doc) > limit:
-            doc = doc[:limit] + "..."
-
-        parts.append(f"{header}\n{doc}")
-
-    return "\n\n---\n\n".join(parts)
+    # Preserve the caller's id order.
+    by_id = {d["id"]: d for d in docs}
+    ordered = [by_id[i] for i in ids if i in by_id]
+    return format_full(ordered, with_relevance=False)
 
 
 @mcp.tool()
 def get_context(topic: str, n_results: int = 5) -> str:
-    """Quick context retrieval for a topic.
+    """Quick context retrieval for a topic, full text of the top few hits.
 
-    Use this when you need quick background on a topic discussed previously.
+    Use this when you want quick background on a topic discussed previously and
+    would rather get the full text directly than scan an index. For broader
+    browsing, use search (compact) then get_chunks.
 
     Args:
         topic: The topic to get context for.
         n_results: Number of results (default 5).
     """
-    return search(query=topic, n_results=n_results)
+    n_results = min(max(1, n_results), MAX_SEARCH_RESULTS)
+    store = _get_store()
+    try:
+        results = store.search(query=topic, n_results=n_results)
+    except Exception:
+        logger.exception("get_context failed")
+        return "Context lookup failed. Check that the embedding model is available."
+    if not results:
+        return "No results found."
+    return format_full(results, with_relevance=True)
 
 
 @mcp.tool()
