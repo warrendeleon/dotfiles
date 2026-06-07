@@ -89,6 +89,13 @@ export PATH="$PATH:$HOME/.local/bin"
 export PATH="/opt/homebrew/opt/ccache/libexec:$PATH"
 
 # ---------------------------------------------------------------------------
+# graphify: default its semantic backend to the local Ollama (free, no API key).
+# detect_backend() picks ollama last, only when no paid key is set, so this
+# never shadows a real key. Default model is qwen2.5-coder:7b.
+# ---------------------------------------------------------------------------
+export OLLAMA_BASE_URL="http://localhost:11434/v1"
+
+# ---------------------------------------------------------------------------
 # fzf (fuzzy finder — Ctrl+R history, Ctrl+T file search)
 # ---------------------------------------------------------------------------
 if command -v fzf &>/dev/null; then

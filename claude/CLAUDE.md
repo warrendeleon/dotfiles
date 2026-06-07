@@ -213,3 +213,6 @@ Use these skills proactively when the situation calls for them.
 | `/recall` | When the user references a past conversation ("we talked about X", "remember when", "like before"). Searches JSONL transcripts in `~/.claude/projects/`. **Never say "I don't remember" without searching first.** |
 | `/check-dep` | **Before adding any dependency.** Researches bundle size, maintenance status, alternatives, and compatibility. Don't `yarn add` without checking first. |
 | `/debug` | When something fails. Follows a structured diagnostic process: capture error, trace data flow, form hypothesis, verify, then fix. **Never guess. Never try random fixes.** |
+# graphify
+- **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
+When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` before doing anything else.
