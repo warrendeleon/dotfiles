@@ -20,7 +20,26 @@ DEFAULT_DB_PATH = Path.home() / ".rag" / "chromadb"
 DEFAULT_CONFIG_PATH = Path.home() / ".rag" / "config.yaml"
 DEFAULT_OLLAMA_MODEL = "mxbai-embed-large"
 OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_KEEP_ALIVE = "5m"
+OLLAMA_KEEP_ALIVE = "60s"  # unload the model 60s after the last embed, so it does not sit in RAM
+OLLAMA_CHUNK_SIZE = 1800       # chars; the qwen3-embedding runner EOFs on long single inputs
+OLLAMA_CHUNK_OVERLAP = 200
+OLLAMA_EMBED_RETRIES = 2
+OLLAMA_RETRY_DELAY = 3.0       # seconds between retries, lets a crashed runner respawn
+
+
+def _chunk_text(text: str, size: int = OLLAMA_CHUNK_SIZE, overlap: int = OLLAMA_CHUNK_OVERLAP) -> list[str]:
+    """Split text into overlapping chunks. Most turns fit in a single chunk.
+
+    Ollama's qwen3-embedding runner crashes (EOF) on long single inputs, so long
+    turns are split and their chunk vectors mean-pooled into one vector per turn.
+    """
+    if len(text) <= size:
+        return [text]
+    chunks, start = [], 0
+    while start < len(text):
+        chunks.append(text[start:start + size])
+        start += size - overlap
+    return chunks
 
 
 def _detect_embedding_model() -> str:
@@ -189,44 +208,62 @@ class OllamaEmbeddingFunction(EmbeddingFunction[Documents]):
         self.base_url = base_url.rstrip("/")
         self.keep_alive = keep_alive
 
-    def __call__(self, input: Documents) -> Embeddings:
-        import urllib.request
-        import urllib.error
+    def _embed_chunk(self, text: str) -> list[float] | None:
+        """Embed one chunk via a single Ollama request, with retry on crashes.
+
+        Ollama's qwen3-embedding runner intermittently EOFs on a request and
+        dies; it respawns on the next request, so a short sleep plus retry
+        recovers. Returns None only if every retry fails.
+        """
         import json
+        import time
+        import urllib.error
+        import urllib.request
 
-        embeddings: Embeddings = []
         url = f"{self.base_url}/api/embed"
-
         payload = json.dumps({
             "model": self.model,
-            "input": input,
+            "input": text,
             "keep_alive": self.keep_alive,
         }).encode()
 
-        req = urllib.request.Request(
-            url,
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
+        for attempt in range(OLLAMA_EMBED_RETRIES + 1):
+            try:
+                req = urllib.request.Request(
+                    url, data=payload,
+                    headers={"Content-Type": "application/json"}, method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    return json.loads(resp.read())["embeddings"][0]
+            except (urllib.error.URLError, OSError, KeyError, IndexError) as e:
+                if attempt < OLLAMA_EMBED_RETRIES:
+                    time.sleep(OLLAMA_RETRY_DELAY)
+                    continue
+                logger.error("Ollama embed failed after %d retries: %s", OLLAMA_EMBED_RETRIES, e)
+                return None
+        return None
 
-        try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                data = json.loads(resp.read())
-                if "embeddings" not in data:
-                    raise KeyError(
-                        f"Ollama response missing 'embeddings' key. "
-                        f"Keys present: {list(data.keys())}"
-                    )
-                embeddings = data["embeddings"]
-        except (urllib.error.URLError, OSError) as e:
-            logger.error("Ollama embedding request failed: %s", e)
-            raise
-        except KeyError:
-            logger.error("Unexpected Ollama response format")
-            raise
+    def __call__(self, input: Documents) -> Embeddings:
+        """One vector per input. Long inputs are chunked and mean-pooled.
 
-        return embeddings
+        Per-item requests because Ollama's embed runner 400s on a batched input
+        array. Each input is chunked (most are one chunk), each chunk embedded,
+        and the chunk vectors mean-pooled then L2-normalised into one vector.
+        """
+        import numpy as np
+
+        out: Embeddings = []
+        for text in input:
+            text = text or ""
+            vecs = [v for v in (self._embed_chunk(c) for c in _chunk_text(text)) if v is not None]
+            if not vecs:
+                raise RuntimeError(
+                    f"Ollama embedding failed for every chunk of a {len(text)}-char input"
+                )
+            mean = np.asarray(vecs, dtype=np.float32).mean(axis=0)
+            norm = float(np.linalg.norm(mean)) or 1.0
+            out.append((mean / norm).tolist())
+        return out
 
 
 def _doc_id(collection_name: str, identifier: str) -> str:
