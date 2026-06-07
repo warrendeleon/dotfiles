@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from src import summarise_sweep as sweep
+from src.queue_db import JobQueue, JobType
 from src.summary_ledger import SummaryLedger
 
 
@@ -162,7 +163,8 @@ def test_sweep_skips_session_already_in_wiki(tmp_path: Path, monkeypatch) -> Non
     (wd / "x.md").write_text("---\ntype: session\nsession_id: donealr1\n---\n# done\n")
 
     led = SummaryLedger(db_path=tmp_path / "l.db")
-    sweep.sweep(model="sonnet", idle_minutes=30, ledger=led)
+    q = JobQueue(db_path=tmp_path / "q.db")
+    sweep.sweep(model="sonnet", idle_minutes=30, ledger=led, index_queue=q)
 
     assert calls["n"] == 0  # never summarised, already in the wiki
     assert led.get("donealr1") is None
@@ -303,7 +305,8 @@ def test_sweep_skips_active_session(tmp_path: Path, monkeypatch) -> None:
     os.utime(new, (now - 60, now - 60))       # active 1 min ago
 
     led = SummaryLedger(db_path=tmp_path / "l.db")
-    sweep.sweep(model="sonnet", idle_minutes=30, ledger=led)
+    q = JobQueue(db_path=tmp_path / "q.db")
+    sweep.sweep(model="sonnet", idle_minutes=30, ledger=led, index_queue=q)
 
     assert led.get("old12345")["status"] == "written"
     assert led.get("new12345") is None  # active session never touched
@@ -322,10 +325,14 @@ def test_sweep_session_arg_bypasses_idle(tmp_path: Path, monkeypatch) -> None:
     os.utime(active, (now - 30, now - 30))  # active, would fail the idle gate
 
     led = SummaryLedger(db_path=tmp_path / "l.db")
-    sweep.sweep(model="haiku", idle_minutes=30, only_session="fresh123", ledger=led)
+    q = JobQueue(db_path=tmp_path / "q.db")
+    sweep.sweep(model="haiku", idle_minutes=30, only_session="fresh123", ledger=led, index_queue=q)
 
     # SessionEnd path: an explicit session is summarised even though it is fresh.
     assert led.get("fresh123")["status"] == "written"
+    # The new page (named by date+slug, not session id) was enqueued as a WIKI job.
+    pending = q.dequeue(batch_size=5)
+    assert any(j.job_type == JobType.WIKI.value and j.file_path.endswith(".md") for j in pending)
 
 
 def test_resume_resummary_removes_orphan_page(tmp_path: Path, monkeypatch) -> None:

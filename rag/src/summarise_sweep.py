@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Iterable, Iterator
 
 from .parsers.jsonl import parse_conversation
-from .queue_db import _file_hash
+from .queue_db import JobQueue, JobType, _file_hash
 from .summariser import (
     DEFAULT_MODEL,
     HollowSummary,
@@ -216,6 +216,7 @@ def summarise_one(
     ledger: SummaryLedger,
     model: str,
     dry_run: bool = False,
+    index_queue: JobQueue | None = None,
 ) -> str:
     """Summarise a single transcript and write its page. Returns a status string."""
     session_id = path.stem
@@ -285,6 +286,15 @@ def summarise_one(
 
     status = "needs-review" if violations else "written"
     ledger.record(session_id, str(path), _file_hash(str(path)), str(target), status, model)
+
+    # Make the new page searchable: enqueue it for the indexer, which embeds it
+    # into Chroma and the FTS index with the one shared embedder. Best-effort.
+    if index_queue is not None:
+        try:
+            index_queue.enqueue(str(target), JobType.WIKI.value, priority=50)
+        except Exception:
+            logger.warning("could not enqueue %s for indexing", target.name)
+
     logger.info("%s %s -> %s", status, session_id[:8], target)
     return status
 
@@ -297,6 +307,7 @@ def sweep(
     limit: int | None = None,
     dry_run: bool = False,
     ledger: SummaryLedger | None = None,
+    index_queue: JobQueue | None = None,
 ) -> dict[str, int]:
     """Run the sweep. Returns a count of outcomes by status.
 
@@ -305,6 +316,7 @@ def sweep(
     the idle gate, so a backfill never touches the live session it runs from.
     """
     ledger = ledger or SummaryLedger()
+    index_queue = index_queue or JobQueue()
     now = _now()
     counts: dict[str, int] = {}
 
@@ -325,7 +337,7 @@ def sweep(
         if not needs_summary(path, ledger, now, wiki_ids):
             continue
 
-        status = summarise_one(path, ledger, model, dry_run=dry_run)
+        status = summarise_one(path, ledger, model, dry_run=dry_run, index_queue=index_queue)
         counts[status] = counts.get(status, 0) + 1
         processed += 1
         if limit and processed >= limit:

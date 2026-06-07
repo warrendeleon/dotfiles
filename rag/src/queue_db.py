@@ -27,6 +27,7 @@ class JobStatus(str, Enum):
 
 class JobType(str, Enum):
     CONVERSATION = "conversation"
+    WIKI = "wiki"
 
 
 class Job:

@@ -56,6 +56,17 @@ def test_format_full_shows_document() -> None:
     assert "relevance:" in out
 
 
+def test_format_index_keyword_only_shows_match_not_low() -> None:
+    # A fused/keyword-only hit has no distance; it must not read "relevance: low".
+    results = [{
+        "id": "k1", "collection": "conversations", "rrf_score": 0.016,
+        "document": "the SEC-E7 routing decisions", "metadata": {"session_id": "s9"},
+    }]
+    out = server.format_index(results)
+    assert "match: keyword" in out
+    assert "relevance:" not in out
+
+
 def test_format_full_without_relevance() -> None:
     results = [{
         "id": "abc", "collection": "conversations", "distance": 1.0,

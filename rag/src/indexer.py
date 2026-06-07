@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .queue_db import JobQueue
+from .queue_db import JobQueue, JobType
 from .store import Store
 from .parsers.jsonl import parse_conversation
 
@@ -244,7 +244,10 @@ class Indexer:
         self._heartbeat()
 
         try:
-            self._process_conversation(path)
+            if job.job_type == JobType.WIKI.value:
+                self._process_wiki_page(path)
+            else:
+                self._process_conversation(path)
             self.queue.complete(job.id, job.file_hash)
             logger.info("Completed %s", path)
         except Exception as e:
@@ -337,6 +340,34 @@ class Indexer:
                     "Progress %s: batch %d/%d (%.0f%%) elapsed=%.1fs",
                     path.name, bi + 1, batches, 100.0 * (bi + 1) / batches, elapsed,
                 )
+
+    def _process_wiki_page(self, path: Path) -> None:
+        """Index a single wiki markdown page into the wiki collection.
+
+        Used for the session summaries the sweep enqueues, so a new page becomes
+        searchable through the one shared embedder rather than the sweep loading
+        its own. upsert_batch feeds both Chroma and the FTS keyword index.
+        """
+        from .parsers.markdown import parse_wiki_page
+
+        wiki_root = Path(os.environ.get("RAG_WIKI_ROOT") or (Path.home() / ".wiki" / "wiki"))
+        try:
+            chunks = parse_wiki_page(path, wiki_root)
+        except ValueError:
+            logger.warning("Wiki page %s is outside %s; skipping", path, wiki_root)
+            return
+        if not chunks:
+            logger.info("No chunks from wiki page %s", path)
+            return
+
+        self.store.upsert_batch(
+            collection_name="wiki",
+            identifiers=[c["identifier"] for c in chunks],
+            documents=[c["text"] for c in chunks],
+            metadatas=[c["metadata"] for c in chunks],
+        )
+        self._heartbeat()
+        logger.info("Indexed wiki page %s (%d chunks)", path.name, len(chunks))
 
     def run(self) -> None:
         """Run the worker loop. Blocks until SIGINT/SIGTERM."""

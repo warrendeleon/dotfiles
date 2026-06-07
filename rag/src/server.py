@@ -87,7 +87,12 @@ def _result_header(index: int, r: dict[str, Any], *, with_relevance: bool) -> st
 
     header = f"[{index}] ({tag}) {source}"
     if with_relevance:
-        header += f" -- relevance: {_relevance(r.get('distance', 1))}"
+        # A fused/keyword-only hit has no vector distance; don't render it as
+        # "relevance: low" (misleading). Show how it matched instead.
+        if "distance" in r:
+            header += f" -- relevance: {_relevance(r['distance'])}"
+        else:
+            header += " -- match: keyword"
 
     meta_parts: list[str] = []
     if is_wiki:
