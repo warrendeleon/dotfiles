@@ -356,6 +356,7 @@ MACHINE_FOLDERS = {
     "mbp16": "mbp16m1max",
     "mbp14M5Max": "mbp14m5max",
     "Warrens-MacBook-Air-M1": "mbairm1",
+    "ubuntuMiniPC": "ubuntuMiniPC",
 }
 
 
