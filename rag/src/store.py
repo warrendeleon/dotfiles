@@ -11,6 +11,8 @@ import chromadb
 import yaml
 from chromadb.api.types import EmbeddingFunction, Documents, Embeddings
 
+from .fts import FtsIndex, rrf_fuse
+
 logger = logging.getLogger(__name__)
 
 COLLECTIONS = ("conversations", "wiki")
@@ -270,6 +272,10 @@ class Store:
                 metadata={"hnsw:space": "cosine"},
             )
 
+        # Keyword mirror lives beside the vector DB. Best-effort: a failure here
+        # never blocks a vector upsert, and search falls back to vectors alone.
+        self._fts = FtsIndex(db_path.parent / "fts.db")
+
     def _ensure_client(self) -> None:
         """Rebuild the ChromaDB client and collections if they were unloaded."""
         if self._client is not None:
@@ -361,6 +367,10 @@ class Store:
             documents=[document],
             metadatas=[clean_meta],
         )
+        try:
+            self._fts.upsert_many([(doc_id, collection_name, document, clean_meta)])
+        except Exception:
+            logger.exception("FTS upsert failed for %s (vector upsert kept)", identifier)
         return doc_id
 
     def upsert_batch(
@@ -382,6 +392,12 @@ class Store:
 
         col = self.collection(collection_name)
         col.upsert(ids=ids, documents=documents, metadatas=clean_metas)
+        try:
+            self._fts.upsert_many(
+                zip(ids, [collection_name] * len(ids), documents, clean_metas)
+            )
+        except Exception:
+            logger.exception("FTS batch upsert failed (vector upsert kept)")
 
     def search(
         self,
@@ -390,7 +406,32 @@ class Store:
         n_results: int = 10,
         where: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """Search across one or more collections. Returns merged, ranked results."""
+        """Hybrid search: vector recall fused with FTS keyword recall.
+
+        Both legs over-fetch, then reciprocal-rank fusion merges them so exact
+        identifiers and error strings (the keyword leg's strength) and semantic
+        matches (the vector leg's) both surface. Falls back to vectors alone when
+        a metadata filter is set, when FTS is disabled, or when it returns nothing.
+        """
+        n_results = max(1, n_results)
+        candidates = n_results * 2
+        vector = self._vector_search(query, collection_names, candidates, where)
+
+        if where or not self._fts.enabled:
+            return vector[:n_results]
+        keyword = self._fts.search(query, n_results=candidates, collections=collection_names)
+        if not keyword:
+            return vector[:n_results]
+        return rrf_fuse(vector, keyword, n_results)
+
+    def _vector_search(
+        self,
+        query: str,
+        collection_names: list[str] | None = None,
+        n_results: int = 10,
+        where: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Vector-only search across one or more collections, ranked by distance."""
         n_results = max(1, n_results)
         targets = collection_names or list(COLLECTIONS)
         all_results: list[dict[str, Any]] = []
@@ -496,5 +537,32 @@ class Store:
         )
 
     def stats(self) -> dict[str, int]:
-        """Return document counts per collection."""
-        return {name: col.count() for name, col in self._collections.items()}
+        """Return document counts per collection, plus the keyword index."""
+        counts = {name: col.count() for name, col in self._collections.items()}
+        counts["fts"] = self._fts.count()
+        return counts
+
+    def rebuild_fts(self) -> int:
+        """Repopulate the FTS keyword index from every document in Chroma.
+
+        Backfills the keyword leg over data indexed before FTS existed. Clears
+        then rebuilds, so it is safe to re-run.
+        """
+        if not self._fts.enabled:
+            return 0
+        self._ensure_client()
+        self._fts.clear()
+        total = 0
+        for name in COLLECTIONS:
+            col = self._collections[name]
+            got = col.get()
+            ids = got.get("ids") or []
+            docs = got.get("documents") or []
+            metas = got.get("metadatas") or []
+            self._fts.upsert_many(
+                ((ids[i], name, docs[i] or "", metas[i] or {}) for i in range(len(ids))),
+                replace=False,
+            )
+            total += len(ids)
+        logger.info("Rebuilt FTS index: %d documents", total)
+        return total

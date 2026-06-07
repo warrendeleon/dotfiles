@@ -40,3 +40,31 @@ def test_search_returns_ids_for_progressive_disclosure(fake_store) -> None:
         assert r["id"]
         assert "document" in r
         assert r["collection"] in ("conversations", "wiki")
+
+
+def test_upsert_mirrors_into_fts(fake_store) -> None:
+    fake_store.upsert("conversations", "s1:turn:1", "react native re.pack module federation",
+                      {"session_id": "s1"})
+    assert fake_store._fts.count() >= 1
+
+
+def test_hybrid_search_surfaces_exact_identifier(fake_store) -> None:
+    # The keyword leg should surface an exact identifier even with the crude
+    # fake embeddings, proving the hybrid fusion is wired through search().
+    fake_store.upsert("conversations", "s1:turn:1",
+                      "the SEC-E7 api security epic routing decisions", {"session_id": "s1"})
+    fake_store.upsert("conversations", "s2:turn:1",
+                      "unrelated notes about cooking pasta for dinner", {"session_id": "s2"})
+    results = fake_store.search("SEC-E7", n_results=5)
+    assert any("SEC-E7" in r["document"] for r in results)
+
+
+def test_rebuild_fts_repopulates_from_chroma(fake_store) -> None:
+    fake_store.upsert("conversations", "s1:turn:1", "first document about caching", {"session_id": "s1"})
+    fake_store.upsert("wiki", "p.md#1", "second document about migration", {"title": "M"})
+    fake_store._fts.clear()
+    assert fake_store._fts.count() == 0
+    rebuilt = fake_store.rebuild_fts()
+    assert rebuilt == 2
+    assert fake_store._fts.count() == 2
+    assert fake_store._fts.search("caching")
