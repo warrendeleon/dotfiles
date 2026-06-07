@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dotfiles.rag-summariser</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__HOME__/.rag/venv/bin/python</string>
+        <string>-m</string>
+        <string>src.summarise_sweep</string>
+        <string>--limit</string>
+        <string>5</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__HOME__/Developer/dotfiles/rag</string>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StartInterval</key>
+    <integer>1800</integer>
+    <key>StandardOutPath</key>
+    <string>__HOME__/.rag/logs/summariser.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/.rag/logs/summariser.err</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+</dict>
+</plist>

@@ -2,7 +2,7 @@
 
 > Adapting the useful ideas from claude-mem into the existing local RAG, so Claude can resume work in a fresh conversation. Local-first, additive, and shaped by what already broke once.
 
-Status: draft for sign-off. Nothing here is built yet. Phase 1 is the headline; Phases 2-3 are a separate retrieval-quality project kept off the critical path.
+Status: Phase 1 built (2026-06-07). Phases 2-3 remain a separate retrieval-quality project off the critical path. The as-built design is recorded in section 14; it deviates from the original Phase 1 sketch in a few places, all for correctness, and those are called out there.
 
 ## 1. The goal
 
@@ -117,3 +117,20 @@ The Bun worker + Express service on port 37777, BullMQ/Redis/Postgres server-bet
 4. **Backfill: yes, with Sonnet (validated 2026-06-07 by a Haiku-vs-Sonnet side-by-side).** Earlier caution was "backfill must be local"; the data overturned it. Only ~83 conversation files (~70 substantial), and the RAG parser already strips tool/result/thinking, so a "717KB" session reduces to ~700 input tokens. The whole backfill is roughly 50k input + 30k output tokens, negligible. Sonnet beat Haiku on the same session (named exact paths, the read-before-edit step, the logging tool, the audit-not-migration framing, the reboot blast radius), and since the backfill is a one-time pass producing a durable asset, optimise for quality when cost is near-zero. A separate "Sonnet only" weekly bucket sits at 0%, so it likely will not touch the "All models" line. The old blowout was per-turn, continuous, over everything, a different mechanism.
    - **The summariser model is a config setting** (the old summariser's bug was hardcoding `haiku`). Backfill: Sonnet. Going-forward: Haiku or Sonnet (both cheap at a few/day), swappable. In-session Opus stays the top-tier enrichment.
    - Guardrails for the real run: head+tail truncation for the few huge transcripts (146MB), throttle so it does not burst the 5h window, resumable/idempotent (skip already-summarised), strip ```json fences and reject hollow output, and exclude the summariser's own `claude -p` transcripts from indexing. Local ollama remains a fallback, not the default.
+
+## 14. Phase 1 as built (2026-06-07)
+
+Built and committed to dotfiles `main` (`eae7f9b`, local). Files: `rag/src/summariser.py`, `rag/src/summary_ledger.py`, `rag/src/summarise_sweep.py`, `rag/src/session_restore.py`, the watcher exclusion, `claude/hooks/session-end-summarise.sh`, `rag/launchd/com.dotfiles.rag-summariser.plist`, the two `claude/settings.json` hooks, and 79 tests under `rag/tests/`.
+
+What changed from the sketch above, and why:
+
+- **Trigger: not a Stop hook.** Stop fires after every turn, so a Stop-hook summariser would summarise mid-session, every turn, which is the indiscriminate behaviour that blew the budget before. The as-built spine is a **launchd timer** (`com.dotfiles.rag-summariser`, every 30 min, `--limit 5`, model from config) that sweeps finished sessions. A **SessionEnd hook** summarises the just-closed session at once for immediacy. **SessionStart** does the restore injection. The done-ledger dedups across all three.
+- **The summariser uses `claude -p --tools ""`.** Verified empirically: removing tools drops the per-call system overhead from ~23.5k to ~6.3k tokens and is the strongest no-side-effects guarantee (the model has no tools to call at all). JSON output via `--output-format json`; fences stripped; hollow output rejected.
+- **Session date comes from the last in-transcript timestamp, not mtime.** mtime drifts up to a day and sessions can span weeks; the transcript timestamp is exact, which matters because restore orders by date.
+- **A linter, not a scrubber.** The model emits em-dashes and filler words whatever the prompt says, so output is linted and a violating page is marked `status: needs-review` rather than silently rewritten. Most pages flag; that is expected and they are reviewed before promotion.
+- **Done-ledger** is `~/.rag/summaries.db` (queue_db pattern). Gates on mtime vs last write, so unchanged transcripts are skipped without rehashing a huge file. A non-blocking `fcntl` lock stops a manual backfill and a timer tick double-spending.
+- **Domain routing** errs toward `hl`: a dedicated HL dir or HL markers in the text routes to `wiki/hl/sessions/`, keeping HL references out of `personal/` per the wiki separation rule.
+- **Summary home decision:** straight to the synced wiki, `wiki/<domain>/sessions/`, both domains (Warren chose this, informed that ~29 HL summaries reach personal GitHub). `status: auto | needs-review` (the `curated` flag from section 6 is the human-promotion target). Folder name kept as `sessions/`, not `ai-sessions/` (no-AI-reference rule).
+- **Backfill:** `rag-summarise --model sonnet` (no `--backfill` flag; it was redundant and risked summarising the live session, so it was removed). The wiki sync is paused during the run so nothing reaches GitHub before review.
+
+Deferred (unchanged): Phases 2-3 (progressive disclosure, field-level embedding, FTS5+RRF). RAG-indexing of the new summary pages rides the existing wiki indexer; the restore hook reads markdown directly, so it does not depend on that.

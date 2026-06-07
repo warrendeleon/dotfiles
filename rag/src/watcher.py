@@ -17,6 +17,10 @@ CLAUDE_PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
 EXCLUDED_PROJECT_SUFFIXES = [
     "-dotfiles-rag",
+    # The session summariser runs `claude -p` from ~/.rag/summariser-workdir.
+    # Its transcripts land in a project dir whose path contains this string;
+    # excluding them stops the summariser's own I/O feeding back into the index.
+    "summariser-workdir",
 ]
 
 class Watcher:

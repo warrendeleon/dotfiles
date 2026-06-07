@@ -9,10 +9,14 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
 rag-server = "src.server:main"
 rag-indexer = "src.indexer:main"
 rag-watcher = "src.watcher:main"
+rag-summarise = "src.summarise_sweep:main"
 
 [build-system]
 requires = ["setuptools>=68.0"]

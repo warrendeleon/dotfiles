@@ -21,6 +21,26 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.rag/venv/bin/python $HOME/Developer/dotfiles/rag/src/session_restore.py"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/Developer/dotfiles/claude/hooks/session-end-summarise.sh"
+          }
+        ]
+      }
     ]
   },
   "enabledPlugins": {

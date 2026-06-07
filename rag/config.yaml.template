@@ -13,6 +13,12 @@ watch_paths:
 # Or set a specific model name to override.
 embedding_model: auto
 
+# Model for the session summariser (the resume-loop digests written to the
+# wiki). Passed to `claude -p`, so use a Claude alias: haiku, sonnet, or opus.
+# Default: haiku (cheap, fast, fine for the small five-field digest). The
+# one-off backfill overrides this to sonnet on the command line.
+# summary_model: haiku
+
 # Ollama model for summarising content (conversations, code, docs).
 # Needs good comprehension and concise output. Default: qwen3.5:27b
 # summarise_model: qwen3.5:27b
