@@ -1936,23 +1936,43 @@ elif [[ -d "$RAG_DIR" ]]; then
       warn "Ollama not found. Install it first, then run: ollama pull <model>"
     fi
 
-    # Install launchd plists (substitute username in paths)
-    for plist in "$RAG_DIR/launchd/"*.plist; do
-      [[ -f "$plist" ]] || continue
-      plist_name=$(basename "$plist")
-      target="$HOME/Library/LaunchAgents/$plist_name"
-      if [[ -f "$target" ]]; then
-        launchctl unload "$target" 2>/dev/null || true
-      fi
-      # Replace placeholder with current user's home directory
-      sed "s|__HOME__|$HOME|g" "$plist" > "$target"
-      if launchctl bootstrap "gui/$(id -u)" "$target" 2>/dev/null \
-         || launchctl load "$target" 2>/dev/null; then
-        success "Loaded $plist_name"
-      else
-        warn "Could not load $plist_name. Load manually: launchctl load $target"
-      fi
-    done
+    # Role gate: only a FULL RAG machine runs the indexer, summariser, watcher,
+    # and sync (push) agents. A producer-only Mac just creates transcripts; the
+    # hub (MiniPC) pulls its ~/.claude/projects, so loading these agents here
+    # would make it a second writer to its own hub tree. Answer No on a Mac you
+    # only use, not one that hosts the RAG.
+    if ask "Is this a full RAG machine (runs indexer, summariser, sync)? [No = producer-only; the hub pulls it]"; then
+      touch "$RAG_HOME/rag-machine"
+      # Install launchd plists (substitute username in paths)
+      for plist in "$RAG_DIR/launchd/"*.plist; do
+        [[ -f "$plist" ]] || continue
+        plist_name=$(basename "$plist")
+        target="$HOME/Library/LaunchAgents/$plist_name"
+        if [[ -f "$target" ]]; then
+          launchctl unload "$target" 2>/dev/null || true
+        fi
+        # Replace placeholder with current user's home directory
+        sed "s|__HOME__|$HOME|g" "$plist" > "$target"
+        if launchctl bootstrap "gui/$(id -u)" "$target" 2>/dev/null \
+           || launchctl load "$target" 2>/dev/null; then
+          success "Loaded $plist_name"
+        else
+          warn "Could not load $plist_name. Load manually: launchctl load $target"
+        fi
+      done
+    else
+      # Producer-only: remove any RAG agents this machine may have loaded before,
+      # so it never pushes (the hub pulls it instead).
+      rm -f "$RAG_HOME/rag-machine"
+      for plist in "$RAG_DIR/launchd/"*.plist; do
+        target="$HOME/Library/LaunchAgents/$(basename "$plist")"
+        if [[ -f "$target" ]]; then
+          launchctl unload "$target" 2>/dev/null || true
+          rm -f "$target"
+        fi
+      done
+      info "Producer-only Mac: RAG agents not loaded; the hub pulls this machine's conversations."
+    fi
 
     # Create wrapper script (Claude Code doesn't reliably apply cwd)
     cat > "$RAG_HOME/start-server.sh" <<WRAPEOF
