@@ -33,6 +33,10 @@ RSYNC_TIMEOUT=60
 
 RSYNC_EXCLUDE_PATTERNS=(
     "*-dotfiles-rag*"
+    # The session summariser's own `claude -p` transcripts. Mirror the indexer's
+    # EXCLUDED_PROJECT_SUFFIXES (src/watcher.py): syncing these would feed the
+    # summariser's small summarising runs back in, the old budget-blowout loop.
+    "*summariser-workdir*"
 )
 
 log() {
