@@ -350,6 +350,22 @@ def lint(text: str) -> list[str]:
 
 # --- rendering --------------------------------------------------------------
 
+# Origin-machine folder names for wiki/sessions/<machine>/. Friendly aliases for
+# known machines; an unknown machine falls back to a slug of its id.
+MACHINE_FOLDERS = {
+    "mbp16": "mbp16m1max",
+    "mbp14M5Max": "mbp14m5max",
+    "Warrens-MacBook-Air-M1": "mbairm1",
+}
+
+
+def machine_folder(machine_id: str) -> str:
+    """Wiki sessions/ subfolder for a machine: a known alias, else a slug of the id."""
+    if machine_id in MACHINE_FOLDERS:
+        return MACHINE_FOLDERS[machine_id]
+    return re.sub(r"[^a-z0-9]+", "-", machine_id.lower()).strip("-") or "unknown"
+
+
 def slugify(title: str, max_len: int = 60) -> str:
     """Kebab-case slug from a title. Python owns this, not the model."""
     slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
@@ -391,6 +407,7 @@ def render_page(
     model: str,
     needs_review: bool,
     transcript_path: str,
+    machine: str = "unknown",
 ) -> str:
     """Render the wiki ``sessions/`` page, mirroring the curated page layout.
 
@@ -420,6 +437,7 @@ def render_page(
         "type: session\n"
         f"session_id: {session_id}\n"
         f"project: {project}\n"
+        f"machine: {machine}\n"
         f"source_model: {model}\n"
         "---\n"
     )

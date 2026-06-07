@@ -71,8 +71,10 @@ find_hub() {
 
 ensure_remote_dir() {
     local hub="$1"
-    ssh "$hub" "mkdir -p ~/$HUB_SYNC_DIR/$MACHINE_ID"
-    echo "$MACHINE_ID" | ssh "$hub" "cat > ~/$HUB_SYNC_DIR/$MACHINE_ID/.machine"
+    # Drop a .self-managed marker: this machine pushes its own tree, so the
+    # hub's claude-pull must NOT also pull it (one writer per tree). A new RAG
+    # machine that runs this push is auto-skipped by the pull, no coordination.
+    ssh "$hub" "mkdir -p ~/$HUB_SYNC_DIR/$MACHINE_ID && touch ~/$HUB_SYNC_DIR/$MACHINE_ID/.self-managed && echo $MACHINE_ID > ~/$HUB_SYNC_DIR/$MACHINE_ID/.machine"
 }
 
 push() {

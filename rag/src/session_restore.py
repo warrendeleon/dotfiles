@@ -103,18 +103,26 @@ def extract_next_steps(path: Path, limit: int = MAX_NEXT_STEPS) -> list[str]:
     return steps[:limit]
 
 
+def _iter_session_pages():
+    """Session pages across machine folders (sessions/<machine>/) and the legacy
+    domain layout (<domain>/sessions/), so restore works during migration."""
+    roots = [WIKI_SESSIONS_ROOT / "sessions"]
+    roots += [WIKI_SESSIONS_ROOT / d / "sessions" for d in DOMAINS]
+    for root in roots:
+        if not root.is_dir():
+            continue
+        yield from root.glob("*/*.md")
+        yield from root.glob("*.md")
+
+
 def find_recent(cwd: str, n: int = MAX_SESSIONS) -> list[dict[str, str]]:
     """Newest session pages for this project, falling back to the cwd's domain."""
     project = encode_project(cwd)
     pages: list[dict[str, str]] = []
-    for domain in DOMAINS:
-        sessions_dir = WIKI_SESSIONS_ROOT / domain / "sessions"
-        if not sessions_dir.is_dir():
-            continue
-        for path in sessions_dir.glob("*.md"):
-            meta = read_page_meta(path)
-            if meta:
-                pages.append(meta)
+    for path in _iter_session_pages():
+        meta = read_page_meta(path)
+        if meta:
+            pages.append(meta)
 
     exact = [p for p in pages if p["project"] == project]
     chosen = exact

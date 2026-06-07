@@ -188,6 +188,18 @@ def test_slugify_fallback() -> None:
     assert summariser.slugify("!!!") == "session"
 
 
+# --- machine_folder ---------------------------------------------------------
+
+def test_machine_folder_known_aliases() -> None:
+    assert summariser.machine_folder("mbp16") == "mbp16m1max"
+    assert summariser.machine_folder("mbp14M5Max") == "mbp14m5max"
+    assert summariser.machine_folder("Warrens-MacBook-Air-M1") == "mbairm1"
+
+
+def test_machine_folder_unknown_slugifies() -> None:
+    assert summariser.machine_folder("Some New Mac") == "some-new-mac"
+
+
 # --- parse_date_from_turns --------------------------------------------------
 
 def test_parse_date_from_turns_uses_last() -> None:

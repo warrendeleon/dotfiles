@@ -20,6 +20,7 @@ import fcntl
 import logging
 import os
 import re
+import subprocess
 import time
 from pathlib import Path
 from typing import Iterable, Iterator
@@ -32,6 +33,7 @@ from .summariser import (
     build_text,
     has_content,
     lint,
+    machine_folder,
     parse_date_from_turns,
     parse_summary,
     render_page,
@@ -79,6 +81,51 @@ _HL_TEXT_MARKERS = ("hargreaves", "hl-mobile", "ucx-core", "/hl/", "gitlab")
 
 def _now() -> float:
     return time.time()
+
+
+# The hub the sync uses; a session's origin machine is read from its per-machine
+# trees there. Same preference order as sync.sh's SSH_HOSTS.
+HUB_HOSTS = ("minipc-lan", "minipc-tailscale")
+
+
+def local_machine_id() -> str:
+    """This machine's id (matches sync.sh's machine-id); origin for native sessions."""
+    try:
+        mid = (Path.home() / ".rag" / "machine-id").read_text().strip()
+        return mid or "unknown"
+    except OSError:
+        return "unknown"
+
+
+def hub_session_origins() -> dict[str, str]:
+    """Map session_id -> origin machine id, read from the hub's per-machine trees.
+
+    A foreign session loses its origin when it merges into the local projects
+    dir, but the hub keeps it (claude-sync/<machine>/...). Best-effort: if no hub
+    is reachable, callers fall back to the local machine.
+    """
+    origins: dict[str, str] = {}
+    for hub in HUB_HOSTS:
+        try:
+            out = subprocess.run(
+                ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", hub,
+                 "find ~/claude-sync -name '*.jsonl'"],
+                capture_output=True, text=True, timeout=30,
+            )
+        except (subprocess.SubprocessError, OSError):
+            continue
+        if out.returncode != 0:
+            continue
+        for line in out.stdout.splitlines():
+            parts = line.strip().split("/")
+            if "claude-sync" not in parts or not parts[-1].endswith(".jsonl"):
+                continue
+            i = parts.index("claude-sync")
+            if i + 1 < len(parts):
+                origins[parts[-1][:-6]] = parts[i + 1]
+        return origins  # first reachable hub wins
+    logger.warning("hub unreachable; session origins default to local machine")
+    return origins
 
 
 def load_summary_model() -> str:
@@ -176,31 +223,40 @@ def needs_summary(
     return mtime > row["updated_at"]
 
 
+def _iter_session_pages():
+    """Every session page, in the machine layout plus the legacy domain layout."""
+    roots = [WIKI_SESSIONS_ROOT / "sessions"]
+    roots += [WIKI_SESSIONS_ROOT / d / "sessions" for d in ("personal", "hl")]
+    for root in roots:
+        if not root.is_dir():
+            continue
+        # machine layout is sessions/<machine>/*.md; legacy is <domain>/sessions/*.md
+        yield from root.glob("*/*.md")
+        yield from root.glob("*.md")
+
+
 def wiki_session_ids() -> frozenset[str]:
     """Session ids already summarised in the shared wiki (the global dedup set).
 
-    Reads the `session_id` frontmatter of every `sessions/` page. Cheap (a few
-    dozen small files) and read directly, so it needs no ChromaDB at sweep time.
+    Reads the `session_id` frontmatter of every session page. Cheap (a few dozen
+    small files) and read directly, so it needs no ChromaDB at sweep time. Scans
+    both the machine layout and the legacy domain layout during migration.
     """
     ids: set[str] = set()
-    for domain in ("personal", "hl"):
-        sessions_dir = WIKI_SESSIONS_ROOT / domain / "sessions"
-        if not sessions_dir.is_dir():
+    for page in _iter_session_pages():
+        try:
+            text = page.read_text(encoding="utf-8")
+        except OSError:
             continue
-        for page in sessions_dir.glob("*.md"):
-            try:
-                text = page.read_text(encoding="utf-8")
-            except OSError:
-                continue
-            m = re.search(r"^session_id:\s*(\S+)\s*$", text, re.MULTILINE)
-            if m:
-                ids.add(m.group(1).strip())
+        m = re.search(r"^session_id:\s*(\S+)\s*$", text, re.MULTILINE)
+        if m:
+            ids.add(m.group(1).strip())
     return frozenset(ids)
 
 
-def _write_page(page_text: str, domain: str, date: str, slug: str, session_id: str) -> Path:
-    """Write the page under wiki/<domain>/sessions/, disambiguating collisions."""
-    sessions_dir = WIKI_SESSIONS_ROOT / domain / "sessions"
+def _write_page(page_text: str, machine: str, date: str, slug: str, session_id: str) -> Path:
+    """Write the page under wiki/sessions/<machine>/, disambiguating collisions."""
+    sessions_dir = WIKI_SESSIONS_ROOT / "sessions" / machine_folder(machine)
     sessions_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{date}-{slug}.md"
     target = sessions_dir / filename
@@ -217,10 +273,13 @@ def summarise_one(
     model: str,
     dry_run: bool = False,
     index_queue: JobQueue | None = None,
+    origins: dict[str, str] | None = None,
 ) -> str:
     """Summarise a single transcript and write its page. Returns a status string."""
     session_id = path.stem
     project = path.parent.name
+    # Origin machine: from the hub map for a pulled session, else this machine.
+    machine = (origins or {}).get(session_id) or local_machine_id()
 
     turns = parse_conversation(path)
     text, n_turns = build_text(turns)
@@ -256,7 +315,7 @@ def summarise_one(
     page = render_page(
         fields, date=date, domain=domain, project=project,
         session_id=session_id, model=model, needs_review=False,
-        transcript_path=str(path),
+        transcript_path=str(path), machine=machine,
     )
     violations = lint(page)
     if violations:
@@ -264,13 +323,13 @@ def summarise_one(
         page = render_page(
             fields, date=date, domain=domain, project=project,
             session_id=session_id, model=model, needs_review=True,
-            transcript_path=str(path),
+            transcript_path=str(path), machine=machine,
         )
         logger.info("flagged needs-review %s: %s", session_id[:8], ", ".join(violations))
 
     prev = ledger.get(session_id)
     slug = slugify(fields["title"])
-    target = _write_page(page, domain, date, slug, session_id)
+    target = _write_page(page, machine, date, slug, session_id)
 
     # Resume case: a re-summarised session whose title or date changed lands at a
     # new filename. Remove the previous page so the stale one is not orphaned.
@@ -323,6 +382,8 @@ def sweep(
     # The shared wiki is the global dedup set: any session already summarised
     # there (by this or any machine) is skipped unless this machine owns it.
     wiki_ids = wiki_session_ids()
+    # Origin machine per session, so each page is filed under wiki/sessions/<machine>/.
+    origins = hub_session_origins()
 
     candidates: Iterable[Path] = iter_transcripts()
     if only_session:
@@ -337,7 +398,8 @@ def sweep(
         if not needs_summary(path, ledger, now, wiki_ids):
             continue
 
-        status = summarise_one(path, ledger, model, dry_run=dry_run, index_queue=index_queue)
+        status = summarise_one(path, ledger, model, dry_run=dry_run,
+                               index_queue=index_queue, origins=origins)
         counts[status] = counts.get(status, 0) + 1
         processed += 1
         if limit and processed >= limit:

@@ -141,6 +141,7 @@ def test_sweep_skips_session_already_in_wiki(tmp_path: Path, monkeypatch) -> Non
     # A foreign session already summarised elsewhere (page in the synced wiki)
     # must not be re-summarised here, even with an empty local ledger.
     monkeypatch.setattr(sweep, "CLAUDE_PROJECTS_DIR", tmp_path / "projects")
+    monkeypatch.setattr(sweep, "hub_session_origins", lambda: {})  # no SSH to the hub in tests
     monkeypatch.setattr(sweep, "WIKI_SESSIONS_ROOT", tmp_path / "wiki")
     calls = {"n": 0}
 
@@ -213,13 +214,15 @@ def test_summarise_one_writes_page_and_records(tmp_path: Path, monkeypatch) -> N
     _write_jsonl(transcript, n_turns=6)
 
     led = SummaryLedger(db_path=tmp_path / "l.db")
-    status = sweep.summarise_one(transcript, led, model="sonnet")
+    status = sweep.summarise_one(transcript, led, model="sonnet", origins={"abc12345": "mbp16"})
 
     assert status == "written"
-    pages = list((tmp_path / "wiki" / "personal" / "sessions").glob("*.md"))
+    # Filed under the origin machine's folder, not a domain folder.
+    pages = list((tmp_path / "wiki" / "sessions" / "mbp16m1max").glob("*.md"))
     assert len(pages) == 1
     text = pages[0].read_text()
     assert "status: auto" in text
+    assert "machine: mbp16" in text
     assert "# Fix the sweep gate" in text
     row = led.get("abc12345")
     assert row["status"] == "written"
@@ -282,15 +285,16 @@ def test_summarise_one_flags_needs_review_on_em_dash(tmp_path: Path, monkeypatch
     _write_jsonl(transcript, n_turns=6)
 
     led = SummaryLedger(db_path=tmp_path / "l.db")
-    status = sweep.summarise_one(transcript, led, model="sonnet")
+    status = sweep.summarise_one(transcript, led, model="sonnet", origins={"dash1234": "mbp16"})
 
     assert status == "needs-review"
-    page = list((tmp_path / "wiki" / "personal" / "sessions").glob("*.md"))[0].read_text()
+    page = list((tmp_path / "wiki" / "sessions" / "mbp16m1max").glob("*.md"))[0].read_text()
     assert "status: needs-review" in page
 
 
 def test_sweep_skips_active_session(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(sweep, "CLAUDE_PROJECTS_DIR", tmp_path / "projects")
+    monkeypatch.setattr(sweep, "hub_session_origins", lambda: {})  # no SSH to the hub in tests
     monkeypatch.setattr(sweep, "WIKI_SESSIONS_ROOT", tmp_path / "wiki")
     monkeypatch.setattr(sweep, "run_claude", lambda *a, **k: _fake_envelope(_good_fields()))
 
@@ -314,6 +318,7 @@ def test_sweep_skips_active_session(tmp_path: Path, monkeypatch) -> None:
 
 def test_sweep_session_arg_bypasses_idle(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(sweep, "CLAUDE_PROJECTS_DIR", tmp_path / "projects")
+    monkeypatch.setattr(sweep, "hub_session_origins", lambda: {})  # no SSH to the hub in tests
     monkeypatch.setattr(sweep, "WIKI_SESSIONS_ROOT", tmp_path / "wiki")
     monkeypatch.setattr(sweep, "run_claude", lambda *a, **k: _fake_envelope(_good_fields()))
 
@@ -354,12 +359,13 @@ def test_resume_resummary_removes_orphan_page(tmp_path: Path, monkeypatch) -> No
     _write_jsonl(t, 6)
     led = SummaryLedger(db_path=tmp_path / "l.db")
 
-    sweep.summarise_one(t, led, model="sonnet")
-    sessions_dir = tmp_path / "wiki" / "personal" / "sessions"
+    origins = {"resume12": "mbp16"}
+    sweep.summarise_one(t, led, model="sonnet", origins=origins)
+    sessions_dir = tmp_path / "wiki" / "sessions" / "mbp16m1max"
     assert len(list(sessions_dir.glob("*.md"))) == 1
 
     # Resume: re-summarise. Title changed -> new filename, old must be gone.
-    sweep.summarise_one(t, led, model="sonnet")
+    sweep.summarise_one(t, led, model="sonnet", origins=origins)
     pages = list(sessions_dir.glob("*.md"))
     assert len(pages) == 1
     assert "second-title-after-resume" in pages[0].name
