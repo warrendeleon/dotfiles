@@ -42,7 +42,7 @@
 - This is orthogonal to "Don't Over-Engineer" below: that rule is about **scope** (don't do more than asked); this one is about **quality** (for what you are doing, do it the best way).
 
 ### Never Use AI-Tell Words, Phrases, or Em-Dashes
-Em-dashes connecting clauses are banned in every language. Full canonical list of banned words, phrases, and constructions (with replacements and the judgement clause for technical use) lives in the wiki at `~/.wiki/wiki/personal/ai-writing-gotchas.md`. Read it before writing anything substantive — blog post, wiki page, ADR, deck, ucx-doc. Always-on hits to remember without lookup: moreover, furthermore, however, therefore, additionally, leverage, robust, seamless, ensure, delve, foster, "It's important to note", "That being said", "In conclusion", "Here's".
+Em-dashes connecting clauses are banned in every language. Full canonical list of banned words, phrases, and constructions (with replacements and the judgement clause for technical use) lives in the wiki at `~/.wiki/personal/ai-writing-gotchas.md`. Read it before writing anything substantive — blog post, wiki page, ADR, deck, ucx-doc. Always-on hits to remember without lookup: moreover, furthermore, however, therefore, additionally, leverage, robust, seamless, ensure, delve, foster, "It's important to note", "That being said", "In conclusion", "Here's".
 
 ### Dates
 - Never assume or guess today's date. When the date matters, run `date` to check.
@@ -82,7 +82,7 @@ Seven tools available via MCP. Use them proactively:
 A personal knowledge base of structured markdown pages, organised into `wiki/personal/` and `wiki/hl/`. Full rules are in `~/.wiki/CLAUDE.md`.
 
 **When answering questions**, check the wiki first:
-1. Read relevant pages from `~/.wiki/wiki/` before answering
+1. Read relevant pages from `~/.wiki/` before answering
 2. Cite specific wiki pages in your answer
 3. If the wiki doesn't cover the topic, say so clearly
 

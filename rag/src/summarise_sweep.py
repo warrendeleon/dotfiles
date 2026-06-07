@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 # Wiki area that summaries are written into, split by domain.
 # Overridable via RAG_WIKI_ROOT for multi-machine layouts and testing.
-WIKI_SESSIONS_ROOT = Path(os.environ.get("RAG_WIKI_ROOT") or (Path.home() / ".wiki" / "wiki"))
+WIKI_SESSIONS_ROOT = Path(os.environ.get("RAG_WIKI_ROOT") or (Path.home() / ".wiki"))
 
 # A session is treated as finished once its transcript has been idle this long.
 # Long enough that the live session is never summarised mid-flight.

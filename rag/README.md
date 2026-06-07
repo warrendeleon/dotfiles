@@ -96,7 +96,7 @@ All seven are surfaced to Claude via the global `CLAUDE.md` so it knows when to 
 | Apple Silicon, <32GB | `mixedbread-ai/mxbai-embed-large-v1` via sentence-transformers + MPS |
 | Linux / CPU | `mixedbread-ai/mxbai-embed-large-v1` on CPU |
 
-Override by setting `embedding_model` explicitly in `~/.rag/config.yaml`. This laptop currently overrides to `Qwen/Qwen3-Embedding-8B` on MPS to dodge an Ollama 0.21 Metal bug on M5 Max. See `~/.wiki/wiki/personal/ollama-m5-max-metal-incompatibility.md`.
+Override by setting `embedding_model` explicitly in `~/.rag/config.yaml`. This laptop currently overrides to `Qwen/Qwen3-Embedding-8B` on MPS to dodge an Ollama 0.21 Metal bug on M5 Max. See `~/.wiki/personal/ollama-m5-max-metal-incompatibility.md`.
 
 ## Power throttling
 

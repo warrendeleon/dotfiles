@@ -46,7 +46,7 @@ The summary is a small, simple, infrequent task (a five-field digest), unlike gr
 
 ## 6. Where summaries live
 
-**Recommendation: `~/.wiki/wiki/<domain>/sessions/`**, the area already created this session, with frontmatter `status: auto | curated`.
+**Recommendation: `~/.wiki/<domain>/sessions/`**, the area already created this session, with frontmatter `status: auto | curated`.
 
 - Already RAG-indexed (the `wiki` collection), so searchable for free.
 - Recency-sortable by filename date, which is what SessionStart needs.

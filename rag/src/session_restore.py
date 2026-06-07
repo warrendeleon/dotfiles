@@ -28,7 +28,7 @@ from pathlib import Path
 def _wiki_root() -> Path:
     """Wiki root, overridable via RAG_WIKI_ROOT (multi-machine, and testing)."""
     env = os.environ.get("RAG_WIKI_ROOT")
-    return Path(env) if env else Path.home() / ".wiki" / "wiki"
+    return Path(env) if env else Path.home() / ".wiki"
 
 
 WIKI_SESSIONS_ROOT = _wiki_root()
@@ -153,7 +153,7 @@ def build_context(cwd: str) -> str | None:
         lines.append(f"Latest open threads (from {recent[0]['date']}):")
         lines.extend(f"  - {s}" for s in next_steps)
 
-    lines.append("Full detail: mcp__rag__search, or the pages under ~/.wiki/wiki/*/sessions/.")
+    lines.append("Full detail: mcp__rag__search, or the pages under ~/.wiki/sessions/.")
     return "\n".join(lines)
 
 

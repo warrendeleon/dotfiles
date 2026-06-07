@@ -350,7 +350,7 @@ class Indexer:
         """
         from .parsers.markdown import parse_wiki_page
 
-        wiki_root = Path(os.environ.get("RAG_WIKI_ROOT") or (Path.home() / ".wiki" / "wiki"))
+        wiki_root = Path(os.environ.get("RAG_WIKI_ROOT") or (Path.home() / ".wiki"))
         try:
             chunks = parse_wiki_page(path, wiki_root)
         except ValueError:

@@ -39,7 +39,7 @@ These belong elsewhere; putting them in the style wastes tokens and dilutes focu
 - **Tool-use rules, MCP server references, RAG/wiki lookup order.** Those go in `claude/CLAUDE.md` (global) or a project `CLAUDE.md`.
 - **Facts about you** (your job, your projects, your preferences for specific libraries). Those go in Claude's memory system (`mcp__rag__log_action` for ephemera, the wiki for canonical facts).
 - **Project conventions** (coding style, test patterns, framework choices). Per-project `CLAUDE.md`.
-- **Long lists of banned words.** Keep the top 10 or so. Offload the canonical list to a separate file and reference it. Warren's style does this with `~/.wiki/wiki/personal/ai-writing-gotchas.md`.
+- **Long lists of banned words.** Keep the top 10 or so. Offload the canonical list to a separate file and reference it. Warren's style does this with `~/.wiki/personal/ai-writing-gotchas.md`.
 - **Anything secret** (API keys, internal URLs, employer-confidential preferences). Output styles are committed to dotfiles.
 
 ## Frontmatter fields

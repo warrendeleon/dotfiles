@@ -16,8 +16,8 @@ Same principle applies to every other pass — authority calibration, UK-tone, c
 
 ## Required reading (load before touching the document)
 
-- `~/.wiki/wiki/personal/ai-writing-gotchas.md` — banned words, expressions, constructions, em-dashes, judgement clause
-- `~/.wiki/wiki/personal/uk-tone-writing.md` — steelman framework, hedge non-absolutes, no defensive openers
+- `~/.wiki/personal/ai-writing-gotchas.md` — banned words, expressions, constructions, em-dashes, judgement clause
+- `~/.wiki/personal/uk-tone-writing.md` — steelman framework, hedge non-absolutes, no defensive openers
 - `~/Developer/warrendeleon/warrendeleon.com/src/data/workxp-en.json` — Warren's actual work-experience data (use this to verify any authority claims; never embed a specific year if it can be checked here)
 - The target document, in full, before editing
 
@@ -155,7 +155,7 @@ This pass should read like human review: open the file, scan the surrounding cod
 - `~/Developer/HL/hl-portal-web/` — HL web codebase
 - `~/Developer/HL/ucx-core-mobile-platform-docs/` — HL platform docs and ADRs
 - `~/Developer/dotfiles/` — Warren's dotfiles (RAG, scripts, configs)
-- `~/.wiki/wiki/hl/` and `~/.wiki/wiki/personal/` — curated wiki for facts and decisions
+- `~/.wiki/hl/` and `~/.wiki/personal/` — curated wiki for facts and decisions
 
 For library API claims, check the installed package's `package.json` for the version, then **open the package's `node_modules/<pkg>/dist/*.d.ts` types** and read the actual exported shape. Don't trust your memory of an API; the version installed might pre-date or post-date the API you're thinking of.
 

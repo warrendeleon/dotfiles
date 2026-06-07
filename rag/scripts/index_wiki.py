@@ -29,14 +29,22 @@ from src.parsers.markdown import parse_wiki_page
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_WIKI_ROOT = Path.home() / ".wiki" / "wiki"
+DEFAULT_WIKI_ROOT = Path.home() / ".wiki"
 UPSERT_BATCH = 8  # small batch to bound GPU memory, matching the conversation indexer
+
+# Only these subtrees are knowledge pages. The wiki repo root also holds raw/
+# (unprocessed source) and top-level files (CLAUDE.md, sync.sh) that must not be
+# indexed, so scan the knowledge dirs explicitly rather than the whole root.
+INDEXED_SUBDIRS = ("hl", "personal", "sessions")
 
 
 def _collect_pages(wiki_root: Path, explicit: list[str] | None) -> list[Path]:
     if explicit:
         return [Path(p).resolve() for p in explicit]
-    return sorted(wiki_root.rglob("*.md"))
+    pages: list[Path] = []
+    for sub in INDEXED_SUBDIRS:
+        pages.extend((wiki_root / sub).rglob("*.md"))
+    return sorted(pages)
 
 
 def index_wiki(wiki_root: Path, paths: list[str] | None, clear: bool) -> tuple[int, int]:
@@ -87,7 +95,7 @@ def index_wiki(wiki_root: Path, paths: list[str] | None, clear: bool) -> tuple[i
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Index the wiki into the RAG wiki collection")
-    parser.add_argument("--wiki-root", type=str, default=str(DEFAULT_WIKI_ROOT), help="Wiki root (default ~/.wiki/wiki)")
+    parser.add_argument("--wiki-root", type=str, default=str(DEFAULT_WIKI_ROOT), help="Wiki root (default ~/.wiki)")
     parser.add_argument("--paths", nargs="*", default=None, help="Index only these files (skips clearing)")
     parser.add_argument("--no-clear", action="store_true", help="Upsert without clearing the collection first")
     args = parser.parse_args()
