@@ -1,5 +1,6 @@
 {
   "includeCoAuthoredBy": false,
+  "cleanupPeriodDays": 999999,
   "hooks": {
     "Stop": [
       {
