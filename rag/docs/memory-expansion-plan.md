@@ -134,3 +134,16 @@ What changed from the sketch above, and why:
 - **Backfill:** `rag-summarise --model sonnet` (no `--backfill` flag; it was redundant and risked summarising the live session, so it was removed). The wiki sync is paused during the run so nothing reaches GitHub before review.
 
 Deferred (unchanged): Phases 2-3 (progressive disclosure, field-level embedding, FTS5+RRF). RAG-indexing of the new summary pages rides the existing wiki indexer; the restore hook reads markdown directly, so it does not depend on that.
+
+## 15. Phase 2 as built (2026-06-07)
+
+Retrieval quality. Committed to dotfiles `main` (local): `4de86f6` (2a), `05765d1` (2b), `2838241` (2c). 115 tests.
+
+- **2a, progressive disclosure.** `search` returns a compact index (id, one-line snippet, token estimate) instead of every full document inline; `get_chunks(ids)` fetches the full text of chosen hits; `get_context` still returns full text for a quick grab. `Store.get_documents(ids)` fetches by id across collections.
+- **2b, hybrid keyword + vector search.** `src/fts.py` mirrors every chunk into a SQLite FTS5 index (best-effort on upsert, never blocks a Chroma upsert; disables itself if FTS5 is absent). `Store.search` over-fetches both legs and fuses by reciprocal-rank, so exact identifiers (SEC-E7, INC0208348) and error strings surface alongside semantic matches. Proven on real data.
+- **2c, the corpus fix (the gap a review caught).** The wiki collection had drifted to 27 of 260 on-disk files indexed, and none of the 75 session pages were searchable, so both search legs were sharpening over a near-empty wiki. Fixed: a full wiki reindex (260 pages, 2354 chunks) plus an FTS rebuild (37,021 docs total). Going forward, the sweep enqueues each page it writes as a new `WIKI` job type; the indexer routes it to `parse_wiki_page` + `upsert_batch`, so a fresh summary is embedded by the one shared indexer embedder (no second model in the sweep) and is searchable without a manual reindex. A keyword-only hit now shows "match: keyword", not a misleading "relevance: low".
+- **Tested without the GPU**: a fake embedding function lets the Store, FTS, fusion, and indexer paths run in unit tests with no model.
+
+**Deferred, pending sign-off: field-level embedding.** Splitting each turn into user/answer/fact documents would need a multi-hour full re-embed of ~34k turns, and its main win (exact-match recall) is now covered by the FTS leg, so the cost/benefit is weak. Recommend dropping it unless recall proves lacking in use.
+
+Still manual: a full wiki reindex backfills hand-curated pages; the sweep-enqueue only keeps new session pages current. A wiki watcher (auto-index every wiki change) is the remaining automation if hand-edited pages drift.
