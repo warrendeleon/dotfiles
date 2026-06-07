@@ -1,4 +1,4 @@
-"""ChromaDB wrapper with 3 collections and Ollama embeddings."""
+"""ChromaDB wrapper with typed collections and local embeddings."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from chromadb.api.types import EmbeddingFunction, Documents, Embeddings
 
 logger = logging.getLogger(__name__)
 
-COLLECTIONS = ("conversations",)
+COLLECTIONS = ("conversations", "wiki")
 DEFAULT_DB_PATH = Path.home() / ".rag" / "chromadb"
 DEFAULT_CONFIG_PATH = Path.home() / ".rag" / "config.yaml"
 DEFAULT_OLLAMA_MODEL = "mxbai-embed-large"
@@ -234,7 +234,7 @@ def _doc_id(collection_name: str, identifier: str) -> str:
 
 
 class Store:
-    """Thin wrapper around ChromaDB with 3 typed collections."""
+    """Thin wrapper around ChromaDB with typed collections."""
 
     def __init__(
         self,
@@ -447,6 +447,23 @@ class Store:
         doc_id = _doc_id(collection_name, identifier)
         col = self.collection(collection_name)
         col.delete(ids=[doc_id])
+
+    def clear_collection(self, collection_name: str) -> None:
+        """Drop and recreate a single collection. Used for a clean full reindex.
+
+        Only touches the named collection, so reindexing the wiki never affects
+        the conversations collection.
+        """
+        if collection_name not in COLLECTIONS:
+            raise ValueError(f"Unknown collection: {collection_name}. Use one of {COLLECTIONS}")
+        self._ensure_client()
+        assert self._client is not None
+        self._client.delete_collection(name=collection_name)
+        self._collections[collection_name] = self._client.get_or_create_collection(
+            name=collection_name,
+            embedding_function=self._embed_fn,
+            metadata={"hnsw:space": "cosine"},
+        )
 
     def stats(self) -> dict[str, int]:
         """Return document counts per collection."""

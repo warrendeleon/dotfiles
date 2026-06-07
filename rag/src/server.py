@@ -65,10 +65,13 @@ def _is_allowed_path(path: Path) -> bool:
 
 @mcp.tool()
 def search(query: str, n_results: int = 10) -> str:
-    """Search indexed conversations semantically.
+    """Search the curated wiki and past conversations semantically.
 
-    Use this to find past discussions, decisions, or context from previous
-    Claude Code sessions.
+    Returns merged, ranked hits from two sources: the curated wiki (section-level
+    chunks of human-reviewed knowledge, the conclusions) and past Claude Code
+    conversations (raw turns, for recall). Wiki hits name their page and section;
+    conversation hits name their session. Use this to find prior decisions,
+    knowledge, or context before answering.
 
     Args:
         query: Natural language search query.
@@ -93,23 +96,36 @@ def search(query: str, n_results: int = 10) -> str:
         distance = r.get("distance", 0)
         relevance = f"{max(0, (1 - distance)) * 100:.0f}%" if distance < 1 else "low"
 
-        header = f"[{i}] {source} -- relevance: {relevance}"
+        collection = r.get("collection", "conversations")
+        is_wiki = collection == "wiki"
+
+        tag = "wiki" if is_wiki else "conversation"
+        header = f"[{i}] ({tag}) {source} -- relevance: {relevance}"
 
         meta_parts = []
-        if meta.get("session_id"):
-            meta_parts.append(f"session: {meta['session_id']}")
-        if meta.get("project"):
-            meta_parts.append(f"project: {meta['project']}")
-        if meta.get("timestamp"):
-            meta_parts.append(f"time: {meta['timestamp']}")
+        if is_wiki:
+            if meta.get("title"):
+                meta_parts.append(f"page: {meta['title']}")
+            if meta.get("section") and meta.get("section") != "(intro)":
+                meta_parts.append(f"section: {meta['section']}")
+        else:
+            if meta.get("session_id"):
+                meta_parts.append(f"session: {meta['session_id']}")
+            if meta.get("project"):
+                meta_parts.append(f"project: {meta['project']}")
+            if meta.get("timestamp"):
+                meta_parts.append(f"time: {meta['timestamp']}")
 
         if meta_parts:
             header += f" [{', '.join(meta_parts)}]"
 
         doc = r.get("document", "")
 
-        if len(doc) > 500:
-            doc = doc[:500] + "..."
+        # Wiki chunks are curated and short; show more of them. Conversation
+        # turns are raw and noisy, so keep their preview tight.
+        limit = 1200 if is_wiki else 500
+        if len(doc) > limit:
+            doc = doc[:limit] + "..."
 
         parts.append(f"{header}\n{doc}")
 
