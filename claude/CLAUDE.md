@@ -41,8 +41,8 @@
 - Push back on me too. If I'm wrong, say so plainly. If my reasoning is flawed, point at the flaw. "Whatever you think is best" is not permission to default to what's easy.
 - This is orthogonal to "Don't Over-Engineer" below: that rule is about **scope** (don't do more than asked); this one is about **quality** (for what you are doing, do it the best way).
 
-### Never Use AI-Tell Words, Phrases, or Em-Dashes
-Em-dashes connecting clauses are banned in every language. Full canonical list of banned words, phrases, and constructions (with replacements and the judgement clause for technical use) lives in the wiki at `~/.wiki/personal/ai-writing-gotchas.md`. Read it before writing anything substantive — blog post, wiki page, ADR, deck, ucx-doc. Always-on hits to remember without lookup: moreover, furthermore, however, therefore, additionally, leverage, robust, seamless, ensure, delve, foster, "It's important to note", "That being said", "In conclusion", "Here's".
+### AI-Tell Words, Phrases, and Em-Dash Misuse
+Em-dashes that stitch two clauses together are out in every language; an em-dash that genuinely fits (a parenthetical aside, an appositive, a `term — definition` list) stays. Judge each, never strip by count. Full canonical list of banned words, phrases, and constructions (with replacements and the judgement clause for technical use) lives in the wiki at `~/.wiki/personal/ai-writing-gotchas.md`. Read it before writing anything substantive — blog post, wiki page, ADR, deck, ucx-doc. Always-on hits to remember without lookup: moreover, furthermore, however, therefore, additionally, leverage, robust, seamless, ensure, delve, foster, "It's important to note", "That being said", "In conclusion", "Here's".
 
 ### Dates
 - Never assume or guess today's date. When the date matters, run `date` to check.
@@ -193,7 +193,7 @@ git checkout main && git merge --ff-only feature/branch
 - Format: `[gitmoji] [type]([scope]): [subject]`
 - Subject: Imperative mood, include scope, under 72 chars
 - Body: Bullet points explaining what/why
-- No AI patterns, no em-dashes, no filler words
+- No AI patterns or filler words. Em-dashes follow the same rule as prose: fine where they genuinely fit, never to stitch clauses
 - No `Co-authored-by` trailers
 
 ### AI Reference Prohibition

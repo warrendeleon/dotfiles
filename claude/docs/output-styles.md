@@ -27,7 +27,7 @@ Output styles are for **how Claude communicates**, not what it knows or what too
 - **Tone and register.** Formal / informal, dry / warm, blunt / diplomatic. Be specific. "Direct" is vague; "no throat-clearing openers, no closing recaps" is actionable.
 - **Voice quirks.** UK vs US English. Contractions vs formal forms. Sentence length preferences. Vocabulary you want or don't want.
 - **Response shape.** When to use bullets vs prose. When to use headings. When a one-sentence answer beats a section. How long is too long.
-- **Banned words / phrases.** Specific tokens you find irritating. Examples: "Great question!", "Let me check", "It's important to note", em-dashes.
+- **Banned words / phrases.** Specific tokens you find irritating. Examples: "Great question!", "Let me check", "It's important to note", "delve".
 - **Pushback policy.** When to defer vs when to argue. Whether to soften disagreement or surface it on the first turn. Whether "sure, I can do that" is allowed when you actually disagree.
 - **Sycophancy controls.** What constitutes empty affirmation in your eyes. What a real assessment looks like.
 - **Concrete examples.** Show, don't tell. "Bad: 'Great question! Let me dive into this...' Good: '<the answer>'." Examples beat abstract rules.

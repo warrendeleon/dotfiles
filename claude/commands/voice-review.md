@@ -39,7 +39,7 @@ When unclear, default to senior expertise.
 4. **Never fabricate to fix a problem.** If you'd have to invent a fact, flag it instead.
 5. **Don't make Warren the cautionary tale** outside learning-post mode. He has been criticised for being too direct or dismissive; the steelman framework is how that gets calibrated, not by inserting self-deprecation.
 6. **Tags, publishDate, slug, campaign, series, heroImage, heroAlt, locale, draft, relatedPosts** in frontmatter are hands-off. Title and description are in scope; stay within the original character budget for description.
-7. **No em-dashes connecting clauses**, in any language, including languages where they're natural typography.
+7. **Em-dashes only where they genuinely fit** (parenthetical aside, appositive, `term — definition` list), never stitching two clauses. Same judgement in every language; don't strip by count.
 8. **Every correctness-pass entry in the change log MUST cite the file path you read and an excerpt or paraphrase of what you saw.** If you cannot cite a specific file you opened, the claim is unverified and must be flagged, not fixed. Hand-waving "verified against codebase" is not acceptable. This is the verification gate.
 
 ## Passes (run in order, edit in place)
@@ -76,7 +76,7 @@ Cross-check authority claims against `workxp-en.json` if specific years or roles
 
 Scan the document against the gotchas wiki page. Strip:
 
-- **Em-dashes connecting clauses** in every language; replace with period, colon, comma, or parenthesis
+- **Clause-stitching em-dashes** (two independent clauses joined where a full stop or colon belongs); replace those with a period, colon, comma, or parenthesis. Keep em-dashes that genuinely fit (parenthetical, appositive, `term — definition` list). Judge each, never strip by count
 - **Banned words** from the canonical list (moreover, furthermore, however, therefore, additionally, leverage, robust, seamless, ensure, delve, foster, and the rest)
 - **Banned expressions** ("It's important to note", "That being said", "dive into", "In conclusion", and the rest)
 - **Banned constructions** ("It's not X, it's Y" → state the positive)
@@ -200,7 +200,7 @@ After editing, report under 500 words. Be specific so Warren can absorb the patt
 - Authority claims cross-checked (against workxp-en.json: ...)
 
 **AI tells removed** (rough count by category):
-- Em-dashes: N · Banned words/expressions: N · Templated openers/closers: N
+- Clause-stitching em-dashes fixed: N (legitimate em-dashes kept) · Banned words/expressions: N · Templated openers/closers: N
 - Marketing-adjective compounds: N · Decorative blockquotes folded: N · Stylistic bolds stripped: N
 
 **UK-tone fixes**:
