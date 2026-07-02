@@ -111,7 +111,7 @@ If you're an AI assistant working in this repo and need to ssh somewhere on the 
 
 Two complementary memory layers for Claude. Full explainer in `claude/docs/knowledge-system.md`. The short version:
 
-- **RAG** is the journal. A Python service watches Claude Code's conversation JSONLs, embeds each turn locally (sentence-transformers on MPS or Ollama), stores vectors in ChromaDB. An MCP server exposes 7 tools to Claude (`search`, `get_context`, `log_action`, etc.). Indexing is automatic and background. Read `rag/README.md` for the full diagram.
+- **RAG** is the journal. A Python service watches Claude Code's conversation JSONLs, embeds each turn locally (Ollama by default since 2026-06, with an in-process sentence-transformers fallback), stores vectors in ChromaDB. An MCP server exposes 8 tools to Claude (`search`, `get_chunks`, `get_context`, `log_action`, etc.). Indexing is automatic and background. Read `rag/README.md` for the full diagram.
 - **Wiki** is the textbook. A separate private git repo at `~/.wiki` containing AI-written, human-curated markdown pages. Browsable in Obsidian. Each page is sourced and committed individually. Sync via `~/.wiki/sync.sh` on a launchd timer (pushes through GitHub, no extra infrastructure).
 
 The wiki repo is **not in this dotfiles repo**. It's cloned separately by setup step 29. A new user without access to the owner's wiki should set `WIKI_REPO=git@github.com:youruser/wiki.git` and read `claude/docs/knowledge-system.md` for bootstrap instructions.

@@ -55,12 +55,13 @@ Em-dashes that stitch two clauses together are out in every language; an em-dash
 - Don't guess what was said. Search, find the actual conversation, and reference it.
 
 ### RAG System (mcp__rag)
-Seven tools available via MCP. Use them proactively:
+Eight tools available via MCP. Use them proactively:
 
 | Tool | When to use |
 |---|---|
-| `search(query, scope?, n_results=10)` | Semantic search across conversations, code, and docs. Use when the user references past work or you need context. |
-| `get_context(topic, n_results=5)` | Quick context on a topic. Lighter than `search`. |
+| `search(query, n_results=10)` | Semantic search across conversations and the wiki. Returns a compact index of hits; follow up with `get_chunks` for full text. |
+| `get_chunks(ids)` | Full text of specific hits from a `search` index. |
+| `get_context(topic, n_results=5)` | Full text of the top few hits in one go, when you don't need to browse first. |
 | `log_action(description, files_affected?)` | After completing significant work (commits, refactors, decisions). Keeps an audit trail. |
 
 **Diagnostic tools** (use when investigating indexing issues): `index_file`, `get_audit_log`, `get_indexing_status`, `get_failed_jobs`.
