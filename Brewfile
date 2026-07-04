@@ -31,6 +31,7 @@ brew "git-delta"
 brew "ncdu"
 brew "lazygit"
 brew "gnupg"
+brew "pinentry-mac"               # GUI pin/password prompt (used by brew autoupdate --sudo)
 brew "openssl@3"
 brew "duti"
 brew "sshpass"                   # Non-interactive ssh password auth
@@ -94,6 +95,9 @@ cask "superwhisper"              # Voice-to-text dictation [pick]
 cask "iina"                      # Video player [pick]
 cask "spotify"                   # Music [pick]
 cask "ecamm-live"                # Live streaming & recording [pick]
+
+# Gaming
+cask "steam"                     # Game launcher (runs only when opened) [pick]
 
 # Browsers
 cask "google-chrome"             # Web browser [pick]

@@ -397,7 +397,7 @@ while IFS= read -r line; do
     else
       PICK_LABELS+=("${local_name}")
     fi
-    PICK_SELECTED+=(1)
+    PICK_SELECTED+=(0)
 
     if [[ -n "$current_section" ]]; then
       PICK_SECTIONS+=("$current_section")
@@ -422,7 +422,7 @@ success "Core packages installed"
 # Interactive picker for apps
 echo ""
 info "Select which apps to install (${TOTAL_PICK} available)."
-info "All are selected by default. Deselect what you don't need."
+info "Nothing is selected by default. Select what you want."
 echo ""
 info "↑/↓ move  SPACE toggle  a select all  n deselect all  ENTER confirm"
 echo ""
