@@ -573,6 +573,24 @@ done
 
 success "Brewfile processing complete (${selected_count} apps selected)"
 
+# Steam is an Intel-only app; on Apple Silicon it needs Rosetta 2 to launch.
+# If Steam was picked, install Rosetta when it's missing (harmless if present).
+steam_selected=0
+for ((i=0; i<TOTAL_PICK; i++)); do
+  [[ "${PICK_SELECTED[$i]}" -eq 1 ]] || continue
+  [[ "${PICK_LINES[$i]}" =~ ^cask\ +\"steam\" ]] && steam_selected=1 && break
+done
+if [[ "$steam_selected" -eq 1 && "$(uname -m)" == "arm64" ]]; then
+  if arch -x86_64 /usr/bin/true 2>/dev/null; then
+    success "Rosetta 2 already installed (needed for Steam)"
+  else
+    info "Steam needs Rosetta 2 to run on Apple Silicon. Installing..."
+    softwareupdate --install-rosetta --agree-to-license \
+      && success "Rosetta 2 installed" \
+      || warn "Rosetta 2 install failed. Install manually: softwareupdate --install-rosetta --agree-to-license"
+  fi
+fi
+
 # Install Xcode. Runs in the foreground because xcodes needs an interactive
 # Apple ID login and may prompt for a 2FA code mid-download — backgrounding it
 # silently drops those prompts and auth fails.
