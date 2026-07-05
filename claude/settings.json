@@ -1,6 +1,7 @@
 {
-  "includeCoAuthoredBy": false,
   "cleanupPeriodDays": 999999,
+  "includeCoAuthoredBy": false,
+  "model": "opus",
   "hooks": {
     "Stop": [
       {
@@ -60,12 +61,12 @@
   },
   "outputStyle": "Warren",
   "effortLevel": "high",
-  "advisorModel": "opus",
   "voice": {
     "enabled": true,
     "mode": "hold"
   },
   "skipDangerousModePermissionPrompt": true,
   "theme": "auto",
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "skipWorkflowUsageWarning": true
 }
