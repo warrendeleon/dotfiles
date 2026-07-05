@@ -1768,9 +1768,30 @@ success "Accessibility permissions step complete"
 echo ""
 if ask "Enable daily auto-updates for all apps (Homebrew + App Store)?"; then
   brew tap domt4/autoupdate 2>/dev/null || warn "Could not tap domt4/autoupdate"
-  brew autoupdate start --upgrade --cleanup --immediate 2>/dev/null \
-    && success "Auto-updates enabled (daily, immediate, on system boot)" \
+  brew autoupdate start --upgrade --cleanup --greedy --sudo --immediate 2>/dev/null \
+    && success "Auto-updates enabled (daily, immediate, on system boot; greedy casks)" \
     || warn "Could not enable autoupdate. Run manually: brew autoupdate start"
+
+  # Unattended sudo casks: read the admin password from the login Keychain
+  # rather than prompting via pinentry-mac on every run.
+  AU_SVC="brew-autoupdate-sudo"; AU_ACCT="$(id -un)"
+  if ! security find-generic-password -s "$AU_SVC" -a "$AU_ACCT" >/dev/null 2>&1; then
+    if ask "Store admin password in login Keychain for unattended cask upgrades?"; then
+      # -w with no value prompts on the terminal; the password is never written to disk.
+      security add-generic-password -U -s "$AU_SVC" -a "$AU_ACCT" -T /usr/bin/security -w \
+        && success "Admin password stored in login Keychain" \
+        || warn "Could not store password; sudo casks will fall back to a pinentry prompt"
+    fi
+  fi
+  # brew autoupdate regenerates its sudo askpass wrapper (pinentry-mac) on every
+  # start, so repoint it at the Keychain askpass after starting.
+  AU_WRAP="$HOME/Library/Application Support/com.github.domt4.homebrew-autoupdate/brew_autoupdate_sudo_gui"
+  if [[ -f "$AU_WRAP" ]] && security find-generic-password -s "$AU_SVC" -a "$AU_ACCT" >/dev/null 2>&1; then
+    chmod u+w "$AU_WRAP"
+    printf '#!/bin/sh\nexec %s/scripts/brew-autoupdate-askpass.sh\n' "$DOTFILES_DIR" > "$AU_WRAP"
+    chmod 555 "$AU_WRAP"
+    success "Unattended cask upgrades wired to login Keychain"
+  fi
 fi
 
 # ===========================================================================
