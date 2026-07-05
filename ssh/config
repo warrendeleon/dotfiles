@@ -5,10 +5,20 @@ Include ~/.colima/ssh_config
 # Symlinked to ~/.ssh/config by setup.sh
 # ===========================================================================
 
-# Tailscale hosts (access over private network)
+# minipc: LAN IP when reachable (at home → instant), tailscale IP otherwise (away from home).
+# Keeps remote flexibility while not depending on tailscale MagicDNS to resolve the bare
+# `ubuntu-minipc` name — when tailscaled drops, that name dies and silently took out the mbp16
+# transcode worker (2026-06-28). HostKeyAlias gives both paths one stable known_hosts entry.
+Match host minipc exec "nc -z -G 1 192.168.10.171 22 >/dev/null 2>&1"
+    HostName 192.168.10.171
 Host minipc
-    HostName ubuntu-minipc
+    HostName 100.118.77.94
     User warren
+    HostKeyAlias ubuntu-minipc
+    ControlMaster auto
+    ControlPath ~/.ssh/cm-%r@%h:%p
+    ControlPersist 600
+    ServerAliveInterval 15
 
 Host minipc-tailscale
     HostName 100.118.77.94
