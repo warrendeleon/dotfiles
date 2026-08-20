@@ -367,3 +367,19 @@ def test_lint_requires_markup_on_a_gloss_term() -> None:
 def test_lint_allows_a_qualified_code_term() -> None:
     text = "- Middleware `cloudflare-or-lan` — routes by source address\n"
     assert not any("em-dash" in v for v in summariser.lint(text))
+
+
+def test_lint_ignores_em_dash_inside_inline_code() -> None:
+    """A page documenting the rule has to be able to quote the character."""
+    text = "- Em-dashes stitch clauses; `— and [clause]` is the banned shape.\n"
+    assert not any("em-dash" in v for v in summariser.lint(text))
+
+
+def test_lint_ignores_em_dash_inside_a_fenced_block() -> None:
+    text = "Example:\n\n```\nPoint — and a stitched clause\n```\n"
+    assert not any("em-dash" in v for v in summariser.lint(text))
+
+
+def test_lint_still_catches_em_dash_beside_code() -> None:
+    text = "The `lint()` gate works — mostly.\n"
+    assert any("em-dash" in v for v in summariser.lint(text))

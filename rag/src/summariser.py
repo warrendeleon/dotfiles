@@ -320,6 +320,19 @@ _ATTRIBUTION = ("ai-generated", "ai generated", "co-authored-by", "as an ai")
 _WORD_RES = {w: re.compile(rf"\b{re.escape(w)}\b", re.IGNORECASE) for w in _BANNED_WORDS}
 
 
+_FENCED_CODE_RE = re.compile(r"```.*?```", re.S)
+_INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+
+
+def _strip_code(text: str) -> str:
+    """Drop fenced blocks and inline spans.
+
+    Code and diagram labels are exempt from the dash rules: a page documenting
+    punctuation has to be able to quote it.
+    """
+    return _INLINE_CODE_RE.sub("", _FENCED_CODE_RE.sub("", text))
+
+
 # `term — definition` list items are house convention (Related and Sources
 # lists, glossed bullets), exempted by ai-writing-gotchas. The banned use is an
 # em-dash stitching two clauses inside a bullet. A gloss term is a marked-up
@@ -342,10 +355,15 @@ def _is_gloss_term(term: str) -> bool:
 
 
 def _em_dash_outside_list_gloss(text: str) -> bool:
-    """True if any em-dash is doing something other than glossing a list term."""
+    """True if any em-dash is doing something other than glossing a list term.
+
+    Code spans decide whether a line has an em-dash at all, but the gloss match
+    runs on the original line: the markup that marks a term is the same markup
+    stripping would remove.
+    """
     for line in text.splitlines():
-        if "—" not in line:
-            continue
+        if "—" not in _INLINE_CODE_RE.sub("", line):
+            continue  # only inside code, which is exempt
         m = _LIST_ITEM_RE.match(line)
         if m and line.count("—") == 1 and _is_gloss_term(m.group("term")):
             continue  # `- term — definition`, house convention
@@ -363,9 +381,10 @@ def lint(text: str) -> list[str]:
     """
     violations: list[str] = []
 
-    if _em_dash_outside_list_gloss(text):
+    prose = _strip_code(text)
+    if _em_dash_outside_list_gloss(_FENCED_CODE_RE.sub("", text)):
         violations.append("em-dash (—)")
-    if re.search(r"\s–\s", text):
+    if re.search(r"\s–\s", prose):
         violations.append("spaced en-dash (–) used as an em-dash")
 
     low = text.lower()
