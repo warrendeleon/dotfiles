@@ -330,3 +330,40 @@ def test_run_claude_raises_on_nonzero_exit(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(summariser.subprocess, "run", lambda *a, **k: _Proc())
     with pytest.raises(RuntimeError, match="exited 1"):
         summariser.run_claude("hello", workdir=tmp_path)
+
+
+def test_lint_allows_term_definition_list_items() -> None:
+    """`- term — definition` is house convention (Related and Sources lists)."""
+    text = (
+        "## Related\n\n"
+        "- [[skim-layer]] — the page-level guide\n"
+        "- [[revision-passes]] — guide 6, the revision altitude\n"
+        "- `~/path/to/file.md` (machine: mbp14M5Max)\n"
+    )
+    assert not any("em-dash" in v for v in summariser.lint(text))
+
+
+def test_lint_still_catches_em_dash_inside_a_list_item() -> None:
+    """A bullet that stitches two clauses is not a gloss and stays a violation."""
+    text = "- The build passed on the first run — nobody expected that to happen.\n"
+    assert any("em-dash" in v for v in summariser.lint(text))
+
+
+def test_lint_catches_em_dash_in_prose_after_a_list() -> None:
+    text = "- [[a]] — one\n\nThis sentence works — mostly.\n"
+    assert any("em-dash" in v for v in summariser.lint(text))
+
+
+def test_lint_catches_second_em_dash_in_a_list_item() -> None:
+    text = "- [[a]] — one — and another clause hung off the end\n"
+    assert any("em-dash" in v for v in summariser.lint(text))
+
+
+def test_lint_requires_markup_on_a_gloss_term() -> None:
+    """A short verb phrase is not a label, even though it is short."""
+    assert any("em-dash" in v for v in summariser.lint("- added the gate — and tests\n"))
+
+
+def test_lint_allows_a_qualified_code_term() -> None:
+    text = "- Middleware `cloudflare-or-lan` — routes by source address\n"
+    assert not any("em-dash" in v for v in summariser.lint(text))

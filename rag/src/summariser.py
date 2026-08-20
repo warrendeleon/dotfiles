@@ -320,16 +320,50 @@ _ATTRIBUTION = ("ai-generated", "ai generated", "co-authored-by", "as an ai")
 _WORD_RES = {w: re.compile(rf"\b{re.escape(w)}\b", re.IGNORECASE) for w in _BANNED_WORDS}
 
 
+# `term — definition` list items are house convention (Related and Sources
+# lists, glossed bullets), exempted by ai-writing-gotchas. The banned use is an
+# em-dash stitching two clauses inside a bullet. A gloss term is a marked-up
+# label: a wiki-link, a code span or a bold span, optionally with a word or two
+# of qualifier. Requiring the markup is what separates "[[page]] —" from
+# "added the gate —", which is a verb phrase and stays a violation.
+_GLOSS_TERM_MAX_WORDS = 6
+_TERM_MARKUP_RE = re.compile(r"\[\[[^\]]+\]\]|`[^`]+`|\*\*[^*]+\*\*")
+_LIST_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+(?P<term>[^—]+)—")
+
+
+def _is_gloss_term(term: str) -> bool:
+    """True if the text left of an em-dash reads as a marked-up label."""
+    t = term.strip()
+    if not t or "." in t:
+        return False
+    if not _TERM_MARKUP_RE.search(t):
+        return False
+    return len(t.split()) <= _GLOSS_TERM_MAX_WORDS
+
+
+def _em_dash_outside_list_gloss(text: str) -> bool:
+    """True if any em-dash is doing something other than glossing a list term."""
+    for line in text.splitlines():
+        if "—" not in line:
+            continue
+        m = _LIST_ITEM_RE.match(line)
+        if m and line.count("—") == 1 and _is_gloss_term(m.group("term")):
+            continue  # `- term — definition`, house convention
+        return True
+    return False
+
+
 def lint(text: str) -> list[str]:
     """Return writing-rule violations in the rendered page text.
 
-    Catches em-dashes, spaced en-dashes used as em-dashes, the always-wrong
-    filler words, banned phrases, and explicit AI attribution. Used to gate
+    Catches em-dashes outside `term — definition` list items, spaced en-dashes
+    used as em-dashes, the always-wrong filler words, banned phrases, and
+    explicit AI attribution. Used to gate
     ``status: auto`` against ``status: needs-review``, never to rewrite.
     """
     violations: list[str] = []
 
-    if "—" in text:
+    if _em_dash_outside_list_gloss(text):
         violations.append("em-dash (—)")
     if re.search(r"\s–\s", text):
         violations.append("spaced en-dash (–) used as an em-dash")
