@@ -1,13 +1,14 @@
 export const meta = {
   name: 'review-loop',
   description: 'Check every claim in a deliverable against its source of truth once, fix what is confirmed wrong, re-check the ledger after the fixes, then write a verification receipt',
-  whenToUse: 'Before a long document or blog post goes out. Not for pull request reviews: those use hooks/pr-check.sh, one deterministic pass. args: {profile: "delivery" | "baseline" | "blog", targets: [paths], outputs?: [built files], repo?: path, notes?: string, decisions?: [author framings the loop must not touch], maxRounds?: number (default 3, or 2 in re-check mode), models?: {oracle, find, recheck, confirm, fix, receipt}, efforts?: {same keys}}. Defaults: oracle sonnet/low, find opus/high, recheck sonnet/medium, confirm opus/medium, fix opus/medium, receipt haiku/low. Round 1 discovers and returns a claim ledger; later rounds re-derive only the ledger entries the edits touched and read only the edited passages, never the whole document, so the finding supply is bounded and the loop ends. Duplicate findings from different critics on the same defect are merged before confirmation, so one confirmer rules and the fixer gets one correction. Findings marked unsupported or weak go straight to forAuthor without a confirm agent; only wrong, inconsistent and rule findings are confirmed and fixed. Refuted findings are carried across rounds and runs so critics do not raise them again. Re-check rounds use ONE agent for every claim type (args.recheckPerType: true restores one per type). After hand edits, pass ledgerFile (from hooks/ledger-from-run.py on the last run; it carries the refuted list too) and edits [{file, before, after}] to skip discovery: the first re-check round is 1 oracle + 1 re-check + one confirm per wrong finding + 1 fix; later rounds skip the oracle because the fixer re-runs the verifiers; then 1 receipt. About five agents when the edits are sound. Rule findings are confirmed on Sonnet; the numeric critic trusts the deterministic verifier for the figures it covers and re-derives only the rest. Run ONE loop at a time; parallel loops hit the session limit and the dead agents still cost their tokens. Launch by scriptPath (~/Developer/dotfiles/claude/workflows/review-loop.js), not by name: the name resolves to a copy cached at session start. Say the model plan and the expected agent count to the user before launching.',
+  whenToUse: 'Before a long document or blog post goes out. Not for pull request reviews: those use hooks/pr-check.sh, one deterministic pass. args: {profile: "delivery" | "baseline" | "blog", targets: [paths], outputs?: [built files], repo?: path, notes?: string, decisions?: [author framings the loop must not touch], maxRounds?: number (default 3, or 2 in re-check mode), models?: {oracle, find, recheck, confirm, fix, receipt}, efforts?: {same keys}}. Defaults: oracle sonnet/low, find opus/high, recheck sonnet/medium, confirm opus/medium, fix opus/medium, receipt haiku/low. Round 1 discovers and returns a claim ledger; later rounds re-derive only the ledger entries the edits touched and read only the edited passages, never the whole document, so the finding supply is bounded and the loop ends. Duplicate findings from different critics on the same defect are merged before confirmation, so one confirmer rules and the fixer gets one correction. Findings marked unsupported or weak go straight to forAuthor without a confirm agent; only wrong, inconsistent and rule findings are confirmed and fixed. Refuted findings are carried across rounds and runs so critics do not raise them again. Re-check rounds use ONE agent for every claim type (args.recheckPerType: true restores one per type). After hand edits, pass ledgerFile (from hooks/ledger-from-run.py on the last run; it carries the refuted list too) and edits [{file, before, after}] to skip discovery: the first re-check round is 1 oracle + 1 re-check + one confirm per wrong finding + 1 fix; later rounds skip the oracle because the fixer re-runs the verifiers; then 1 receipt. About five agents when the edits are sound. Rule findings are confirmed on Sonnet; the numeric critic trusts the deterministic verifier for the figures it covers and re-derives only the rest. Run ONE loop at a time; parallel loops hit the session limit and the dead agents still cost their tokens. Launch by scriptPath (~/Developer/dotfiles/claude/workflows/review-loop.js), not by name: the name resolves to a copy cached at session start. Say the model plan and the expected agent count to the user before launching. Lock gate (on for the blog profile, args.gate for others): once a round confirms nothing, one fresh Opus agent reads every target whole, plus the profile\'s gate scope (for a blog post, the companion\'s changed files and README), lists every fault with no cap and returns READY or NOT READY; NOT READY findings are confirmed and fixed in the same round and the loop goes on, so a clean result means the gate said READY. For a blog post pass args.startRef and args.endRef (the companion\'s start and end points) so the oracle replays the file steps and the companion critic reads the changed files. A clean receipt is still not a lock: say what it covered.',
   phases: [
     { title: 'Oracles', detail: 'deterministic checks: verifier scripts, builds, banned-word and link sweeps' },
     { title: 'Find', detail: 'round 1 only: fresh-context critics, one per claim type, returning a ledger of every claim checked' },
     { title: 'Re-check', detail: 'later rounds: the ledger entries the fixes touched, plus the edited passages' },
     { title: 'Confirm', detail: 'an independent agent tries to refute each finding' },
     { title: 'Fix', detail: 'confirmed findings applied by hand, then rebuilt' },
+    { title: 'Gate', detail: 'once the loop converges: a fresh whole-document read that must return READY before the run counts as clean' },
     { title: 'Receipt', detail: 'verification receipt written for the hook that gates outward actions' },
   ],
 }
@@ -23,7 +24,7 @@ const PROFILES = {
     sources: `
 - SQLite database: ~/Developer/newsuk-delivery/delivery.sqlite. Open it read-only: sqlite3 -readonly, or the URI file:...?mode=ro.
 - Schema and starter queries: ~/.wiki/raw/news-uk/team/delivery-2026-09/README.md and the scripts under ~/Developer/newsuk-delivery/scripts/.
-- Working set (markdown): ~/.wiki/news-uk/team/_draft-delivery-analysis-2026-09/. Reports (HTML source): ~/.wiki/raw/news-uk/team/delivery-2026-09/report/report.html and report-long.html; built copies under _build/.
+- Working set (markdown): one page per engineer at ~/.wiki/news-uk/team/people/<name>/<name>-delivery-baseline-2026-09.md, and the round's index and method under ~/.wiki/news-uk/team/rounds/delivery-baseline-2026-09/. Reports (HTML source): ~/.wiki/raw/news-uk/team/delivery-2026-09/report/report.html and report-long.html; built copies under _build/.
 - Definitions that hold everywhere: working days exclude weekends, England bank holidays and recorded leave. Only In Progress time is counted; Blocked and With third party are outside the clock. Completion comes from the status changelog because resolutiondate is empty. Estimated time is the top of the range for a size (1pt=1d, 2=2, 3=5, 5=10, 8=20). "Substantive" is a text heuristic defined in the documents. Hand-written lines are added plus deleted lines with lockfiles, minified bundles, build output, vendored code, snapshots and source maps left out.`,
     oracles: `
 Run from ~/Developer/newsuk-delivery, in this order, and report each exit status and every FAIL line:
@@ -59,7 +60,7 @@ Read the whole output of each command. A verifier that prints OK lines and exits
     sources: `
 - SQLite database, the frozen 14 September 2026 build: ~/Developer/newsuk-delivery/review/delivery-2026-09-14.sqlite. Open it from Python with sqlite3.connect("file:...?mode=ro&immutable=1", uri=True); the sqlite3 CLI cannot open it. build_meta holds the snapshot (2026-09-14T23:59). Bruce Thomas's two editions and the eight other reports all draw on this build.
 - Definitions and every derived figure: ~/Developer/newsuk-delivery/scripts/measures.py (per-person measures, team ranks, ranges, the 90-day quarter, the review-wait figures). The eight reports are assembled by scripts/build_person_report.py from review/narrative/<id>.json; each narrative's "literals" map states the source of every bare number in its prose. Bruce Thomas's editions are hand-written HTML: report.html and report-long.html under ~/.wiki/raw/news-uk/team/delivery-2026-09/report/, checked by scripts/verify_report.py.
-- Hand readings (comment quality, code audits, scope classifications) come from the working pages under ~/.wiki/news-uk/team/_draft-delivery-analysis-2026-09/draft-dev-<name>.md, which describe the 7 September 2026 build. A figure that differs between a page and a report only because of the cut-off is not a finding; a hand-read claim the report carries forward is checked against the page and, where the database can show it, against the database.
+- Hand readings (comment quality, code audits, scope classifications) come from the working pages at ~/.wiki/news-uk/team/people/<name>/<name>-delivery-baseline-2026-09.md, which describe the same 14 September 2026 build as the reports. A hand-read claim the report carries forward is checked against the page and, where the database can show it, against the database.
 - The video architecture record in Bruce Thomas's reverts section also rests on Slack. Export: ~/Developer/slack-scraper/output/history-T0692QH4Z-U0BSYT9KZN0.sqlite3, table messages(channel, ts, body JSON with user, text, thread_ts). Threads: G014RH4CNQ0 from ts 1767890533.721369 (8 January 2026), GK2SAUPAQ messages of 8 January 2026 14:00 to 17:30 and of 7 to 8 July 2026, G010EACHKGB from ts 1783419349.271329 (7 July 2026), D0C134SC30Q ts 1789392782.174199 (14 September 2026). Times in the export are UTC; the report gives London time. Slack user ids: U05CY77GFUG is Bruce Thomas, U06PTE90SQ7 the colleague who coordinates releases, WGMT45RUG is Ovidiu Bokar, U03E8AETGBT and U05KHMNK95M are the data team, U067F2E6BJN the delivery lead, U056LG7S8DR and U06ETF6R084 are engineering colleagues.
 - Definitions that hold everywhere: working days exclude weekends, England bank holidays and recorded leave. Only In Progress time is counted; Blocked and With third party are outside the clock. Completion comes from the status changelog. Estimated time is the top of the range for a size (1pt=1d, 2=2, 3=5, 5=10, 8=20). "Substantive" is a text heuristic. Hand-written lines are added plus deleted lines with lockfiles, minified bundles, build output, vendored code, snapshots and source maps left out. Team ranges and ranks are across the eight engineers with a substantial record; Fragkiskos Katsimpas is left out of every range.
 - Writing conventions: ~/.wiki/personal/writing/writing-guides.md and, for prose, the guides it numbers 1, 2, 3, 5, 6 and 7 in ~/.wiki/personal/writing/.`,
@@ -92,22 +93,27 @@ Read the whole output of each command. A verifier that prints OK lines and exits
   },
   blog: {
     name: 'blog post',
+    gate: true,
+    gateScope: 'the companion\'s teaching surface: every explanatory comment in the files the post copies or changes (git diff between args.startRef and args.endRef in args.repo) and the README section for this post',
     sources: `
-- The post files given as targets, and the companion repository in args.repo at the branch or commit the post names.
+- The post files given as targets, and the companion repository in args.repo at the branch or commit the post names (args.startRef to args.endRef when given).
+- The companion's teaching surface is part of the deliverable: every explanatory comment in the files the post copies or changes, and the README section for this post. A comment that contradicts the code or the article is a finding, returned to the author because the fixer does not edit the companion.
 - Library behaviour is checked against the installed source under node_modules or the vendor's documentation, not from memory.
 - Writing conventions: ~/.wiki/personal/writing/writing-guides.md and the guides it names for a blog post; ~/.wiki/personal/writing/ai-writing-gotchas.md; ~/.wiki/personal/writing/plain-sentence-construction.md.
 - Animated demos: the frame-by-frame gate in the wiki page blog-publishing-pipeline.`,
     oracles: `
-1. Run every command the post tells the reader to run, in order, against a clean checkout of the companion repository at the stated point, and report any that fail or produce output that differs from what the post shows.
-2. Banned-word, em-dash and idiom sweep against ai-writing-gotchas.md; quote each hit with its line.
-3. Every link resolves (HEAD request or file exists); every image and demo file referenced exists.
-4. If the post has an animated demo, decode the composed frames and check continuity and every tap ring against the control it marks.`,
+1. Replay the post's file steps: clone args.repo into a temporary directory, check out the start point (args.startRef, or the tag the post starts from), apply every copy command, typed edit and deletion the post gives, in order (where the post fetches the end point from the network, use git archive on the end point from args.repo instead), then diff the tree against the end point (args.endRef). Every difference is a failure unless the notes name it as expected.
+2. Run every other command the post tells the reader to run that can run here, in order, against a clean checkout at the stated point, and report any that fail or print output that differs from what the post shows. Never run a command the notes say rotates keys, writes tracked files or needs a device; report it as not run.
+3. Banned-word, em-dash and idiom sweep against ai-writing-gotchas.md; quote each hit with its line.
+4. Every link resolves (HEAD request or file exists); every image and demo file referenced exists.
+5. If the post has an animated demo, decode the composed frames and check continuity and every tap ring against the control it marks.`,
     claimTypes: [
       { key: 'code', brief: 'Every code block, file path, command and identifier. Confirm it matches the companion repository at the stated point character for character, or is clearly marked as an excerpt. Run what can be run.' },
-      { key: 'behaviour', brief: 'Every statement about what a library, tool, platform or API does. Verify against the installed source or the vendor documentation and quote the line that supports it. Report anything that rests on memory.' },
-      { key: 'narrative', brief: 'Every scenario, anecdote or "you will see" prediction. Reproduce it. A framing that cannot be reproduced is fabricated and must be reported.' },
-      { key: 'style', brief: 'Read against the writing guides for a blog post: plain subject-verb-object order, no idioms, no AI-tell words, no self-deprecating hook, one concept per section, series navigation and cross-references correct. Quote each violating sentence with the rule it breaks.' },
-      { key: 'consistency', brief: 'Version numbers, file names, step numbers and figures must agree across the post and with the companion repository and the other posts in the series it links to.' },
+      { key: 'behaviour', brief: 'Every statement about what a library, tool, platform, API or the companion\'s own code does. Verify it against the installed source or the vendor documentation and quote the line that supports it. Then test the claim\'s general form, not only the case the post demonstrates: list the cases the sentence covers (each platform, build type, launch mode, failure kind, input and timing it names or implies), follow the code path for each, and report every case the code handles differently. A sentence that holds for the demo but is wider than the code is wrong. When reading cannot settle a library behaviour, run a small read-only probe against the installed source. Report anything that rests on memory.' },
+      { key: 'narrative', brief: 'Every scenario, anecdote, demo step and "you will see" prediction. Reproduce it where it can run here; otherwise check it against the recorded evidence the notes name. Walk the demos in article order and track the state each one leaves behind (servers running or stopped, files moved, maps or config edited, builds made): a step that depends on a state an earlier step changed, with no instruction to restore it, is wrong. A framing that cannot be reproduced or found in the record is fabricated and must be reported.' },
+      { key: 'style', brief: 'Read every sentence and paragraph against writing-guides.md and the guides its reading profile names for a blog post. Check at least: the subject first, and named again after a code block or digression; no idiom or figurative phrase (state the literal meaning); the avoid-list words and expressions; near-zero em-dashes in prose; one mechanism or decision per paragraph, a second causal chain starting a new paragraph; no inserted sentence that interrupts an explanation; no positional references; no closing recap that repeats the body; steelman before disagreeing; decisions named as decisions; acronyms spelled out on first use; no self-deprecating hook; series navigation and cross-references correct. A breach of a stated rule is a rule finding even when the fix is a change of words. Quote each violating sentence with the guide and the rule it breaks.' },
+      { key: 'consistency', brief: 'Version numbers, file names, step numbers and figures must agree across the post and with the companion repository and the other posts in the series it links to. So must every promise the frontmatter description, the diagrams, the tables and the closing make: each must say no more than the body and the code support.' },
+      { key: 'companion', brief: 'The companion\'s teaching surface: every explanatory comment in the files the post copies or changes (git diff between args.startRef and args.endRef in args.repo, or the tags the post names) and the README section for this post. Each comment must agree with the code at the end point and with the article: a comment that describes an earlier implementation, generalises past the code, or contradicts the article is a finding. Quote it with its file and line. The fixer does not edit the companion, so these return to the author under skipped.' },
     ],
     rules: `
 - Copy-paste build-alongs must run as written; fix the post or the companion repository, and say which.
@@ -172,6 +178,17 @@ const FIX_SCHEMA = {
   required: ['applied', 'skipped', 'rebuilt', 'verifiers'],
 }
 
+// The lock gate's answer: every fault it found, in the critics' shape, and its verdict.
+const GATE_SCHEMA = {
+  type: 'object',
+  properties: {
+    findings: FINDINGS_SCHEMA.properties.findings,
+    verdict: { type: 'string', enum: ['READY', 'NOT READY'] },
+    reason: { type: 'string' },
+  },
+  required: ['findings', 'verdict', 'reason'],
+}
+
 const RECEIPT_SCHEMA = {
   type: 'object',
   properties: { path: { type: 'string' }, written: { type: 'boolean' }, note: { type: 'string' } },
@@ -182,7 +199,7 @@ const RECEIPT_SCHEMA = {
 
 // What counts as wrong. Without this every round finds something to call wrong in a
 // long document, and the loop never ends.
-const MATERIALITY = `WHAT COUNTS AS A FINDING. Status "wrong" is reserved for a claim where the reader would take away a different number, name, date, count, rank, direction or attribution than the source gives, under the document's own definitions. These are NOT wrong and must not be reported: a figure rounded within the precision the document uses; a quotation shortened with an ellipsis or square brackets that keeps its meaning; a choice of words, emphasis or order; anything the AUTHOR DECISIONS list covers; a claim already carrying its own qualification; a difference that comes from applying a definition other than the document's. "inconsistent" is for the same quantity given two values. "rule" is for a house rule broken. "unsupported" and "weak" are for reasoning the evidence does not carry; report them, but they go to the author, not the fixer.`
+const MATERIALITY = `WHAT COUNTS AS A FINDING. Status "wrong" is reserved for a claim where the reader would take away a different number, name, date, count, rank, direction or attribution than the source gives, under the document's own definitions. These are NOT wrong and must not be reported: a figure rounded within the precision the document uses; a quotation shortened with an ellipsis or square brackets that keeps its meaning; a choice of words, emphasis or order that breaks no stated rule; anything the AUTHOR DECISIONS list covers; a claim already carrying its own qualification; a difference that comes from applying a definition other than the document's. "inconsistent" is for the same quantity given two values. "rule" is for a house rule or a writing-guide rule broken, including a rule about wording (an idiom, a paragraph carrying two mechanisms, a positional reference): a breach of a stated rule is a finding even when the fix is a change of words. "unsupported" and "weak" are for reasoning the evidence does not carry; report them, but they go to the author, not the fixer.`
 
 const header = (P, targets, narrow) => `You are one stage of a review loop for a ${P.name}. The deliverable will be challenged by the people it affects, so treat every claim as wrong until you have re-derived it yourself.
 
@@ -190,7 +207,7 @@ TARGETS${narrow ? ' (do NOT read these in full; this stage names the exact passa
 ${targets.map(t => '- ' + t).join('\n')}
 
 SOURCES OF TRUTH:${P.sources}
-
+${args.repo ? `\nREPOSITORY: ${args.repo}${args.startRef ? `, start point ${args.startRef}` : ''}${args.endRef ? `, end point ${args.endRef}` : ''}\n` : ''}
 ${args.notes ? 'NOTES FROM THE USER:\n' + args.notes + '\n' : ''}${(args.decisions || []).length ? 'AUTHOR DECISIONS, NOT UNDER REVIEW. These framings are the author\'s deliberate choices. Do not report them, do not reword them, do not add material that argues against them:\n' + args.decisions.map(d => '- ' + d).join('\n') + '\n' : ''}Your final text is data for the next stage, not a message to a person. Do not pad with confirmations. Do not edit any file unless this stage says so.`
 
 // Findings an independent checker has already refuted, in this run or an earlier one.
@@ -259,7 +276,7 @@ SOURCES OF TRUTH:${P.sources}
 ${(args.decisions || []).length ? 'AUTHOR DECISIONS, NOT UNDER REVIEW:\n' + args.decisions.map(d => '- ' + d).join('\n') + '\n' : ''}
 ${MATERIALITY}
 
-Re-derive the fact yourself from the sources with your own command or query; do not rerun their command as your only step. If the original claim in the document is in fact correct under the document's own definitions, the finding is refuted. If you cannot reproduce their evidence, the finding is refuted. If the difference is one the list above says is not a finding, the finding is refuted. If the claim is wrong or unsupported and your own derivation shows it, confirm it and give the exact fix. Default to refuted when uncertain.`
+Re-derive the fact yourself from the sources with your own command or query; do not rerun their command as your only step. If the original claim in the document is in fact correct under the document's own definitions, the finding is refuted. If you cannot reproduce their evidence, the finding is refuted. If the difference is one the list above says is not a finding, the finding is refuted. If the claim is wrong or unsupported and your own derivation shows it, confirm it and give the exact fix. A finding that cites a stated rule (the house rules or the writing guides) is confirmed when the text breaks that rule: "it is only a choice of words" does not refute a breach of a rule about words. Default to refuted when uncertain.`
 
 const fixPrompt = (P, targets, confirmed) => `${header(P, targets)}
 
@@ -274,6 +291,21 @@ ${confirmed.map((f, i) => `${i + 1}. [${f.status}] ${f.location}
    fix: ${f.fix || f.correction}`).join('\n')}
 
 For each finding report the file, the exact text before and after. If a fix would break a house rule or contradict the sources, skip it and say why. After editing: rebuild, run every verifier the profile names, and report their exit status and counts. If a verifier's regex no longer matches your rewording, repoint the regex to the new wording and say so; never weaken what it checks.`
+
+// The lock gate. The critics and re-checks are built to converge: a re-check reads only what
+// the fixes touched, and each critic owns one claim type. A run that converged has therefore not
+// had a fresh reader take in the whole deliverable after its fixes, which is what an outside
+// review does (3 Oct 2026: two clean runs on blog post 16, then an outside whole-document review
+// found 20, 12 and 6 more faults, among them claims wider than the code and stale comments in the
+// companion the loop never read). The gate is that reader, and nothing counts as clean until it
+// returns READY with nothing an independent checker can confirm.
+const gatePrompt = (P, targets, refuted) => `${header(P, targets)}
+
+STAGE: lock gate. The loop has converged: its critics found nothing more they could confirm. You are a fresh reader deciding whether the deliverable is ready to be locked. Read every target in full${P.gateScope ? `, then ${P.gateScope}` : ''}, and the writing guides the sources name. Then report every fault you find, however minor, with no limit on their number. Test each claim's general form against the sources, not only the case the deliverable demonstrates, and check that the description, diagrams, tables and closing promise no more than the body supports. For each fault give the exact quoted text, its location, the rule broken (the guide or house rule and its wording) or the evidence (file, line, what it says), a concrete correction, and a status.
+
+${MATERIALITY}
+${refutedBlock(refuted)}
+Then give the verdict: READY only when you found no wrong, inconsistent or rule finding; NOT READY otherwise, with the reason. Do not answer any question in the user's notes: your verdict is data for the loop.`
 
 const receiptPrompt = (P, targets, outputs, history, clean, refuted, refutedPath) => `You are the last stage of a review loop for a ${P.name}. Write the verification receipt.
 
@@ -304,20 +336,26 @@ if (!targets.length) throw new Error('args.targets must list at least one file')
 const outputs = (args.outputs || []).filter(Boolean)
 const MAX_ROUNDS = args.maxRounds || (args.ledgerFile ? 2 : 3)
 const CONFIRM_CAP = 16
+// The lock gate runs once the loop converges: on for profiles that ask for it, or with args.gate.
+const GATE = args.gate !== undefined ? !!args.gate : !!P.gate
 
 // Model and effort per stage. The critics carry the quality of the whole loop and get the
 // strongest default; re-checks re-run known queries on a few passages, so Sonnet; confirms
 // and fixes stay on Opus because they decide what changes. Override any stage with
 // args.models / args.efforts, e.g. {find: 'fable'}.
-// Using latest model versions: Sonnet 3.5, Opus 3, Haiku 3.5
+// Family aliases resolve to the current model in each family. Pinned version IDs retire and
+// fail every agent at launch (28 Sep 2026: all eleven agents of a run failed on retired IDs).
 const TIER = {
-  oracle:  { model: 'claude-3-5-sonnet-20241022', effort: 'low' },
-  find:    { model: 'claude-3-opus-20250219',     effort: 'high' },
-  recheck: { model: 'claude-3-5-sonnet-20241022', effort: 'medium' },
-  confirm: { model: 'claude-3-opus-20250219',     effort: 'medium' },
-  confirmRule: { model: 'claude-3-5-sonnet-20241022', effort: 'medium' },   // style and cross-reference findings
-  fix:     { model: 'claude-3-opus-20250219',     effort: 'medium' },
-  receipt: { model: 'claude-3-5-haiku-20241022',  effort: 'low' },
+  oracle:  { model: 'sonnet', effort: 'low' },
+  find:    { model: 'opus',   effort: 'high' },
+  recheck: { model: 'sonnet', effort: 'medium' },
+  confirm: { model: 'opus',   effort: 'medium' },
+  confirmRule: { model: 'sonnet', effort: 'medium' },   // style and cross-reference findings
+  fix:     { model: 'opus',   effort: 'medium' },
+  gate:    { model: 'opus',   effort: 'high' },
+  // Sonnet, not Haiku: on 3 Oct 2026 a Haiku receipt agent answered the user's question instead
+  // of running its two commands, and no receipt was written.
+  receipt: { model: 'sonnet', effort: 'low' },
 }
 for (const k of Object.keys(TIER)) {
   if (args.models && args.models[k]) TIER[k].model = args.models[k]
@@ -467,15 +505,41 @@ while (!clean && round < MAX_ROUNDS) {
   history.push(entry)
   log(`round ${round}: ${confirmed.length} confirmed wrong, ${authorOnly.length} for the author, ${judged.length - confirmed.length} refuted${entry.lostConfirms ? `, ${entry.lostConfirms} confirmers failed` : ''}`)
 
+  let toFix = confirmed
   if (!confirmed.length) {
-    // Clean only when a complete re-check round, with every confirmer answering, finds nothing wrong.
-    // The discovery round cannot be the clean round: it has not seen the document after any fix.
-    if (mode === 'recheck' && !incomplete && !entry.lostConfirms && checked > 0) clean = true
-    else if (mode === 'discover' && !incomplete && !entry.lostConfirms && found.length === 0 && oracle.failures.length === 0) clean = true
-    continue
+    // Converged only when a complete re-check round, with every confirmer answering, finds nothing
+    // wrong. The discovery round cannot be that round unless it found nothing at all: it has not
+    // seen the document after any fix.
+    const converged = (mode === 'recheck' && !incomplete && !entry.lostConfirms && checked > 0)
+      || (mode === 'discover' && !incomplete && !entry.lostConfirms && found.length === 0 && oracle.failures.length === 0)
+    if (!converged) continue
+    if (!GATE) { clean = true; continue }
+    const gate = await agent(gatePrompt(P, targets, refuted), { phase: 'Gate', label: `gate r${round}`, schema: GATE_SCHEMA, ...tier('gate') })
+    if (!gate) { entry.gate = 'failed'; log(`round ${round}: the gate failed; this round cannot count as clean`); continue }
+    const gateRaw = (gate.findings || []).map(f => ({ ...f, type: 'gate' })).filter(f => !seen.has(key(f)))
+    gateRaw.forEach(f => seen.add(key(f)))
+    const gateFresh = unify(gateRaw)
+    const gateAuthor = gateFresh.filter(f => !FIXABLE(f))
+    forAuthor.push(...gateAuthor.map(f => ({ round, ...f })))
+    const gateFixable = gateFresh.filter(FIXABLE)
+    const gateConfirm = gateFixable.slice(0, CONFIRM_CAP)
+    if (gateFixable.length > CONFIRM_CAP) { log(`round ${round}: confirming ${CONFIRM_CAP} of ${gateFixable.length} gate findings; the rest return next round`); gateFixable.slice(CONFIRM_CAP).forEach(f => seen.delete(key(f))) }
+    const gateJudged = gateConfirm.length ? (await pipeline(gateConfirm, (f, _, i) =>
+      agent(confirmPrompt(P, f), { phase: 'Confirm', label: `confirm gate ${i + 1}/${gateConfirm.length}`, schema: VERDICT_SCHEMA, ...tier(f.status === 'rule' ? 'confirmRule' : 'confirm') })
+        .then(v => v && { f, v }))).filter(Boolean) : []
+    toFix = gateJudged.filter(x => x.v.confirmed).map(x => ({ ...x.f, evidence: x.v.evidence, fix: x.v.fix }))
+    refuted.push(...gateJudged.filter(x => !x.v.confirmed).map(x => ({ location: x.f.location, claim: x.f.claim, reason: (x.v.reason || '').replace(/\s+/g, ' ').slice(0, 240) })))
+    Object.assign(entry, { gate: gate.verdict, gateFound: gateFresh.length, gateConfirmed: toFix.length,
+      gateForAuthor: gateAuthor.length, gateLostConfirms: gateConfirm.length - gateJudged.length })
+    log(`round ${round}: gate ${gate.verdict}, ${gateFresh.length} findings, ${toFix.length} confirmed, ${gateAuthor.length} for the author`)
+    if (!toFix.length) {
+      // READY, or NOT READY on findings every confirmer refuted: nothing confirmed is wrong.
+      if (!entry.gateLostConfirms && gateConfirm.length === gateFixable.length) clean = true
+      continue
+    }
   }
 
-  const fix = await agent(fixPrompt(P, targets, confirmed), { phase: 'Fix', label: `fix r${round} (${confirmed.length})`, schema: FIX_SCHEMA, ...tier('fix') })
+  const fix = await agent(fixPrompt(P, targets, toFix), { phase: 'Fix', label: `fix r${round} (${toFix.length})`, schema: FIX_SCHEMA, ...tier('fix') })
   entry.applied = fix ? fix.applied.length : 0
   entry.skipped = fix ? fix.skipped : []
   if (fix) edits = edits.concat(fix.applied)
@@ -483,7 +547,8 @@ while (!clean && round < MAX_ROUNDS) {
   log(`round ${round}: ${entry.applied} edits applied${entry.skipped.length ? `, ${entry.skipped.length} skipped` : ''}`)
 }
 
-if (!clean) log(`stopped after ${round} rounds without a clean re-check; receipt will say not clean`)
+if (!clean) log(`stopped after ${round} rounds without a clean ${GATE ? 'gate' : 're-check'}; receipt will say not clean`)
+else log(GATE ? 'clean: the loop converged and the lock gate found nothing confirmable. This covers the targets and the gate scope; it is not a lock.' : 'clean: a complete re-check round found nothing wrong in the targets. This is not a lock.')
 // The refuted list is written beside the receipts so hooks/ledger-from-run.py --result can
 // carry it into the next run's ledger file; the journal does not record it.
 const slug = (targets[0] || 'run').split('/').pop().replace(/\.[A-Za-z0-9]+$/, '').replace(/[^A-Za-z0-9._-]/g, '_')
@@ -491,7 +556,8 @@ const refutedPath = args.refutedOut || `$HOME/.claude/receipts/refuted-${slug}.j
 const receipt = await agent(receiptPrompt(P, targets, outputs, history, clean, refuted, refutedPath), { phase: 'Receipt', label: 'receipt', schema: RECEIPT_SCHEMA, ...tier('receipt') })
 log(`refuted findings (${refuted.length}) written to ${refutedPath}; pass it to ledger-from-run.py --result next time`)
 
-// clean means a complete re-check round found nothing wrong AND the receipt was written.
+// clean means a complete re-check round found nothing wrong, the lock gate (when the profile has
+// one) found nothing confirmable, AND the receipt was written.
 // forAuthor lists the "unsupported" and "weak" findings: the author decides those.
 // ledgers, ledgerDelta and refuted are returned so hooks/ledger-from-run.py can carry them
 // into the next run's ledger file.
