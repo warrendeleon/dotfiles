@@ -171,7 +171,7 @@ const FIX_SCHEMA = {
   type: 'object',
   properties: {
     applied: { type: 'array', items: { type: 'object', properties: { file: { type: 'string' }, before: { type: 'string' }, after: { type: 'string' } }, required: ['file', 'before', 'after'] } },
-    skipped: { type: 'array', items: { type: 'object', properties: { claim: { type: 'string' }, reason: { type: 'string' } }, required: ['claim', 'reason'] } },
+    skipped: { type: 'array', description: 'Only confirmed findings left unfixed, with the reason (for example, the fix belongs in a file you may not edit). Each one keeps the run from counting as clean. A finding applied with a changed wording goes in applied; notes about it do not belong here.', items: { type: 'object', properties: { claim: { type: 'string' }, reason: { type: 'string' } }, required: ['claim', 'reason'] } },
     rebuilt: { type: 'boolean' },
     verifiers: { type: 'string', description: 'exit status and OK/FAIL counts of every verifier re-run' },
   },
@@ -368,6 +368,11 @@ const key = f => `${f.location}|${(f.claim || '').replace(/\s+/g, ' ').trim().sl
 const seen = new Set()
 const history = []
 const forAuthor = []
+// Confirmed findings the fixer could not apply (a fix in the companion repository, say). The
+// gate's next round drops a finding it has already seen, so without this list a run could end
+// clean with confirmed faults still standing (3 Oct 2026, post 16: a README fix the fixer had to
+// skip, then a READY gate, then "clean").
+const unfixed = []
 const ledgers = {}          // claim type -> ledger entries from the discovery round, or the ledger file path
 const ledgerDelta = {}      // claim type -> entries re-derived or added in later rounds of this run
 let edits = []              // every before/after the fixer applied, for the re-check rounds
@@ -543,11 +548,16 @@ while (!clean && round < MAX_ROUNDS) {
   entry.applied = fix ? fix.applied.length : 0
   entry.skipped = fix ? fix.skipped : []
   if (fix) edits = edits.concat(fix.applied)
+  if (!fix) unfixed.push(...toFix.map(f => ({ round, claim: f.claim, reason: 'the fixer failed' })))
+  else unfixed.push(...fix.skipped.map(s => ({ round, ...s })))
   lastFix = fix
   log(`round ${round}: ${entry.applied} edits applied${entry.skipped.length ? `, ${entry.skipped.length} skipped` : ''}`)
 }
 
-if (!clean) log(`stopped after ${round} rounds without a clean ${GATE ? 'gate' : 're-check'}; receipt will say not clean`)
+if (clean && unfixed.length) {
+  clean = false
+  log(`not clean: ${unfixed.length} confirmed finding(s) the fixer could not apply still stand; they are returned as unfixed; receipt will say not clean`)
+} else if (!clean) log(`stopped after ${round} rounds without a clean ${GATE ? 'gate' : 're-check'}; receipt will say not clean`)
 else log(GATE ? 'clean: the loop converged and the lock gate found nothing confirmable. This covers the targets and the gate scope; it is not a lock.' : 'clean: a complete re-check round found nothing wrong in the targets. This is not a lock.')
 // The refuted list is written beside the receipts so hooks/ledger-from-run.py --result can
 // carry it into the next run's ledger file; the journal does not record it.
@@ -557,8 +567,9 @@ const receipt = await agent(receiptPrompt(P, targets, outputs, history, clean, r
 log(`refuted findings (${refuted.length}) written to ${refutedPath}; pass it to ledger-from-run.py --result next time`)
 
 // clean means a complete re-check round found nothing wrong, the lock gate (when the profile has
-// one) found nothing confirmable, AND the receipt was written.
+// one) found nothing confirmable, no confirmed finding was left unfixed, AND the receipt was written.
 // forAuthor lists the "unsupported" and "weak" findings: the author decides those.
+// unfixed lists confirmed findings the fixer could not apply: fix them by hand, then re-check.
 // ledgers, ledgerDelta and refuted are returned so hooks/ledger-from-run.py can carry them
 // into the next run's ledger file.
-return { clean: clean && !!(receipt && receipt.written), rounds: round, history, forAuthor, edits, receipt, ledgers, ledgerDelta, refuted }
+return { clean: clean && !!(receipt && receipt.written), rounds: round, history, forAuthor, unfixed, edits, receipt, ledgers, ledgerDelta, refuted }
