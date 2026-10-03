@@ -82,3 +82,36 @@ test('a run whose confirmed fault was applied ends clean', async () => {
   assert.equal(result.clean, true)
   assert.deepEqual(result.unfixed, [])
 })
+
+// 4 Oct 2026, post 16's translations: the loop gained a translation profile. A discovery run on
+// it must send the oracle to the parity comparator and every critic to translation-review.md,
+// and a run that finds nothing must still pass the lock gate before it counts as clean.
+async function translationRun() {
+  const prompts = {}
+  const agent = async (prompt, opts) => {
+    const label = opts.label || ''
+    prompts[label] = prompt
+    if (label.startsWith('oracles')) return { ran: [{ command: 'translation-parity.py', exit: 0, summary: 'RESULT OK' }], failures: [] }
+    if (label.startsWith('discover')) return { claims_checked: 3, findings: [], ledger: [{ claim: 'x', location: 'es/post.md:1', check: 'read' }] }
+    if (label.startsWith('gate')) return { findings: [], verdict: 'READY', reason: 'nothing found' }
+    if (label === 'receipt') return { path: '/tmp/receipt.json', written: true, note: '' }
+    throw new Error(`unexpected agent ${label}`)
+  }
+  const args = { profile: 'translation', targets: ['/tmp/es/post.md'], maxRounds: 2 }
+  const result = await run(agent, parallel, pipeline, () => {}, () => {}, args,
+    { total: null, spent: () => 0, remaining: () => Infinity })
+  return { result, prompts }
+}
+
+test('the translation profile runs the comparator, the locale guide and the lock gate', async () => {
+  const { result, prompts } = await translationRun()
+  assert.equal(result.clean, true)
+  assert.match(prompts['oracles r1'], /translation-parity\.py/)
+  for (const k of ['parity', 'fidelity', 'language', 'glossary', 'style']) {
+    assert.ok(prompts[`discover:${k} r1`], `critic ${k} ran`)
+    assert.match(prompts[`discover:${k} r1`], /translation-review\.md/)
+  }
+  assert.match(prompts['discover:language r1'], /blind native read/)
+  assert.match(prompts['gate r1'], /English source of each target in full/)
+})
+
