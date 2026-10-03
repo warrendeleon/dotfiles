@@ -28,8 +28,10 @@ const finding = {
 // says READY in round 2. fixer decides what the fixer does with the confirmed fault.
 async function endOfRun(fixer) {
   const logs = []
+  const prompts = {}
   const agent = async (prompt, opts) => {
     const label = opts.label || ''
+    prompts[label] = prompt
     const round = Number((/r(\d+)/.exec(label) || [])[1] || 0)
     if (label.startsWith('oracles')) return { ran: [{ command: 'verifiers', exit: 0, summary: 'all OK' }], failures: [] }
     if (label.startsWith('recheck')) return { claims_checked: 1, findings: [], ledger: [] }
@@ -47,7 +49,7 @@ async function endOfRun(fixer) {
   }
   const result = await run(agent, parallel, pipeline, m => logs.push(m), () => {}, args,
     { total: null, spent: () => 0, remaining: () => Infinity })
-  return { result, logs }
+  return { result, logs, prompts }
 }
 
 test('a confirmed fault the fixer could not apply keeps the run from being clean', async () => {
@@ -58,6 +60,19 @@ test('a confirmed fault the fixer could not apply keeps the run from being clean
   assert.equal(result.unfixed.length, 1)
   assert.match(result.unfixed[0].reason, /companion/)
   assert.ok(logs.some(l => l.startsWith('not clean: 1 confirmed finding')))
+})
+
+// 3 Oct 2026, post 16: a fix to a comment the post copies from build.gradle was applied to the
+// post only; the next round found the post's block no longer matched the companion and put the
+// old text back. The blog fixer is now told to leave such a fix to the author, untouched.
+test('the blog fixer leaves a fix to text the post copies from the companion to the author', async () => {
+  const { prompts } = await endOfRun({
+    applied: [{ file: '/tmp/post.md', before: '(see below)', after: '(see the section)' }], skipped: [],
+  })
+  const fix = prompts['fix r1 (1)']
+  assert.ok(fix, 'the fixer ran in round 1')
+  assert.match(fix, /copies from the companion/)
+  assert.match(fix, /edit nothing: return it under skipped/)
 })
 
 test('a run whose confirmed fault was applied ends clean', async () => {
