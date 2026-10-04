@@ -12,9 +12,11 @@ const run = new Function('agent', 'parallel', 'pipeline', 'log', 'phase', 'args'
   `return (async () => {\n${source}\n})()`)
 
 const parallel = thunks => Promise.all(thunks.map(t => t().catch(() => null)))
+// The workflow runtime hands each stage a copy of the item, not the item itself, so a script
+// that matches results to items by object identity breaks there; structuredClone does the same.
 const pipeline = (items, ...stages) => Promise.all(items.map(async (item, i) => {
-  let r = item
-  for (const stage of stages) r = await stage(r, item, i)
+  let r = structuredClone(item)
+  for (const stage of stages) r = await stage(r, structuredClone(item), i)
   return r
 }))
 
@@ -190,7 +192,10 @@ test('findings past the confirm cap are confirmed in the next round, not dropped
   for (const f of findings) assert.ok(ruled.has(f.claim), `a confirmer ruled on: ${f.claim}`)
   assert.equal(result.clean, true)
   assert.equal(result.history[0].queued, 4)
+  assert.equal(result.history[1].queued, 0)
   assert.deepEqual(result.unconfirmed, [])
+  // each finding is ruled on once, not again in every later round
+  assert.equal(confirmPrompts.length, findings.length)
 })
 
 test('a run that reaches the round cap with findings still queued is not clean and returns them', async () => {

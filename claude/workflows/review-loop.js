@@ -600,9 +600,11 @@ while (!clean && round < MAX_ROUNDS) {
   // is the fixer's to change.
   const confirmed = ruled.filter(x => x.v.confirmed).map(x => ({ ...x.f, evidence: x.v.evidence, fix: x.v.fix }))
   refuted.push(...ruled.filter(x => !x.v.confirmed).map(x => ({ location: x.f.location, claim: x.f.claim, reason: (x.v.reason || '').replace(/\s+/g, ' ').slice(0, 240) })))
-  // A confirm agent that died has not ruled either: its finding goes back in the queue.
-  const answered = new Set(judged.map(x => x.f))
-  pending.push(...toConfirm.filter(f => !answered.has(f)))
+  // A confirm agent that died has not ruled either: its finding goes back in the queue. Match by
+  // key, never by object: the runtime hands pipeline stages a copy of each item (4 Oct 2026, an
+  // identity match re-queued every finding each round, 151 agents for 48 findings).
+  const answered = new Set(judged.map(x => key(x.f)))
+  pending.push(...toConfirm.filter(f => !answered.has(key(f))))
   const entry = { round, mode, checked, found: found.length, fresh: fresh.length, confirmed: confirmed.length,
     forAuthor: authorOnly.length, refuted: ruled.length - confirmed.length, unchecked: unchecked.length,
     lostConfirms: toConfirm.length - judged.length, queued: pending.length, incomplete, applied: 0, skipped: [] }
@@ -633,8 +635,8 @@ while (!clean && round < MAX_ROUNDS) {
         .then(v => v && { f, v }))).filter(Boolean) : []
     const gateUnchecked = gateJudged.filter(x => x.v.cannot_check)
     pending.push(...gateUnchecked.map(x => ({ ...x.f, uncheckedOnce: true })))
-    const gateAnswered = new Set(gateJudged.map(x => x.f))
-    pending.push(...gateConfirm.filter(f => !gateAnswered.has(f)))
+    const gateAnswered = new Set(gateJudged.map(x => key(x.f)))
+    pending.push(...gateConfirm.filter(f => !gateAnswered.has(key(f))))
     const gateRuled = gateJudged.filter(x => !x.v.cannot_check)
     toFix = gateRuled.filter(x => x.v.confirmed).map(x => ({ ...x.f, evidence: x.v.evidence, fix: x.v.fix }))
     refuted.push(...gateRuled.filter(x => !x.v.confirmed).map(x => ({ location: x.f.location, claim: x.f.claim, reason: (x.v.reason || '').replace(/\s+/g, ' ').slice(0, 240) })))
