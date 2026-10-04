@@ -9,6 +9,11 @@ Broken deliberately on 3 Oct 2026 with eight negative controls (a heading remove
 token changed, a version swapped, a link changed, a translated comment changed, a paragraph
 removed, a Mermaid edge removed, a bold removed): each failed in its own class and the comment
 change failed none.
+4 Oct 2026 (post 17): a comment trailing a shell command now counts as a comment; Mermaid labels of
+every node shape are dropped and every arrow type splits an edge, so every node id and edge is
+compared (a filter used to drop all lowercase ids); "32-byte" counts like "32 bytes". Broken again
+with five controls (a node id renamed, an edge removed, the command before a trailing comment
+changed, a hyphen-joined number changed, an ==> edge retargeted): each failed in its own class.
 """
 import re
 import sys
@@ -65,7 +70,15 @@ def strip_comments(lang, lines):
             elif s.startswith('#'):
                 comments.append(l)
             else:
-                code.append(l)
+                # A comment after the command, set off by two spaces (post 17:
+                # `sign-version-map.mjs ios 2.0.0   # or the next number`), translates like a
+                # comment on its own line; the command before it stays executable.
+                m = re.match(r'^(.*?\S)\s{2,}(#\s.*)$', l)
+                if m and lang == 'sh':
+                    code.append(m.group(1))
+                    comments.append(m.group(2))
+                else:
+                    code.append(l)
             continue
         # js / ts / groovy / tsx
         if in_block:
@@ -97,13 +110,17 @@ def mermaid_structure(lines):
         s = l.strip()
         if not s or s.startswith('flowchart') or s.startswith('sequenceDiagram') or s.startswith('%%'):
             continue
-        # drop labels: ["..."], (["..."]), {"..."}
-        bare = re.sub(r'\(\["[^"]*"\]\)|\["[^"]*"\]|\{"[^"]*"\}|\|"[^"]*"\||\|[^|]*\|', '', s)
+        # drop labels: ["..."], (["..."]), [("...")], (("...")), ("..."), {"..."} and |edge labels|
+        bare = re.sub(r'\(\["[^"]*"\]\)|\[\("[^"]*"\)\]|\(\("[^"]*"\)\)|\("[^"]*"\)|\["[^"]*"\]|\{"[^"]*"\}'
+                      r'|\|"[^"]*"\||\|[^|]*\|', '', s)
         bare = re.sub(r'--\s*[^-\s][^-]*?\s*-->', '-->', bare)
-        parts = re.split(r'\s*-[-.]*>\s*|\s*-->\s*', bare)
+        # every arrow: -->, -.->, ==>, <-->, ---
+        parts = re.split(r'\s*<?(?:-\.+-|-{2,}|={2,})>?\s*', bare)
         parts = [p.strip() for p in parts if p.strip()]
-        # edge labels like "-- yes -->" leave the label word in parts; drop short lowercase words
-        parts = [p for p in parts if not re.fullmatch(r'[a-záéíóúüñ]+', p) or p in ('cdn', 'bundled', 'unresolved', 'launch', 'map', 'copies', 'manifest', 'load', 'render', 'tab', 'err', 'net1', 'net2', 'copyload')]
+        # Edge labels ("-- yes -->", |label|) are already gone, so every remaining part is a node id,
+        # a "subgraph id" line or the "end" keyword. Until 4 Oct 2026 a filter dropped every
+        # lowercase word here, which hid most node ids (fetch, refuse, store) from the comparison.
+        parts = [p for p in parts if p not in ('end', 'direction TD', 'direction LR')]
         for p in parts:
             ids.add(p)
         if len(parts) >= 2:
@@ -115,7 +132,7 @@ def mermaid_structure(lines):
 def analyse(text):
     fm, body = split(text)
     r = {'fm': frontmatter(fm)}
-    fences, code_tokens, comments, mermaid = [], [], [], []
+    fences, code_tokens, comments, mermaid, code_langs = [], [], [], [], []
     prose = []
     for b in blocks(body):
         if b[0] == 'fence':
@@ -125,6 +142,7 @@ def analyse(text):
                 mermaid.append(mermaid_structure(lines))
             else:
                 c, k = strip_comments(lang, lines)
+                code_langs.append(lang)
                 code_tokens.append('\n'.join(x.rstrip() for x in c))
                 comments.append(k)
         else:
@@ -133,6 +151,8 @@ def analyse(text):
     r['heading_levels'] = [len(h.split(' ')[0]) for h in r['headings']]
     r['fences'] = fences
     r['code'] = code_tokens
+    # the language of each non-Mermaid fence, so a report names the fence it indexes
+    r['code_langs'] = code_langs
     r['comments'] = comments
     r['mermaid'] = mermaid
     ptext = '\n'.join(prose)
@@ -148,7 +168,8 @@ def analyse(text):
     r['italic'] = len(re.findall(r'(?<!\*)\*(?!\*)[^*\n]+\*(?!\*)', ptext))
     r['callouts'] = re.findall(r'class="callout ([a-z-]+)"', ptext)
     r['codespans'] = re.findall(r'`([^`\n]+)`', ptext)
-    nums = re.findall(r'(?<![\w./-])\d+(?:\.\d+)*(?![\w-])', ptext)
+    # "32-byte" counts like "32 bytes"; "1-2" and "post-02" still do not split into numbers.
+    nums = re.findall(r'(?<![\w./-])\d+(?:\.\d+)*(?!\w)(?!-\d)', ptext)
     r['numbers'] = Counter(nums)
     r['emdash'] = sum(1 for l in prose if '—' in l and not l.startswith('- ['))
     return r
@@ -182,7 +203,7 @@ def main():
     for i, (a, b) in enumerate(zip(en['code'], tr['code'])):
         if a != b:
             ok = False
-            print(f'FAIL executable tokens differ in fence #{i + 1} ({en["fences"][i]})')
+            print(f'FAIL executable tokens differ in fence #{i + 1} ({en["code_langs"][i]})')
             al, bl = a.splitlines(), b.splitlines()
             for j, (x, y) in enumerate(zip(al, bl)):
                 if x != y:
@@ -198,7 +219,7 @@ def main():
     if not same_len:
         for i, (a, b) in enumerate(zip(en['comments'], tr['comments'])):
             if len(a) != len(b):
-                print(f'   fence #{i + 1} ({en["fences"][i]}): comment lines en={len(a)} tr={len(b)} (reflow is fine)')
+                print(f'   fence #{i + 1} ({en["code_langs"][i]}): comment lines en={len(a)} tr={len(b)} (reflow is fine)')
     check('mermaid diagrams', len(en['mermaid']), len(tr['mermaid']))
     for i, (a, b) in enumerate(zip(en['mermaid'], tr['mermaid'])):
         check(f'mermaid #{i + 1} node ids', a[0], b[0], lambda: print('   en-tr', a[0] - b[0], 'tr-en', b[0] - a[0]))
