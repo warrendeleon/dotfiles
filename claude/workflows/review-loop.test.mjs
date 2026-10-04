@@ -143,3 +143,89 @@ test('the companion profile runs the suites, reads the diff five ways and gates 
   assert.match(prompts['discover:security r1'], /older map/)
   assert.match(prompts['gate r1'], /every file the change touches, in full/)
 })
+
+// 4 Oct 2026, post 17's English: a discovery round raised 56 fixable findings and the cap
+// confirmed 16. The other 40 were only dropped from "seen" so a critic could raise them again,
+// but the re-check rounds read only the edited passages, so none of the 40 was ever ruled on.
+// The same run refuted a finding because its confirmer was not told where the article was.
+// distinct claims, so the merge step keeps them apart
+const many = n => Array.from({ length: n }, (_, i) => ({
+  claim: `sentence number ${i} breaks rule q${i}`, location: `post.md:${i + 1}`, status: 'rule',
+  evidence: `line ${i + 1}`, correction: `rewrite z${i}`,
+}))
+const claimOf = prompt => (/^- claim: (.*)$/m.exec(prompt) || [])[1]
+
+// A discovery run on the blog profile. verdict(claim, attempt) answers each confirm agent.
+async function blogRun({ findings, verdict, args: extra = {} }) {
+  const logs = [], prompts = {}, confirmPrompts = [], attempts = {}
+  const agent = async (prompt, opts) => {
+    const label = opts.label || ''
+    prompts[label] = prompt
+    if (label.startsWith('oracles')) return { ran: [{ command: 'sweep', exit: 0, summary: 'OK' }], failures: [] }
+    if (label === 'discover:style r1') return { claims_checked: findings.length, findings, ledger: [] }
+    if (label.startsWith('discover')) return { claims_checked: 1, findings: [], ledger: [] }
+    if (label.startsWith('recheck')) return { claims_checked: 1, findings: [], ledger: [] }
+    if (label.startsWith('confirm')) {
+      confirmPrompts.push(prompt)
+      const c = claimOf(prompt)
+      attempts[c] = (attempts[c] || 0) + 1
+      return verdict(c, attempts[c])
+    }
+    if (label.startsWith('fix')) return { applied: [{ file: '/tmp/post.md', before: 'a', after: 'b' }], skipped: [], rebuilt: true, verifiers: 'all OK' }
+    if (label.startsWith('gate')) return { findings: [], verdict: 'READY', reason: 'nothing found' }
+    if (label === 'receipt') return { path: '/tmp/receipt.json', written: true, note: '' }
+    throw new Error(`unexpected agent ${label}`)
+  }
+  const args = { profile: 'blog', targets: ['/tmp/post.md'], repo: '/tmp/companion', notes: 'TAGS ARE LOCAL', maxRounds: 3, ...extra }
+  const result = await run(agent, parallel, pipeline, m => logs.push(m), () => {}, args,
+    { total: null, spent: () => 0, remaining: () => Infinity })
+  return { result, logs, prompts, confirmPrompts, attempts }
+}
+const yes = () => ({ confirmed: true, evidence: 'read it', fix: 'rewrite', reason: '' })
+
+test('findings past the confirm cap are confirmed in the next round, not dropped', async () => {
+  const findings = many(20)
+  const { result, confirmPrompts } = await blogRun({ findings, verdict: yes })
+  const ruled = new Set(confirmPrompts.map(claimOf))
+  for (const f of findings) assert.ok(ruled.has(f.claim), `a confirmer ruled on: ${f.claim}`)
+  assert.equal(result.clean, true)
+  assert.equal(result.history[0].queued, 4)
+  assert.deepEqual(result.unconfirmed, [])
+})
+
+test('a run that reaches the round cap with findings still queued is not clean and returns them', async () => {
+  const { result, logs } = await blogRun({ findings: many(3), verdict: yes, args: { confirmCap: 1, maxRounds: 2 } })
+  assert.equal(result.clean, false)
+  assert.equal(result.unconfirmed.length, 1)
+  assert.ok(logs.some(l => /1 finding\(s\) were never ruled on/.test(l)))
+})
+
+test('the confirm prompt names the targets, the repository and the notes', async () => {
+  const { confirmPrompts } = await blogRun({ findings: many(1), verdict: yes })
+  assert.match(confirmPrompts[0], /\/tmp\/post\.md/)
+  assert.match(confirmPrompts[0], /REPOSITORY: \/tmp\/companion/)
+  assert.match(confirmPrompts[0], /TAGS ARE LOCAL/)
+})
+
+test('a confirmer that could not check is retried, and never counted as a refutation', async () => {
+  const [f] = many(1)
+  const blind = { confirmed: false, cannot_check: true, evidence: '', reason: 'could not find the article' }
+  const once = await blogRun({ findings: [f], verdict: (_, n) => n === 1 ? blind : yes() })
+  assert.equal(once.attempts[f.claim], 2)
+  assert.deepEqual(once.result.refuted, [])
+  assert.equal(once.result.clean, true)
+
+  const never = await blogRun({ findings: [f], verdict: () => blind })
+  assert.deepEqual(never.result.refuted, [])
+  assert.equal(never.result.forAuthor.length, 1)
+  assert.equal(never.result.forAuthor[0].status, 'unchecked')
+})
+
+test('findings an earlier run never ruled on are confirmed in the first round', async () => {
+  const [f] = many(1)
+  const { result, confirmPrompts } = await blogRun({ findings: [], verdict: yes, args: {
+    ledgerFile: '/tmp/ledger.json', edits: [{ file: '/tmp/post.md', before: 'a', after: 'b' }], pending: [f],
+  } })
+  assert.equal(claimOf(confirmPrompts[0]), f.claim)
+  assert.equal(result.clean, true)
+})

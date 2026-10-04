@@ -1,7 +1,7 @@
 export const meta = {
   name: 'review-loop',
   description: 'Check every claim in a deliverable against its source of truth once, fix what is confirmed wrong, re-check the ledger after the fixes, then write a verification receipt',
-  whenToUse: 'Before a long document or blog post goes out. Not for pull request reviews: those use hooks/pr-check.sh, one deterministic pass. args: {profile: "delivery" | "baseline" | "blog" | "translation" | "companion", targets: [paths], outputs?: [built files], repo?: path, notes?: string, decisions?: [author framings the loop must not touch], maxRounds?: number (default 3, or 2 in re-check mode), models?: {oracle, find, recheck, confirm, fix, receipt}, efforts?: {same keys}}. Defaults: oracle sonnet/low, find opus/high, recheck sonnet/medium, confirm opus/medium, fix opus/medium, receipt haiku/low. Round 1 discovers and returns a claim ledger; later rounds re-derive only the ledger entries the edits touched and read only the edited passages, never the whole document, so the finding supply is bounded and the loop ends. Duplicate findings from different critics on the same defect are merged before confirmation, so one confirmer rules and the fixer gets one correction. Findings marked unsupported or weak go straight to forAuthor without a confirm agent; only wrong, inconsistent and rule findings are confirmed and fixed. Refuted findings are carried across rounds and runs so critics do not raise them again. Re-check rounds use ONE agent for every claim type (args.recheckPerType: true restores one per type). After hand edits, pass ledgerFile (from hooks/ledger-from-run.py on the last run; it carries the refuted list too) and edits [{file, before, after}] to skip discovery: the first re-check round is 1 oracle + 1 re-check + one confirm per wrong finding + 1 fix; later rounds skip the oracle because the fixer re-runs the verifiers; then 1 receipt. About five agents when the edits are sound. Rule findings are confirmed on Sonnet; the numeric critic trusts the deterministic verifier for the figures it covers and re-derives only the rest. Run ONE loop at a time; parallel loops hit the session limit and the dead agents still cost their tokens. Launch by scriptPath (~/Developer/dotfiles/claude/workflows/review-loop.js), not by name: the name resolves to a copy cached at session start. Say the model plan and the expected agent count to the user before launching. Lock gate (on for the blog profile, args.gate for others): once a round confirms nothing, one fresh Opus agent reads every target whole, plus the profile\'s gate scope (for a blog post, the companion\'s changed files and README), lists every fault with no cap and returns READY or NOT READY; NOT READY findings are confirmed and fixed in the same round and the loop goes on, so a clean result means the gate said READY. For a blog post pass args.startRef and args.endRef (the companion\'s start and end points) so the oracle replays the file steps and the companion critic reads the changed files. A clean receipt is still not a lock: say what it covered.',
+  whenToUse: 'Before a long document or blog post goes out. Not for pull request reviews: those use hooks/pr-check.sh, one deterministic pass. args: {profile: "delivery" | "baseline" | "blog" | "translation" | "companion", targets: [paths], outputs?: [built files], repo?: path, notes?: string, decisions?: [author framings the loop must not touch], maxRounds?: number (default 3, or 2 in re-check mode), models?: {oracle, find, recheck, confirm, fix, receipt}, efforts?: {same keys}}. Defaults: oracle sonnet/low, find opus/high, recheck sonnet/medium, confirm opus/medium, fix opus/medium, receipt haiku/low. Round 1 discovers and returns a claim ledger; later rounds re-derive only the ledger entries the edits touched and read only the edited passages, never the whole document, so the finding supply is bounded and the loop ends. Duplicate findings from different critics on the same defect are merged before confirmation, so one confirmer rules and the fixer gets one correction. Findings marked unsupported or weak go straight to forAuthor without a confirm agent; only wrong, inconsistent and rule findings are confirmed and fixed. Refuted findings are carried across rounds and runs so critics do not raise them again. Fixable findings past the confirm cap (args.confirmCap, default 16) wait in a queue and are confirmed first next round; a run that ends with anything queued is not clean and returns it as unconfirmed, to pass as args.pending to the next run. A confirmer that cannot open the target returns cannot_check and is retried, never counted as a refutation. Re-check rounds use ONE agent for every claim type (args.recheckPerType: true restores one per type). After hand edits, pass ledgerFile (from hooks/ledger-from-run.py on the last run; it carries the refuted list too) and edits [{file, before, after}] to skip discovery: the first re-check round is 1 oracle + 1 re-check + one confirm per wrong finding + 1 fix; later rounds skip the oracle because the fixer re-runs the verifiers; then 1 receipt. About five agents when the edits are sound. Rule findings are confirmed on Sonnet; the numeric critic trusts the deterministic verifier for the figures it covers and re-derives only the rest. Run ONE loop at a time; parallel loops hit the session limit and the dead agents still cost their tokens. Launch by scriptPath (~/Developer/dotfiles/claude/workflows/review-loop.js), not by name: the name resolves to a copy cached at session start. Say the model plan and the expected agent count to the user before launching. Lock gate (on for the blog profile, args.gate for others): once a round confirms nothing, one fresh Opus agent reads every target whole, plus the profile\'s gate scope (for a blog post, the companion\'s changed files and README), lists every fault with no cap and returns READY or NOT READY; NOT READY findings are confirmed and fixed in the same round and the loop goes on, so a clean result means the gate said READY. For a blog post pass args.startRef and args.endRef (the companion\'s start and end points) so the oracle replays the file steps and the companion critic reads the changed files. A clean receipt is still not a lock: say what it covered.',
   phases: [
     { title: 'Oracles', detail: 'deterministic checks: verifier scripts, builds, banned-word and link sweeps' },
     { title: 'Find', detail: 'round 1 only: fresh-context critics, one per claim type, returning a ledger of every claim checked' },
@@ -234,6 +234,7 @@ const VERDICT_SCHEMA = {
     evidence: { type: 'string', description: 'your own independent derivation, with the command and its output' },
     fix: { type: 'string', description: 'the exact replacement text or edit, if confirmed' },
     reason: { type: 'string' },
+    cannot_check: { type: 'boolean', description: 'true when you could not open the target or the sources the finding needs; a verdict you could not check is not a refutation' },
   },
   required: ['confirmed', 'evidence', 'reason'],
 }
@@ -335,6 +336,9 @@ ${oracle.failures.length ? oracle.failures.map(f => `- ${f.location}: ${f.claim}
 
 const confirmPrompt = (P, f) => `You are an independent checker for a ${P.name}. Another agent reported this finding. Your job is to refute it.
 
+TARGETS (a location such as "post line 40" or "line 40" is a line in these files):
+${targets.map(t => '- ' + t).join('\n')}
+${args.repo ? `REPOSITORY: ${args.repo}${args.startRef ? `, start point ${args.startRef}` : ''}${args.endRef ? `, end point ${args.endRef}` : ''}\n` : ''}${args.notes ? 'NOTES FROM THE USER:\n' + args.notes + '\n' : ''}
 FINDING${f.merged ? ` (reported by ${f.merged} critics, ${f.type}; their evidence and corrections are listed in turn, and you return ONE fix that satisfies every part of the defect that holds)` : ''}
 - claim: ${f.claim}
 - location: ${f.location}
@@ -347,7 +351,7 @@ SOURCES OF TRUTH:${P.sources}
 ${(args.decisions || []).length ? 'AUTHOR DECISIONS, NOT UNDER REVIEW:\n' + args.decisions.map(d => '- ' + d).join('\n') + '\n' : ''}
 ${MATERIALITY}
 
-Re-derive the fact yourself from the sources with your own command or query; do not rerun their command as your only step. If the original claim in the document is in fact correct under the document's own definitions, the finding is refuted. If you cannot reproduce their evidence, the finding is refuted. If the difference is one the list above says is not a finding, the finding is refuted. If the claim is wrong or unsupported and your own derivation shows it, confirm it and give the exact fix. A finding that cites a stated rule (the house rules or the writing guides) is confirmed when the text breaks that rule: "it is only a choice of words" does not refute a breach of a rule about words. Default to refuted when uncertain.`
+Re-derive the fact yourself from the sources with your own command or query; do not rerun their command as your only step. If the original claim in the document is in fact correct under the document's own definitions, the finding is refuted. If you cannot reproduce their evidence, the finding is refuted. If you cannot open the target or a source the finding needs, do not rule: set cannot_check true and say what you could not open. If the difference is one the list above says is not a finding, the finding is refuted. If the claim is wrong or unsupported and your own derivation shows it, confirm it and give the exact fix. A finding that cites a stated rule (the house rules or the writing guides) is confirmed when the text breaks that rule: "it is only a choice of words" does not refute a breach of a rule about words. Default to refuted when uncertain.`
 
 const fixPrompt = (P, targets, confirmed) => `${header(P, targets)}
 
@@ -406,7 +410,9 @@ const targets = (args.targets || []).filter(Boolean)
 if (!targets.length) throw new Error('args.targets must list at least one file')
 const outputs = (args.outputs || []).filter(Boolean)
 const MAX_ROUNDS = args.maxRounds || (args.ledgerFile ? 2 : 3)
-const CONFIRM_CAP = 16
+// Confirm agents per round. Findings past the cap wait in a queue and are confirmed first in the
+// next round; the run cannot count as clean while the queue holds anything.
+const CONFIRM_CAP = args.confirmCap || 16
 // The lock gate runs once the loop converges: on for profiles that ask for it, or with args.gate.
 const GATE = args.gate !== undefined ? !!args.gate : !!P.gate
 
@@ -448,6 +454,12 @@ const ledgers = {}          // claim type -> ledger entries from the discovery r
 const ledgerDelta = {}      // claim type -> entries re-derived or added in later rounds of this run
 let edits = []              // every before/after the fixer applied, for the re-check rounds
 let round = 0, clean = false, lastFix = null
+// Fixable findings waiting for a confirm agent: the overflow past CONFIRM_CAP, verdicts a
+// confirmer could not check, and args.pending (findings an earlier run raised and never
+// confirmed). Confirmed first each round. Before 4 Oct 2026 the overflow was only dropped from
+// "seen" so a later critic could raise it again, but a re-check round reads only the edited
+// passages, so 40 of 56 findings from one discovery round were never ruled on.
+let pending = []
 // Refuted findings: from an earlier run (args.refuted, or the ledger file's "refuted" key,
 // which hooks/ledger-from-run.py writes) plus every refutation in this run. Passed to every
 // critic so the same finding is not raised, confirmed and refuted round after round.
@@ -499,6 +511,10 @@ const unify = findings => {
     }
   })
 }
+
+pending = unify((args.pending || []).map(f => ({ ...f, type: f.type || 'pending' })))
+pending.forEach(f => seen.add(key(f)))
+if (pending.length) log(`${pending.length} finding(s) from an earlier run queued for confirmation`)
 
 while (!clean && round < MAX_ROUNDS) {
   round++
@@ -565,29 +581,41 @@ while (!clean && round < MAX_ROUNDS) {
   // go straight to forAuthor with the critic's evidence and no confirm agent is spent on them.
   const authorOnly = fresh.filter(f => !FIXABLE(f))
   forAuthor.push(...authorOnly.map(f => ({ round, ...f })))
-  const fixable = fresh.filter(FIXABLE)
-  const toConfirm = fixable.slice(0, CONFIRM_CAP)
-  if (fixable.length > CONFIRM_CAP) { log(`round ${round}: confirming ${CONFIRM_CAP} of ${fixable.length}; the rest return next round`); fixable.slice(CONFIRM_CAP).forEach(f => seen.delete(key(f))) }
+  const queue = [...pending, ...fresh.filter(FIXABLE)]
+  const toConfirm = queue.slice(0, CONFIRM_CAP)
+  pending = queue.slice(CONFIRM_CAP)
+  if (pending.length) log(`round ${round}: confirming ${toConfirm.length} of ${queue.length}; ${pending.length} wait for the next round`)
   const judged = toConfirm.length ? (await pipeline(toConfirm, (f, _, i) =>
     agent(confirmPrompt(P, f), { phase: 'Confirm', label: `confirm ${i + 1}/${toConfirm.length} (${f.type})`, schema: VERDICT_SCHEMA, ...tier(f.status === 'rule' ? 'confirmRule' : 'confirm') })
       .then(v => v && { f, v }))).filter(Boolean) : []
+  // A confirmer that could not open what it needed has not ruled. The finding goes back in the
+  // queue once; a second miss sends it to the author rather than into the refuted list.
+  const unchecked = judged.filter(x => x.v.cannot_check)
+  for (const x of unchecked) {
+    if (x.f.uncheckedOnce) forAuthor.push({ round, ...x.f, status: 'unchecked', evidence: `two confirmers could not check it: ${x.v.reason}` })
+    else pending.push({ ...x.f, uncheckedOnce: true })
+  }
+  const ruled = judged.filter(x => !x.v.cannot_check)
   // Only a claim shown to be WRONG against the source (or inconsistent, or breaking a house rule)
   // is the fixer's to change.
-  const confirmed = judged.filter(x => x.v.confirmed).map(x => ({ ...x.f, evidence: x.v.evidence, fix: x.v.fix }))
-  refuted.push(...judged.filter(x => !x.v.confirmed).map(x => ({ location: x.f.location, claim: x.f.claim, reason: (x.v.reason || '').replace(/\s+/g, ' ').slice(0, 240) })))
+  const confirmed = ruled.filter(x => x.v.confirmed).map(x => ({ ...x.f, evidence: x.v.evidence, fix: x.v.fix }))
+  refuted.push(...ruled.filter(x => !x.v.confirmed).map(x => ({ location: x.f.location, claim: x.f.claim, reason: (x.v.reason || '').replace(/\s+/g, ' ').slice(0, 240) })))
+  // A confirm agent that died has not ruled either: its finding goes back in the queue.
+  const answered = new Set(judged.map(x => x.f))
+  pending.push(...toConfirm.filter(f => !answered.has(f)))
   const entry = { round, mode, checked, found: found.length, fresh: fresh.length, confirmed: confirmed.length,
-    forAuthor: authorOnly.length, refuted: judged.length - confirmed.length,
-    lostConfirms: toConfirm.length - judged.length, incomplete, applied: 0, skipped: [] }
+    forAuthor: authorOnly.length, refuted: ruled.length - confirmed.length, unchecked: unchecked.length,
+    lostConfirms: toConfirm.length - judged.length, queued: pending.length, incomplete, applied: 0, skipped: [] }
   history.push(entry)
-  log(`round ${round}: ${confirmed.length} confirmed wrong, ${authorOnly.length} for the author, ${judged.length - confirmed.length} refuted${entry.lostConfirms ? `, ${entry.lostConfirms} confirmers failed` : ''}`)
+  log(`round ${round}: ${confirmed.length} confirmed wrong, ${authorOnly.length} for the author, ${ruled.length - confirmed.length} refuted${unchecked.length ? `, ${unchecked.length} could not be checked` : ''}${entry.lostConfirms ? `, ${entry.lostConfirms} confirmers failed` : ''}${pending.length ? `, ${pending.length} queued` : ''}`)
 
   let toFix = confirmed
   if (!confirmed.length) {
     // Converged only when a complete re-check round, with every confirmer answering, finds nothing
     // wrong. The discovery round cannot be that round unless it found nothing at all: it has not
     // seen the document after any fix.
-    const converged = (mode === 'recheck' && !incomplete && !entry.lostConfirms && checked > 0)
-      || (mode === 'discover' && !incomplete && !entry.lostConfirms && found.length === 0 && oracle.failures.length === 0)
+    const converged = !pending.length && ((mode === 'recheck' && !incomplete && !entry.lostConfirms && checked > 0)
+      || (mode === 'discover' && !incomplete && !entry.lostConfirms && found.length === 0 && oracle.failures.length === 0))
     if (!converged) continue
     if (!GATE) { clean = true; continue }
     const gate = await agent(gatePrompt(P, targets, refuted), { phase: 'Gate', label: `gate r${round}`, schema: GATE_SCHEMA, ...tier('gate') })
@@ -599,18 +627,23 @@ while (!clean && round < MAX_ROUNDS) {
     forAuthor.push(...gateAuthor.map(f => ({ round, ...f })))
     const gateFixable = gateFresh.filter(FIXABLE)
     const gateConfirm = gateFixable.slice(0, CONFIRM_CAP)
-    if (gateFixable.length > CONFIRM_CAP) { log(`round ${round}: confirming ${CONFIRM_CAP} of ${gateFixable.length} gate findings; the rest return next round`); gateFixable.slice(CONFIRM_CAP).forEach(f => seen.delete(key(f))) }
+    if (gateFixable.length > CONFIRM_CAP) { log(`round ${round}: confirming ${CONFIRM_CAP} of ${gateFixable.length} gate findings; ${gateFixable.length - CONFIRM_CAP} wait for the next round`); pending.push(...gateFixable.slice(CONFIRM_CAP)) }
     const gateJudged = gateConfirm.length ? (await pipeline(gateConfirm, (f, _, i) =>
       agent(confirmPrompt(P, f), { phase: 'Confirm', label: `confirm gate ${i + 1}/${gateConfirm.length}`, schema: VERDICT_SCHEMA, ...tier(f.status === 'rule' ? 'confirmRule' : 'confirm') })
         .then(v => v && { f, v }))).filter(Boolean) : []
-    toFix = gateJudged.filter(x => x.v.confirmed).map(x => ({ ...x.f, evidence: x.v.evidence, fix: x.v.fix }))
-    refuted.push(...gateJudged.filter(x => !x.v.confirmed).map(x => ({ location: x.f.location, claim: x.f.claim, reason: (x.v.reason || '').replace(/\s+/g, ' ').slice(0, 240) })))
+    const gateUnchecked = gateJudged.filter(x => x.v.cannot_check)
+    pending.push(...gateUnchecked.map(x => ({ ...x.f, uncheckedOnce: true })))
+    const gateAnswered = new Set(gateJudged.map(x => x.f))
+    pending.push(...gateConfirm.filter(f => !gateAnswered.has(f)))
+    const gateRuled = gateJudged.filter(x => !x.v.cannot_check)
+    toFix = gateRuled.filter(x => x.v.confirmed).map(x => ({ ...x.f, evidence: x.v.evidence, fix: x.v.fix }))
+    refuted.push(...gateRuled.filter(x => !x.v.confirmed).map(x => ({ location: x.f.location, claim: x.f.claim, reason: (x.v.reason || '').replace(/\s+/g, ' ').slice(0, 240) })))
     Object.assign(entry, { gate: gate.verdict, gateFound: gateFresh.length, gateConfirmed: toFix.length,
       gateForAuthor: gateAuthor.length, gateLostConfirms: gateConfirm.length - gateJudged.length })
     log(`round ${round}: gate ${gate.verdict}, ${gateFresh.length} findings, ${toFix.length} confirmed, ${gateAuthor.length} for the author`)
     if (!toFix.length) {
       // READY, or NOT READY on findings every confirmer refuted: nothing confirmed is wrong.
-      if (!entry.gateLostConfirms && gateConfirm.length === gateFixable.length) clean = true
+      if (!pending.length) clean = true
       continue
     }
   }
@@ -625,7 +658,10 @@ while (!clean && round < MAX_ROUNDS) {
   log(`round ${round}: ${entry.applied} edits applied${entry.skipped.length ? `, ${entry.skipped.length} skipped` : ''}`)
 }
 
-if (clean && unfixed.length) {
+if (pending.length) {
+  clean = false
+  log(`not clean: ${pending.length} finding(s) were never ruled on; they are returned as unconfirmed; pass them as args.pending to the next run`)
+} else if (clean && unfixed.length) {
   clean = false
   log(`not clean: ${unfixed.length} confirmed finding(s) the fixer could not apply still stand; they are returned as unfixed; receipt will say not clean`)
 } else if (!clean) log(`stopped after ${round} rounds without a clean ${GATE ? 'gate' : 're-check'}; receipt will say not clean`)
@@ -643,4 +679,6 @@ log(`refuted findings (${refuted.length}) written to ${refutedPath}; pass it to 
 // unfixed lists confirmed findings the fixer could not apply: fix them by hand, then re-check.
 // ledgers, ledgerDelta and refuted are returned so hooks/ledger-from-run.py can carry them
 // into the next run's ledger file.
-return { clean: clean && !!(receipt && receipt.written), rounds: round, history, forAuthor, unfixed, edits, receipt, ledgers, ledgerDelta, refuted }
+// unconfirmed lists fixable findings no confirmer ruled on before the round cap: pass them as
+// args.pending to the next run.
+return { clean: clean && !!(receipt && receipt.written), rounds: round, history, forAuthor, unfixed, unconfirmed: pending, edits, receipt, ledgers, ledgerDelta, refuted }
