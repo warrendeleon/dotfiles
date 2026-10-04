@@ -115,3 +115,31 @@ test('the translation profile runs the comparator, the locale guide and the lock
   assert.match(prompts['gate r1'], /English source of each target in full/)
 })
 
+// 4 Oct 2026, post 17's companion: the loop gained a companion profile for a code change. Its
+// oracle runs the type check, the suites and the smoke script; its critics read the diff against
+// the specification, the tests, the comments, the mechanism's security and the README; its gate
+// reads every touched file whole.
+test('the companion profile runs the suites, reads the diff five ways and gates on every touched file', async () => {
+  const prompts = {}
+  const agent = async (prompt, opts) => {
+    const label = opts.label || ''
+    prompts[label] = prompt
+    if (label.startsWith('oracles')) return { ran: [{ command: 'npx jest', exit: 0, summary: '183 passed' }], failures: [] }
+    if (label.startsWith('discover')) return { claims_checked: 3, findings: [], ledger: [{ claim: 'x', location: 'src/a.ts:1', check: 'read' }] }
+    if (label.startsWith('gate')) return { findings: [], verdict: 'READY', reason: 'nothing found' }
+    if (label === 'receipt') return { path: '/tmp/receipt.json', written: true, note: '' }
+    throw new Error(`unexpected agent ${label}`)
+  }
+  const args = { profile: 'companion', targets: ['/tmp/repo/src/a.ts'], repo: '/tmp/repo', startRef: 'post-16-fallbacks', maxRounds: 2 }
+  const result = await run(agent, parallel, pipeline, () => {}, () => {}, args,
+    { total: null, spent: () => 0, remaining: () => Infinity })
+  assert.equal(result.clean, true)
+  assert.match(prompts['oracles r1'], /npx jest/)
+  assert.match(prompts['oracles r1'], /federation-smoke\.sh/)
+  for (const k of ['correctness', 'tests', 'comments', 'security', 'readme']) {
+    assert.ok(prompts[`discover:${k} r1`], `critic ${k} ran`)
+    assert.match(prompts[`discover:${k} r1`], /node_modules/)
+  }
+  assert.match(prompts['discover:security r1'], /older map/)
+  assert.match(prompts['gate r1'], /every file the change touches, in full/)
+})
