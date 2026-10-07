@@ -969,6 +969,15 @@ if command -v claude &>/dev/null || [[ "${CLAUDE_CODE_INSTALLED:-}" == "true" ]]
       [[ -f "$style" ]] && symlink "$style" "$HOME/.claude/output-styles/$(basename "$style")"
     done
   fi
+  # Symlink saved workflows (Claude Code reads ~/.claude/workflows/ from any directory)
+  if [[ -d "${DOTFILES_DIR}/claude/workflows" ]]; then
+    mkdir -p "$HOME/.claude/workflows"
+    for wf in "${DOTFILES_DIR}/claude/workflows/"*.js; do
+      [[ -f "$wf" ]] && symlink "$wf" "$HOME/.claude/workflows/$(basename "$wf")"
+    done
+  fi
+  # Receipts written by the review-loop workflow; read by the verify-receipt hook
+  mkdir -p "$HOME/.claude/receipts"
   success "Claude Code configured"
 fi
 
