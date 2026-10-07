@@ -185,11 +185,49 @@ alias dots="cd ~/Developer/dotfiles"
 alias flush="sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder"
 alias ip="curl -s ifconfig.me"
 alias localip="ipconfig getifaddr en0"
+# Menu bar stuck in full screen: restart the DisplayLink agent, launchd relaunches it
+alias fixbar="pkill -x DisplayLinkUserAgent"
 
 # Docker (Colima)
 alias dcu="docker compose up -d"
 alias dcd="docker compose down"
 alias dcl="docker compose logs -f"
+
+# Home network — Pi-hole blocks ad domains, which breaks ad-tech work
+# adblock off 30m   stop blocking for 30 minutes, then it resumes on its own
+# adblock 30m       same thing, shorthand
+# adblock off       stop blocking with no timer, until you run: adblock on
+# adblock on        start blocking now
+# adblock           show whether blocking is on
+adblock() {
+  local host=minipc cmd=${1:-status} time=$2
+  case "$cmd" in
+    on)
+      ssh "$host" 'docker exec pihole pihole enable' \
+        && echo "Ad blocking on" ;;
+    off)
+      if [[ -n "$time" ]]; then
+        if [[ ! "$time" =~ '^[0-9]+[smh]$' ]]; then
+          echo "adblock: expected a duration like 30m" >&2
+          return 1
+        fi
+        ssh "$host" "docker exec pihole pihole disable $time" \
+          && echo "Ad blocking off for $time, resumes on its own after that"
+      else
+        ssh "$host" 'docker exec pihole pihole disable' \
+          && echo "Ad blocking off, no timer. Run 'adblock on' when you are done."
+      fi ;;
+    status)
+      ssh "$host" 'docker exec pihole pihole status' ;;
+    *)
+      if [[ "$cmd" =~ '^[0-9]+[smh]$' ]]; then
+        adblock off "$cmd"
+      else
+        echo "adblock: expected on, off [time], a duration like 30m, or status" >&2
+        return 1
+      fi ;;
+  esac
+}
 
 # Git (beyond .gitconfig aliases)
 alias gp="git push"
@@ -239,7 +277,7 @@ aliases() {
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
   printf '│ nrv        │ yarn validate                                    │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
-  printf '│ pod        │ cd ios && pod install && cd ..                    │\n'
+  printf '│ pod        │ cd ios && pod install && cd ..                   │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
   printf '│ podclean   │ pod deintegrate + pod install                    │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
@@ -260,6 +298,8 @@ aliases() {
   printf '│ ip         │ public IP address                                │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
   printf '│ localip    │ local IP address                                 │\n'
+  printf '├────────────┼──────────────────────────────────────────────────┤\n'
+  printf '│ fixbar     │ restart DisplayLink when the menu bar sticks     │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
   printf '│ dcu        │ docker compose up -d                             │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
