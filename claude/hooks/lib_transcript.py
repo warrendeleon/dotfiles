@@ -78,12 +78,27 @@ def human_turns(path):
     return out
 
 
-def last_turns(path):
-    """Return (last_human_text, assistant_prose_since_that_human).
+# A background task finishing, or a CI-monitor event from the desktop app (5 Oct 2026, PR
+# auto-fix), each starts a new turn without Warren saying anything.
+NOTIFICATION_RE = re.compile(r"\s*<(task-notification|ci-monitor-event)\b")
 
-    Assistant text is every text block emitted after the last human message,
-    joined, with fenced code blocks removed so a requested command or snippet
-    does not count as prose.
+
+def _is_notification(rec):
+    """A background agent or command finishing starts a new turn without Warren saying anything."""
+    if rec.get("type") != "user" or rec.get("isSidechain"):
+        return False
+    t = _text((rec.get("message") or {}).get("content"))
+    return bool(t) and bool(NOTIFICATION_RE.match(TAG_RE.sub("", t)))
+
+
+def last_turns(path):
+    """Return (last_human_text, assistant_prose_of_the_current_turn).
+
+    Assistant text is every text block emitted since the turn began, joined, with
+    fenced code blocks removed so a requested command or snippet does not count as
+    prose. A turn begins at a human message or at a task notification: replies to
+    several notifications after one short message were being summed as one reply
+    and bounced at 300 words for a one-line status (2 Oct 2026, SCB-6338 agents).
     """
     human = None
     assistant = []
@@ -94,6 +109,8 @@ def last_turns(path):
             assistant = []
         elif _is_human(rec):
             human = COMMENT_RE.sub("", TAG_RE.sub("", _text(rec["message"]["content"]))).strip()
+            assistant = []
+        elif _is_notification(rec):
             assistant = []
         elif rec.get("type") == "assistant" and not rec.get("isSidechain"):
             t = _text((rec.get("message") or {}).get("content"))
