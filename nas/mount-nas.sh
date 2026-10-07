@@ -29,8 +29,9 @@ SHARES=(${NAS_SHARES:-video home})
 USER_NAME="$NAS_USER"
 
 # Probe the SMB port rather than ping: on foreign networks another host can
-# answer ICMP at the LAN address, and a failed "mount volume" then throws a
-# Finder error dialog on every network change.
+# answer ICMP at the LAN address. An open port still doesn't promise a mount
+# (a Tailscale DERP relay can pass the handshake and then stall), so the
+# mount itself must also fail quietly; see netfs_mount.
 pick_server() {
   for srv in "${ADDRESSES[@]}"; do
     if /usr/bin/nc -z -G 2 "$srv" 445 >/dev/null 2>&1; then
@@ -42,6 +43,22 @@ pick_server() {
 }
 
 is_mounted() { /sbin/mount | grep -q " on $1 "; }
+
+# Mount an smb:// URL under /Volumes through NetFS with UI disabled, so a
+# failure returns an error instead of raising the "There was a problem
+# connecting to the server" dialog that AppleScript's "mount volume" shows.
+# Credentials come from the login keychain, as before.
+netfs_mount() {
+  /usr/bin/osascript -l JavaScript - "$1" <<'JXA'
+ObjC.import('NetFS')
+function run(argv) {
+  const open = $.NSMutableDictionary.dictionary
+  open.setObjectForKey('NoUI', 'UIOption')
+  const rc = $.NetFSMountURLSync($.NSURL.URLWithString(argv[0]), null, null, null, open, null, null)
+  if (rc !== 0) throw new Error('NetFS error ' + rc)
+}
+JXA
+}
 
 mkdir -p "$NAS_DIR"
 
@@ -58,7 +75,7 @@ for s in "${SHARES[@]}"; do
   if is_mounted "$target"; then
     log "$s already mounted"
   else
-    if /usr/bin/osascript -e "mount volume \"smb://${USER_NAME}@${SERVER}/${s}\"" >>"$LOG" 2>&1; then
+    if netfs_mount "smb://${USER_NAME}@${SERVER}/${s}" >>"$LOG" 2>&1; then
       log "mounted $s from $SERVER"
     else
       log "failed to mount $s from $SERVER"
