@@ -37,3 +37,18 @@ def test_indexer_skips_wiki_page_outside_root(fake_store, tmp_path: Path, monkey
     idx._process_wiki_page(stray)  # must not raise
 
     assert fake_store.collection("wiki").count() == 0
+
+
+def test_indexer_skips_excluded_policy_page(fake_store, tmp_path: Path, monkeypatch) -> None:
+    """Pages on the do-not-index list produce no chunks, so search never surfaces them."""
+    wiki_root = tmp_path / "wiki"
+    (wiki_root / "news-uk" / "governance").mkdir(parents=True)
+    page = wiki_root / "news-uk" / "governance" / "some-policy.md"
+    page.write_text("---\ntitle: Some policy\n---\n\n## Rules\n\nnever do the thing\n", encoding="utf-8")
+    monkeypatch.setenv("RAG_WIKI_ROOT", str(wiki_root))
+
+    idx = Indexer(store=fake_store, queue=JobQueue(db_path=tmp_path / "q.db"))
+    idx._process_wiki_page(page)
+
+    assert fake_store.collection("wiki").count() == 0
+    assert not fake_store._fts.search("thing")

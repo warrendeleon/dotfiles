@@ -48,6 +48,18 @@ def _extract_title(frontmatter: str, body: str, path: Path) -> str:
     return path.stem
 
 
+# Pages that must never reach the index. Employer policy pages stay in the wiki
+# for direct reading on request, but must not surface through search.
+EXCLUDED_PAGE_PREFIXES = (
+    "news-uk/governance/",
+    "news-uk/role/news-uk-role-and-contract.md",
+)
+
+
+def _is_excluded(rel_path: str) -> bool:
+    return any(rel_path.startswith(prefix) for prefix in EXCLUDED_PAGE_PREFIXES)
+
+
 def parse_wiki_page(path: Path, wiki_root: Path) -> list[dict[str, Any]]:
     """Parse a single wiki markdown file into section chunks.
 
@@ -62,6 +74,9 @@ def parse_wiki_page(path: Path, wiki_root: Path) -> list[dict[str, Any]]:
         return []
 
     rel_path = str(path.relative_to(wiki_root))
+    if _is_excluded(rel_path):
+        logger.info("Wiki page %s is on the do-not-index list; skipping", rel_path)
+        return []
     frontmatter, body = _strip_frontmatter(raw)
     title = _extract_title(frontmatter, body, path)
     domain = _domain_for(rel_path)
