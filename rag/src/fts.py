@@ -177,6 +177,25 @@ class FtsIndex:
         with self._conn() as conn:
             return conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
 
+    def delete_by_file_path(self, file_path: str) -> int:
+        """Remove every chunk whose metadata names this file. Returns rows removed.
+
+        Metadata is stored as JSON text, so this is a substring scan on an
+        unindexed column: fine for the occasional page removal it serves.
+        """
+        if not self.enabled:
+            return 0
+        needle = json.dumps({"file_path": file_path})[1:-1]  # "file_path": "..."
+        try:
+            with self._conn() as conn:
+                cur = conn.execute(
+                    "DELETE FROM chunks WHERE metadata LIKE ?", (f"%{needle}%",)
+                )
+                return cur.rowcount
+        except sqlite3.OperationalError:
+            logger.exception("FTS delete failed for %s", file_path)
+            return 0
+
     def clear(self) -> None:
         if not self.enabled:
             return

@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import json
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import os
 import re
@@ -52,6 +54,12 @@ WIKI_SESSIONS_ROOT = Path(os.environ.get("RAG_WIKI_ROOT") or (Path.home() / ".wi
 # A session is treated as finished once its transcript has been idle this long.
 # Long enough that the live session is never summarised mid-flight.
 DEFAULT_IDLE_MINUTES = 30
+# The timer runs one summary at a time: a few sessions an hour never need
+# more. A backfill does; --workers N runs N `claude -p` calls side by side.
+# Each is a Node process of a few hundred MB, so this is a small pool, not
+# one process per session. The ledger and the job queue open a fresh SQLite
+# connection per call with a busy timeout, so they are safe across threads.
+DEFAULT_WORKERS = 1
 
 # A sweep that only produced errors is a broken summariser (an expired CLI
 # login, a missing binary), not a bad session. Raise a desktop notification,
@@ -231,6 +239,42 @@ def needs_summary(
     return mtime > row["updated_at"]
 
 
+def is_routine_transcript(path: Path) -> bool:
+    """True if the session was started by a scheduled task, not a person.
+
+    Routine runs (a seat watch, a daily rebase) are mechanical: a page per
+    run is noise in the wiki and in restore. The first user turn carries the
+    marker: ``turnOrigin: scheduled`` (desktop app since 2026-10) or, in
+    both the old and new formats, a prompt that opens with the
+    ``<scheduled-task`` tag. Only the first user line is read.
+    """
+    try:
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if '"type":"user"' not in line and '"type": "user"' not in line:
+                    continue
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                if d.get("type") != "user":
+                    continue
+                if d.get("turnOrigin") == "scheduled":
+                    return True
+                origin = d.get("origin")
+                if isinstance(origin, dict) and origin.get("subkind") == "scheduled-trigger":
+                    return True
+                content = (d.get("message") or {}).get("content")
+                if not isinstance(content, str):
+                    content = " ".join(
+                        c.get("text", "") for c in (content or []) if isinstance(c, dict)
+                    )
+                return content.lstrip().startswith("<scheduled-task")
+    except OSError:
+        return False
+    return False
+
+
 def _iter_session_pages():
     """Every session page, in the machine layout plus the legacy domain layout."""
     roots = [WIKI_SESSIONS_ROOT / "sessions"]
@@ -288,6 +332,12 @@ def summarise_one(
     project = path.parent.name
     # Origin machine: from the hub map for a pulled session, else this machine.
     machine = (origins or {}).get(session_id) or local_machine_id()
+
+    if is_routine_transcript(path):
+        if not dry_run:
+            ledger.record(session_id, str(path), _file_hash(str(path)), None, "skipped", None)
+        logger.info("skip (routine): %s", session_id[:8])
+        return "skipped"
 
     turns = parse_conversation(path)
     text, n_turns = build_text(turns)
@@ -366,6 +416,60 @@ def summarise_one(
     return status
 
 
+def _page_fields(page: Path) -> tuple[str, str]:
+    """(session_id, transcript path) from a session page's frontmatter and source line."""
+    try:
+        text = page.read_text(encoding="utf-8")
+    except OSError:
+        return "", ""
+    sid = re.search(r"^session_id:\s*(\S+)\s*$", text, re.MULTILINE)
+    src = re.search(r"Transcript:\s*`([^`]+\.jsonl)`", text)
+    return (sid.group(1).strip() if sid else ""), (src.group(1) if src else "")
+
+
+def purge_routines(
+    ledger: SummaryLedger,
+    store=None,
+    dry_run: bool = False,
+) -> int:
+    """Remove every page written for a routine run. Returns pages removed.
+
+    For each session page, find its transcript (the ledger's path, else the
+    page's own source line) and ask is_routine_transcript. The page is
+    deleted, de-indexed from both search legs, and the ledger marks the
+    session skipped so no sweep rewrites it. A page whose transcript is gone
+    is left alone: nothing can prove it was a routine.
+    """
+    removed = 0
+    for page in list(_iter_session_pages()):
+        sid, src = _page_fields(page)
+        if not sid:
+            continue
+        row = ledger.get(sid)
+        transcript = Path(row["file_path"]) if row else Path(src) if src else None
+        if transcript is None or not transcript.is_file():
+            continue
+        if not is_routine_transcript(transcript):
+            continue
+        removed += 1
+        if dry_run:
+            logger.info("would purge routine page %s", page.name)
+            continue
+        try:
+            page.unlink()
+        except OSError:
+            logger.warning("could not remove %s", page)
+            continue
+        if store is not None:
+            try:
+                store.delete_page("wiki", str(page))
+            except Exception:
+                logger.exception("de-index failed for %s", page)
+        ledger.record(sid, str(transcript), _file_hash(str(transcript)), None, "skipped", None)
+        logger.info("purged routine page %s", page.name)
+    return removed
+
+
 def sweep(
     *,
     model: str,
@@ -375,12 +479,14 @@ def sweep(
     dry_run: bool = False,
     ledger: SummaryLedger | None = None,
     index_queue: JobQueue | None = None,
+    workers: int = DEFAULT_WORKERS,
 ) -> dict[str, int]:
     """Run the sweep. Returns a count of outcomes by status.
 
     Processes every finished, unsummarised session. A one-off backfill is just
-    this with no limit and a stronger model. Only an explicit --session bypasses
-    the idle gate, so a backfill never touches the live session it runs from.
+    this with no limit, a stronger model, and ``workers`` above one. Only an
+    explicit --session bypasses the idle gate, so a backfill never touches the
+    live session it runs from.
     """
     ledger = ledger or SummaryLedger()
     index_queue = index_queue or JobQueue()
@@ -397,7 +503,7 @@ def sweep(
     if only_session:
         candidates = [p for p in candidates if p.stem == only_session]
 
-    processed = 0
+    todo: list[Path] = []
     for path in sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True):
         # Only an explicit --session bypasses the idle gate (SessionEnd knows
         # the session has ended). Everything else waits until a session is quiet.
@@ -405,13 +511,22 @@ def sweep(
             continue
         if not needs_summary(path, ledger, now, wiki_ids):
             continue
-
-        status = summarise_one(path, ledger, model, dry_run=dry_run,
-                               index_queue=index_queue, origins=origins)
-        counts[status] = counts.get(status, 0) + 1
-        processed += 1
-        if limit and processed >= limit:
+        todo.append(path)
+        if limit and len(todo) >= limit:
             break
+
+    def _one(path: Path) -> str:
+        return summarise_one(path, ledger, model, dry_run=dry_run,
+                             index_queue=index_queue, origins=origins)
+
+    if workers > 1 and len(todo) > 1:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            statuses = list(pool.map(_one, todo))
+    else:
+        statuses = [_one(path) for path in todo]
+
+    for status in statuses:
+        counts[status] = counts.get(status, 0) + 1
 
     logger.info("sweep done: %s", counts)
     return counts
@@ -469,8 +584,12 @@ def main() -> None:
     parser.add_argument("--model", help="Override the summary model (e.g. sonnet for backfill).")
     parser.add_argument("--idle-minutes", type=int, default=DEFAULT_IDLE_MINUTES)
     parser.add_argument("--limit", type=int, help="Stop after N summaries.")
+    parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS,
+                        help="Concurrent summaries (backfill: 8). Default 1.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Report what would be summarised without calling the model.")
+    parser.add_argument("--purge-routines", action="store_true",
+                        help="Delete and de-index pages already written for routine runs, then exit.")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -485,6 +604,19 @@ def main() -> None:
             logger.info("another summariser run holds the lock, exiting")
             return
 
+    if args.purge_routines:
+        try:
+            store = None
+            if not args.dry_run:
+                from .store import Store  # noqa: PLC0415
+                store = Store()
+            n = purge_routines(SummaryLedger(), store=store, dry_run=args.dry_run)
+            logger.info("purge done: %d routine page(s)", n)
+        finally:
+            if lock is not None:
+                lock.close()
+        return
+
     model = args.model or load_summary_model()
     try:
         counts = sweep(
@@ -493,6 +625,7 @@ def main() -> None:
             only_session=args.session,
             limit=args.limit,
             dry_run=args.dry_run,
+            workers=max(1, args.workers),
         )
         if not args.dry_run:
             alert_if_failing(counts)

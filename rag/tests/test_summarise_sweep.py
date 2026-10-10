@@ -437,3 +437,163 @@ def test_alert_rate_limited_by_marker(tmp_path: Path) -> None:
     assert _alert({"error": 1}, tmp_path, 1000.0 + 1800, sent) is False  # inside interval
     assert _alert({"error": 1}, tmp_path, 1000.0 + 3601, sent) is True   # interval elapsed
     assert len(sent) == 2
+
+
+# --- workers ----------------------------------------------------------------
+
+def test_sweep_workers_run_concurrently_and_count_all(tmp_path: Path, monkeypatch) -> None:
+    import threading
+
+    monkeypatch.setattr(sweep, "CLAUDE_PROJECTS_DIR", tmp_path / "projects")
+    monkeypatch.setattr(sweep, "hub_session_origins", lambda: {})
+    monkeypatch.setattr(sweep, "WIKI_SESSIONS_ROOT", tmp_path / "wiki")
+
+    n = 6
+    # Every call blocks until all n are in flight: proves the pool is real,
+    # and would deadlock (and time out) if the sweep ran them one by one.
+    barrier = threading.Barrier(n, timeout=10)
+
+    def _model(*a, **k):
+        barrier.wait()
+        return _fake_envelope(_good_fields())
+
+    monkeypatch.setattr(sweep, "run_claude", _model)
+
+    proj = tmp_path / "projects" / "-Users-w-Developer"
+    proj.mkdir(parents=True)
+    now = time.time()
+    for i in range(n):
+        t = proj / f"sess{i:04d}.jsonl"
+        _write_jsonl(t, 6, text=f"work item {i} on the thing")
+        os.utime(t, (now - 3600, now - 3600))
+
+    led = SummaryLedger(db_path=tmp_path / "l.db")
+    q = JobQueue(db_path=tmp_path / "q.db")
+    counts = sweep.sweep(model="haiku", idle_minutes=30, ledger=led, index_queue=q, workers=n)
+
+    assert sum(counts.values()) == n
+    assert counts.get("error", 0) == 0
+    assert led.stats().get("written", 0) + led.stats().get("needs-review", 0) == n
+
+
+def test_sweep_limit_applies_before_the_pool(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(sweep, "CLAUDE_PROJECTS_DIR", tmp_path / "projects")
+    monkeypatch.setattr(sweep, "hub_session_origins", lambda: {})
+    monkeypatch.setattr(sweep, "WIKI_SESSIONS_ROOT", tmp_path / "wiki")
+    calls = {"n": 0}
+
+    def _count(*a, **k):
+        calls["n"] += 1
+        return _fake_envelope(_good_fields())
+
+    monkeypatch.setattr(sweep, "run_claude", _count)
+
+    proj = tmp_path / "projects" / "-Users-w-Developer"
+    proj.mkdir(parents=True)
+    now = time.time()
+    for i in range(5):
+        t = proj / f"lim{i:05d}.jsonl"
+        _write_jsonl(t, 6)
+        os.utime(t, (now - 3600, now - 3600))
+
+    led = SummaryLedger(db_path=tmp_path / "l.db")
+    q = JobQueue(db_path=tmp_path / "q.db")
+    counts = sweep.sweep(model="haiku", idle_minutes=30, ledger=led, index_queue=q,
+                         workers=4, limit=2)
+    assert sum(counts.values()) == 2
+    assert calls["n"] == 2
+
+
+# --- routines ---------------------------------------------------------------
+
+def _write_routine_jsonl(path: Path, style: str = "new") -> None:
+    if style == "new":
+        first = {"type": "user", "turnOrigin": "scheduled",
+                 "origin": {"kind": "task-notification", "subkind": "scheduled-trigger"},
+                 "message": {"role": "user", "content": "<scheduled-task name=\"x\">rebase</scheduled-task>"}}
+    else:  # the July format: only the prompt tag marks it
+        first = {"type": "user", "promptSource": "sdk",
+                 "message": {"role": "user", "content": [{"type": "text", "text": "<scheduled-task name=\"seat\">watch</scheduled-task>"}]}}
+    lines = [
+        {"type": "queue-operation", "operation": "enqueue"},
+        {"type": "attachment", "attachment": {}},
+        first,
+        {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "done " * 50}]}},
+    ]
+    path.write_text("\n".join(json.dumps(l) for l in lines), encoding="utf-8")
+
+
+def test_is_routine_transcript_new_and_old_formats(tmp_path: Path) -> None:
+    new = tmp_path / "new.jsonl"; _write_routine_jsonl(new, "new")
+    old = tmp_path / "old.jsonl"; _write_routine_jsonl(old, "old")
+    human = tmp_path / "human.jsonl"; _write_jsonl(human, 3)
+    assert sweep.is_routine_transcript(new) is True
+    assert sweep.is_routine_transcript(old) is True
+    assert sweep.is_routine_transcript(human) is False
+    assert sweep.is_routine_transcript(tmp_path / "missing.jsonl") is False
+
+
+def test_summarise_one_skips_routine_without_calling_model(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(sweep, "WIKI_SESSIONS_ROOT", tmp_path / "wiki")
+    calls = {"n": 0}
+
+    def _boom(*a, **k):
+        calls["n"] += 1
+        raise AssertionError("model must not be called for a routine")
+
+    monkeypatch.setattr(sweep, "run_claude", _boom)
+    t = tmp_path / "proj" / "routine1.jsonl"
+    t.parent.mkdir()
+    _write_routine_jsonl(t)
+    led = SummaryLedger(db_path=tmp_path / "l.db")
+    status = sweep.summarise_one(t, led, "haiku", index_queue=JobQueue(db_path=tmp_path / "q.db"))
+    assert status == "skipped"
+    assert calls["n"] == 0
+    assert led.get("routine1")["status"] == "skipped"
+    assert not list((tmp_path / "wiki").rglob("*.md"))
+
+
+class _FakeStore:
+    def __init__(self) -> None:
+        self.deleted: list[tuple[str, str]] = []
+
+    def delete_page(self, collection: str, file_path: str) -> None:
+        self.deleted.append((collection, file_path))
+
+
+def test_purge_routines_removes_pages_deindexes_and_marks_skipped(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(sweep, "WIKI_SESSIONS_ROOT", tmp_path / "wiki")
+    proj = tmp_path / "projects" / "-Users-w-Developer"
+    proj.mkdir(parents=True)
+    routine = proj / "rout0001.jsonl"; _write_routine_jsonl(routine)
+    human = proj / "huma0001.jsonl"; _write_jsonl(human, 3)
+    gone = proj / "gone0001.jsonl"  # transcript deleted: page must survive
+
+    pages = tmp_path / "wiki" / "sessions" / "mac"
+    pages.mkdir(parents=True)
+
+    def _page(sid: str, src: Path) -> Path:
+        p = pages / f"{sid}.md"
+        p.write_text(f"---\ntype: session\nsession_id: {sid}\n---\n# t\n\n## Source\n\n- Transcript: `{src}`\n")
+        return p
+
+    rp = _page("rout0001", routine)
+    hp = _page("huma0001", human)
+    gp = _page("gone0001", gone)
+
+    led = SummaryLedger(db_path=tmp_path / "l.db")
+    led.record("rout0001", str(routine), "h", str(rp), "written", "haiku")
+    # huma0001 and gone0001 have no ledger row: path comes from the page's source line.
+    store = _FakeStore()
+
+    assert sweep.purge_routines(led, store=store, dry_run=True) == 1
+    assert rp.exists()  # dry run touches nothing
+
+    assert sweep.purge_routines(led, store=store) == 1
+    assert not rp.exists()
+    assert hp.exists() and gp.exists()
+    assert store.deleted == [("wiki", str(rp))]
+    assert led.get("rout0001")["status"] == "skipped"
+    assert led.get("rout0001")["page_path"] is None
+    # Idempotent: the page is gone, nothing left to purge.
+    assert sweep.purge_routines(led, store=store) == 0

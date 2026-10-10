@@ -97,3 +97,17 @@ def test_fts_empty_query_returns_nothing(tmp_path: Path) -> None:
     idx = _idx(tmp_path)
     idx.upsert_many([("a", "conversations", "content here", {})])
     assert idx.search("!!!") == []
+
+
+def test_delete_by_file_path_removes_only_that_file(tmp_path):
+    from src.fts import FtsIndex
+    idx = FtsIndex(db_path=tmp_path / "fts.db")
+    idx.upsert_many([
+        ("a1", "wiki", "alpha text", {"file_path": "/w/a.md", "section": "s"}),
+        ("a2", "wiki", "alpha more", {"file_path": "/w/a.md", "section": "t"}),
+        ("b1", "wiki", "beta text", {"file_path": "/w/b.md"}),
+    ])
+    assert idx.delete_by_file_path("/w/a.md") == 2
+    assert [r["id"] for r in idx.search("alpha")] == []
+    assert len(idx.search("beta")) == 1
+    assert idx.delete_by_file_path("/w/a.md") == 0

@@ -68,3 +68,16 @@ def test_rebuild_fts_repopulates_from_chroma(fake_store) -> None:
     assert rebuilt == 2
     assert fake_store._fts.count() == 2
     assert fake_store._fts.search("caching")
+
+
+def test_delete_page_removes_both_legs(fake_store):
+    fake_store.upsert_batch(
+        "wiki",
+        identifiers=["p/a.md#0", "p/a.md#1", "p/b.md#0"],
+        documents=["alpha one", "alpha two", "beta one"],
+        metadatas=[{"file_path": "/w/a.md"}, {"file_path": "/w/a.md"}, {"file_path": "/w/b.md"}],
+    )
+    fake_store.delete_page("wiki", "/w/a.md")
+    hits = fake_store.search("alpha", collection_names=["wiki"], n_results=5)
+    assert all(h["metadata"].get("file_path") != "/w/a.md" for h in hits)
+    assert fake_store.collection("wiki").count() == 1

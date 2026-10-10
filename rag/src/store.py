@@ -556,6 +556,20 @@ class Store:
         col = self.collection(collection_name)
         col.delete(ids=[doc_id])
 
+    def delete_page(self, collection_name: str, file_path: str) -> None:
+        """Delete every chunk indexed from one file, in both legs.
+
+        A removed wiki page otherwise stays searchable forever: nothing
+        watches for deletions, and chunk ids are derived from the path and a
+        section index that the caller cannot know.
+        """
+        col = self.collection(collection_name)
+        col.delete(where={"file_path": file_path})
+        try:
+            self._fts.delete_by_file_path(file_path)
+        except Exception:
+            logger.exception("FTS delete failed for %s (vector delete kept)", file_path)
+
     def clear_collection(self, collection_name: str) -> None:
         """Drop and recreate a single collection. Used for a clean full reindex.
 
