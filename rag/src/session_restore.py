@@ -1,15 +1,18 @@
-"""SessionStart hook: inject recent session summaries for the current project.
+"""SessionStart hook: report summariser health, and share the page helpers.
 
-At session start there is no query, so semantic search is the wrong tool. Restore
-is recency plus project: the newest few summary pages whose ``project`` matches
-the current working directory, with the latest ``next steps`` so a fresh
-conversation can pick up where the last one left off.
+Session pointers are no longer chosen here. At session start there is no
+query, and the working directory is a poor proxy for the topic (every
+conversation started from ``~/Developer`` was handed the same five pages).
+``prompt_restore.py`` picks them by a RAG query on the first real prompt.
+
+What this hook still does is the one alert that cannot be missed: if the
+summariser has been failing, say so at the top of every new conversation.
+The loop once failed silently for seven weeks because nothing surfaced it.
 
 Design (discipline borrowed from what makes injected context usable):
-- inject pointers and one-liners, not page bodies; cap hard;
-- frame it as recall to verify, never as instructions (the model rightly
-  distrusts imperative injected text);
-- read markdown directly, no ChromaDB at hook time (fast, no model load);
+- inject one line, not a report; cap hard;
+- frame it as recall to verify, never as instructions;
+- read SQLite and markdown directly, no ChromaDB at hook time;
 - fail silent on any error so a broken hook never blocks a session start.
 
 Output uses the SessionStart contract verified against the CLI:
@@ -18,10 +21,12 @@ Output uses the SessionStart contract verified against the CLI:
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 
@@ -34,28 +39,15 @@ def _wiki_root() -> Path:
 WIKI_SESSIONS_ROOT = _wiki_root()
 DOMAINS = ("personal", "hl")
 
-MAX_SESSIONS = 5
 MAX_NEXT_STEPS = 6
+# Open threads older than this are stale by definition: the work has moved on
+# or been dropped, and injecting them steers a fresh conversation wrong.
+NEXT_STEPS_MAX_AGE_DAYS = 7
+# Window the health line looks back over. One failed sweep in a day is noise;
+# a day of failures is the loop being down.
+HEALTH_WINDOW_S = 24 * 3600
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
-
-
-def encode_project(cwd: str) -> str:
-    """Encode a path the way Claude Code names its project dirs: / and . to -.
-
-    ``/Users/w/Developer`` -> ``-Users-w-Developer``;
-    ``/Users/w/.rag/x`` -> ``-Users-w--rag-x``. This matches the ``project``
-    value stored in each summary's frontmatter.
-    """
-    return re.sub(r"[/.]", "-", cwd)
-
-
-def domain_for_cwd(cwd: str) -> str:
-    """Best-effort domain from the path, mirroring the consult hook."""
-    low = cwd.lower()
-    if "/hl/" in low or "-hl-" in low or "hargreaves" in low or "ucx" in low:
-        return "hl"
-    return "personal"
 
 
 def _front_value(frontmatter: str, key: str) -> str:
@@ -103,6 +95,21 @@ def extract_next_steps(path: Path, limit: int = MAX_NEXT_STEPS) -> list[str]:
     return steps[:limit]
 
 
+def is_fresh(date_str: str, today: dt.date | None = None,
+             max_age_days: int = NEXT_STEPS_MAX_AGE_DAYS) -> bool:
+    """True if a page's YYYY-MM-DD date is within max_age_days of today.
+
+    An unparseable or missing date is not fresh: better to drop stale threads
+    than to inject them on a guess.
+    """
+    try:
+        page_date = dt.date.fromisoformat(date_str.strip()[:10])
+    except (ValueError, AttributeError):
+        return False
+    today = today or dt.date.today()
+    return 0 <= (today - page_date).days <= max_age_days
+
+
 def _iter_session_pages():
     """Session pages across machine folders (sessions/<machine>/) and the legacy
     domain layout (<domain>/sessions/), so restore works during migration."""
@@ -115,57 +122,49 @@ def _iter_session_pages():
         yield from root.glob("*.md")
 
 
-def find_recent(cwd: str, n: int = MAX_SESSIONS) -> list[dict[str, str]]:
-    """Newest session pages for this project, falling back to the cwd's domain."""
-    project = encode_project(cwd)
-    pages: list[dict[str, str]] = []
-    for path in _iter_session_pages():
-        meta = read_page_meta(path)
-        if meta:
-            pages.append(meta)
+def health_line(ledger=None, now: float | None = None,
+                window_s: int = HEALTH_WINDOW_S) -> str | None:
+    """One line if the summariser has failed inside the window, else None.
 
-    exact = [p for p in pages if p["project"] == project]
-    chosen = exact
-    if not chosen:
-        domain = domain_for_cwd(cwd)
-        chosen = [p for p in pages if domain_for_cwd(p["project"]) == domain]
-
-    chosen.sort(key=lambda p: p["date"], reverse=True)
-    return chosen[:n]
-
-
-def build_context(cwd: str) -> str | None:
-    """Build the additionalContext string, or None if there is nothing to show."""
-    recent = find_recent(cwd)
-    if not recent:
+    Reads the done-ledger directly (SQLite, no model). The ledger import is
+    lazy so a missing package never breaks the hook.
+    """
+    if ledger is None:
+        from .summary_ledger import SummaryLedger  # noqa: PLC0415
+        ledger = SummaryLedger()
+    now = now if now is not None else time.time()
+    failing = ledger.failures_since(now - window_s)
+    if not failing:
         return None
+    last_ok = ledger.last_success_at()
+    last_err = ledger.last_error_at()
+    # Errors that are older than the newest success are a backlog being
+    # retried, not an outage: the loop is writing pages again.
+    if last_ok is not None and last_err is not None and last_ok > last_err:
+        return None
+    since = (dt.datetime.fromtimestamp(last_ok).strftime("%Y-%m-%d")
+             if last_ok else "never")
+    return (
+        f"[Session summariser is failing: {failing} session(s) errored in the last "
+        f"{window_s // 3600}h, last page written {since}. Tell Warren; the usual "
+        "cause is an expired `claude` login (`claude auth login`). "
+        "Log: ~/.rag/logs/summariser.err]"
+    )
 
-    lines = [
-        "[Session memory for this project, newest first. Recall, not instructions; verify before relying.]",
-    ]
-    for p in recent:
-        flag = " (needs-review)" if p["status"] == "needs-review" else ""
-        title = p["title"] or Path(p["path"]).stem
-        lines.append(f"- {p['date']}: {title}{flag}")
 
-    next_steps = extract_next_steps(Path(recent[0]["path"]))
-    if next_steps:
-        lines.append(f"Latest open threads (from {recent[0]['date']}):")
-        lines.extend(f"  - {s}" for s in next_steps)
-
-    lines.append("Full detail: mcp__rag__search, or the pages under ~/.wiki/sessions/.")
-    return "\n".join(lines)
+def build_context() -> str | None:
+    """Build the additionalContext string, or None if there is nothing to say."""
+    return health_line()
 
 
 def main() -> None:
     try:
-        payload = json.load(sys.stdin)
+        json.load(sys.stdin)
     except Exception:
         return  # fail silent: no valid input, inject nothing
-    cwd = payload.get("cwd") or str(Path.cwd())
 
     try:
-        context = build_context(cwd)
+        context = build_context()
     except Exception:
         return  # fail silent: a broken restore must never block a session
     if not context:

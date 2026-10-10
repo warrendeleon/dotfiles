@@ -403,3 +403,37 @@ def test_summarise_one_records_error_on_model_failure(tmp_path: Path, monkeypatc
 
     assert status == "error"
     assert led.get("err12345")["status"] == "error"
+
+
+# --- alert_if_failing -------------------------------------------------------
+
+def _alert(counts, tmp_path: Path, now: float, sent: list, interval: int = 3600) -> bool:
+    return sweep.alert_if_failing(
+        counts, marker=tmp_path / "alerted", interval_s=interval,
+        notify=lambda title, msg: sent.append((title, msg)), now=now,
+    )
+
+
+def test_alert_fires_on_error_only_sweep(tmp_path: Path) -> None:
+    sent: list = []
+    assert _alert({"error": 5}, tmp_path, 1000.0, sent) is True
+    assert len(sent) == 1
+    assert "5 session summaries failed" in sent[0][1]
+    assert (tmp_path / "alerted").exists()
+
+
+def test_alert_silent_when_anything_was_handled(tmp_path: Path) -> None:
+    sent: list = []
+    assert _alert({"error": 2, "written": 1}, tmp_path, 1000.0, sent) is False
+    assert _alert({"written": 3}, tmp_path, 1000.0, sent) is False
+    assert _alert({}, tmp_path, 1000.0, sent) is False
+    assert sent == []
+    assert not (tmp_path / "alerted").exists()
+
+
+def test_alert_rate_limited_by_marker(tmp_path: Path) -> None:
+    sent: list = []
+    assert _alert({"error": 1}, tmp_path, 1000.0, sent) is True
+    assert _alert({"error": 1}, tmp_path, 1000.0 + 1800, sent) is False  # inside interval
+    assert _alert({"error": 1}, tmp_path, 1000.0 + 3601, sent) is True   # interval elapsed
+    assert len(sent) == 2

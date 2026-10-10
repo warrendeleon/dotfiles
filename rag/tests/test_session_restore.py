@@ -1,8 +1,11 @@
-"""Tests for the SessionStart restore hook."""
+"""Tests for the SessionStart hook: page helpers and the summariser health line."""
 
 from __future__ import annotations
 
 from pathlib import Path
+
+import datetime as dt
+import time
 
 import pytest
 
@@ -34,27 +37,6 @@ def _seed(tmp_path: Path, domain: str, name: str, content: str) -> None:
     d = tmp_path / domain / "sessions"
     d.mkdir(parents=True, exist_ok=True)
     (d / name).write_text(content, encoding="utf-8")
-
-
-# --- encode_project ---------------------------------------------------------
-
-def test_encode_project_plain() -> None:
-    assert sr.encode_project("/Users/w/Developer") == "-Users-w-Developer"
-
-
-def test_encode_project_dotted() -> None:
-    assert sr.encode_project("/Users/w/.rag/x") == "-Users-w--rag-x"
-
-
-# --- domain_for_cwd ---------------------------------------------------------
-
-@pytest.mark.parametrize("cwd,expected", [
-    ("/Users/w/Developer/HL/ucx", "hl"),
-    ("/Users/w/Developer/hargreaves-x", "hl"),
-    ("/Users/w/Developer/dotfiles", "personal"),
-])
-def test_domain_for_cwd(cwd: str, expected: str) -> None:
-    assert sr.domain_for_cwd(cwd) == expected
 
 
 # --- read_page_meta ---------------------------------------------------------
@@ -103,57 +85,78 @@ def test_extract_next_steps_stops_at_next_section(tmp_path: Path) -> None:
     assert sr.extract_next_steps(p) == ["only this"]
 
 
-# --- find_recent ------------------------------------------------------------
+# --- is_fresh ---------------------------------------------------------------
 
-def test_find_recent_exact_project_newest_first(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(sr, "WIKI_SESSIONS_ROOT", tmp_path)
-    proj = "-Users-w-Developer-dotfiles"
-    _seed(tmp_path, "personal", "a.md", _page("Older", "2026-06-01", proj))
-    _seed(tmp_path, "personal", "b.md", _page("Newer", "2026-06-05", proj))
-    _seed(tmp_path, "personal", "c.md", _page("Other proj", "2026-06-09", "-Users-w-Developer-blog"))
-
-    recent = sr.find_recent("/Users/w/Developer/dotfiles")
-    titles = [r["title"] for r in recent]
-    assert titles == ["Newer", "Older"]  # other project excluded, newest first
-
-
-def test_find_recent_falls_back_to_domain(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(sr, "WIKI_SESSIONS_ROOT", tmp_path)
-    # No page matches the exact project, but a personal page exists.
-    _seed(tmp_path, "personal", "a.md", _page("Some personal work", "2026-06-05",
-                                              "-Users-w-Developer-other"))
-    recent = sr.find_recent("/Users/w/Developer/brand-new-repo")
-    assert len(recent) == 1
-    assert recent[0]["title"] == "Some personal work"
+@pytest.mark.parametrize("date_str, expected", [
+    ("2026-10-10", True),   # today
+    ("2026-10-03", True),   # exactly max age
+    ("2026-10-02", False),  # one day past
+    ("2026-10-11", False),  # future: clock skew, not fresh
+    ("not a date", False),
+    ("", False),
+])
+def test_is_fresh(date_str: str, expected: bool) -> None:
+    today = dt.date(2026, 10, 10)
+    assert sr.is_fresh(date_str, today=today, max_age_days=7) is expected
 
 
-def test_find_recent_empty(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(sr, "WIKI_SESSIONS_ROOT", tmp_path)
-    assert sr.find_recent("/Users/w/Developer/x") == []
+# --- health_line ------------------------------------------------------------
+
+class _Ledger:
+    def __init__(self, failing: int, last_ok: float | None,
+                 last_err: float | None = 1e12) -> None:
+        self.failing, self.last_ok, self.last_err = failing, last_ok, last_err
+        self.since_arg: float | None = None
+
+    def failures_since(self, since: float) -> int:
+        self.since_arg = since
+        return self.failing
+
+    def last_success_at(self) -> float | None:
+        return self.last_ok
+
+    def last_error_at(self) -> float | None:
+        return self.last_err
 
 
-# --- build_context ----------------------------------------------------------
-
-def test_build_context_includes_sessions_and_steps(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(sr, "WIKI_SESSIONS_ROOT", tmp_path)
-    proj = "-Users-w-Developer-dotfiles"
-    _seed(tmp_path, "personal", "b.md",
-          _page("Latest session", "2026-06-05", proj, next_steps=["wire the hook", "run backfill"]))
-    ctx = sr.build_context("/Users/w/Developer/dotfiles")
-    assert ctx is not None
-    assert "Latest session" in ctx
-    assert "wire the hook" in ctx
-    assert "Recall, not instructions" in ctx
+def test_health_line_none_when_healthy() -> None:
+    assert sr.health_line(ledger=_Ledger(0, time.time())) is None
 
 
-def test_build_context_flags_needs_review(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(sr, "WIKI_SESSIONS_ROOT", tmp_path)
-    proj = "-Users-w-Developer-dotfiles"
-    _seed(tmp_path, "personal", "b.md", _page("Dirty", "2026-06-05", proj, status="needs-review"))
-    ctx = sr.build_context("/Users/w/Developer/dotfiles")
-    assert "(needs-review)" in ctx
+def test_health_line_reports_failures_and_last_success() -> None:
+    now = 1_800_000_000.0
+    last_ok = now - 50 * 24 * 3600
+    led = _Ledger(5, last_ok)
+    line = sr.health_line(ledger=led, now=now, window_s=24 * 3600)
+    assert line is not None
+    assert "5 session(s) errored" in line
+    assert dt.datetime.fromtimestamp(last_ok).strftime("%Y-%m-%d") in line
+    assert "claude auth login" in line
+    assert led.since_arg == now - 24 * 3600
 
 
-def test_build_context_none_when_empty(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(sr, "WIKI_SESSIONS_ROOT", tmp_path)
-    assert sr.build_context("/Users/w/Developer/x") is None
+def test_health_line_never_succeeded() -> None:
+    line = sr.health_line(ledger=_Ledger(1, None), now=1.0)
+    assert line is not None
+    assert "last page written never" in line
+
+
+def test_build_context_is_health_only(monkeypatch) -> None:
+    monkeypatch.setattr(sr, "health_line", lambda: "[failing]")
+    assert sr.build_context() == "[failing]"
+    monkeypatch.setattr(sr, "health_line", lambda: None)
+    assert sr.build_context() is None
+
+
+def test_health_line_none_when_backlog_is_being_retried() -> None:
+    # Errors inside the window, but a page was written after the newest error:
+    # the loop recovered and is working through the retries. Not an outage.
+    now = 1_800_000_000.0
+    led = _Ledger(18, last_ok=now - 60, last_err=now - 3600)
+    assert sr.health_line(ledger=led, now=now) is None
+
+
+def test_health_line_reports_when_newest_outcome_is_error() -> None:
+    now = 1_800_000_000.0
+    led = _Ledger(3, last_ok=now - 3600, last_err=now - 60)
+    assert sr.health_line(ledger=led, now=now) is not None

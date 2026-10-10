@@ -50,6 +50,11 @@
           {
             "type": "command",
             "command": "$HOME/Developer/dotfiles/claude/hooks/inject-context.sh"
+          },
+          {
+            "type": "command",
+            "command": "cd $HOME/Developer/dotfiles/rag && $HOME/.rag/venv/bin/python -m src.prompt_restore",
+            "timeout": 20
           }
         ]
       }
@@ -59,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.rag/venv/bin/python $HOME/Developer/dotfiles/rag/src/session_restore.py"
+            "command": "cd $HOME/Developer/dotfiles/rag && $HOME/.rag/venv/bin/python -m src.session_restore"
           }
         ]
       }

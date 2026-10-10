@@ -68,3 +68,46 @@ def test_none_hash_treats_existing_as_done(tmp_path: Path) -> None:
     led.record("sess", "/x/sess.jsonl", "hash1", "/wiki/p.md", "written", "haiku")
     # Unreadable file (hash None): don't loop forever re-summarising.
     assert led.is_done("sess", None) is True
+
+
+def test_failures_since_counts_recent_errors_only(tmp_path: Path, monkeypatch) -> None:
+    led = _ledger(tmp_path)
+    led.record("old", "/x/old.jsonl", "h", None, "error", "haiku")
+    led.record("ok", "/x/ok.jsonl", "h", "/w/ok.md", "written", "haiku")
+    import time
+    cut = time.time()
+    time.sleep(0.01)
+    led.record("new", "/x/new.jsonl", "h", None, "error", "haiku")
+    assert led.failures_since(cut) == 1
+    assert led.failures_since(0) == 2
+
+
+def test_failures_since_retry_overwrites_not_accumulates(tmp_path: Path) -> None:
+    led = _ledger(tmp_path)
+    for _ in range(5):
+        led.record("same", "/x/same.jsonl", "h", None, "error", "haiku")
+    assert led.failures_since(0) == 1
+
+
+def test_last_success_at(tmp_path: Path) -> None:
+    led = _ledger(tmp_path)
+    assert led.last_success_at() is None
+    led.record("e", "/x/e.jsonl", "h", None, "error", "haiku")
+    assert led.last_success_at() is None  # an error is not a success
+    led.record("w", "/x/w.jsonl", "h", "/w/w.md", "written", "haiku")
+    t1 = led.last_success_at()
+    assert t1 is not None
+    led.record("s", "/x/s.jsonl", "h", None, "skipped", "haiku")
+    assert led.last_success_at() >= t1
+
+
+def test_last_error_at(tmp_path: Path) -> None:
+    led = _ledger(tmp_path)
+    assert led.last_error_at() is None
+    led.record("w", "/x/w.jsonl", "h", "/w/w.md", "written", "haiku")
+    assert led.last_error_at() is None
+    led.record("e", "/x/e.jsonl", "h", None, "error", "haiku")
+    t = led.last_error_at()
+    assert t is not None
+    led.record("e", "/x/e.jsonl", "h", "/w/e.md", "written", "haiku")  # retry succeeded
+    assert led.last_error_at() is None

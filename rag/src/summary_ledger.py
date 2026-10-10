@@ -133,3 +133,35 @@ class SummaryLedger:
                 "SELECT status, COUNT(*) AS cnt FROM summaries GROUP BY status"
             ).fetchall()
             return {row["status"]: row["cnt"] for row in rows}
+
+    def failures_since(self, since: float) -> int:
+        """Sessions whose latest outcome is an error recorded after ``since``.
+
+        A retried error overwrites its row, so this counts sessions still
+        failing, not attempts. Zero on a healthy or idle summariser.
+        """
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS cnt FROM summaries "
+                "WHERE status = 'error' AND updated_at > ?",
+                (since,),
+            ).fetchone()
+            return int(row["cnt"]) if row else 0
+
+    def last_error_at(self) -> float | None:
+        """Epoch time of the newest error row, or None if there is none."""
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT MAX(updated_at) AS t FROM summaries WHERE status = 'error'"
+            ).fetchone()
+            return float(row["t"]) if row and row["t"] is not None else None
+
+    def last_success_at(self) -> float | None:
+        """Epoch time of the newest handled outcome, or None if there is none."""
+        placeholders = ",".join("?" for _ in _DONE_STATUSES)
+        with self._conn() as conn:
+            row = conn.execute(
+                f"SELECT MAX(updated_at) AS t FROM summaries WHERE status IN ({placeholders})",
+                _DONE_STATUSES,
+            ).fetchone()
+            return float(row["t"]) if row and row["t"] is not None else None

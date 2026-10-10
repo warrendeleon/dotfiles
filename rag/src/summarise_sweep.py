@@ -53,6 +53,14 @@ WIKI_SESSIONS_ROOT = Path(os.environ.get("RAG_WIKI_ROOT") or (Path.home() / ".wi
 # Long enough that the live session is never summarised mid-flight.
 DEFAULT_IDLE_MINUTES = 30
 
+# A sweep that only produced errors is a broken summariser (an expired CLI
+# login, a missing binary), not a bad session. Raise a desktop notification,
+# at most once per ALERT_INTERVAL_S, so it is noticed the same day rather
+# than weeks later. The SessionStart hook injects the same fact into every
+# new conversation, which is the alert that cannot be missed.
+ALERT_MARKER = Path.home() / ".rag" / "summariser-alerted"
+ALERT_INTERVAL_S = 24 * 3600
+
 # Going-forward model is config-driven; the backfill overrides to Sonnet.
 CONFIG_PATH = Path.home() / ".rag" / "config.yaml"
 
@@ -409,6 +417,50 @@ def sweep(
     return counts
 
 
+def notify_desktop(title: str, message: str) -> None:
+    """macOS notification via osascript. Best-effort, never raises."""
+    script = f'display notification "{message}" with title "{title}"'
+    try:
+        subprocess.run(["osascript", "-e", script], capture_output=True,
+                       timeout=10, check=False)
+    except (subprocess.SubprocessError, OSError):
+        logger.debug("desktop notification failed", exc_info=True)
+
+
+def alert_if_failing(
+    counts: dict[str, int],
+    *,
+    marker: Path = ALERT_MARKER,
+    interval_s: int = ALERT_INTERVAL_S,
+    notify=notify_desktop,
+    now: float | None = None,
+) -> bool:
+    """Notify once per interval when a sweep produced only errors.
+
+    Returns True if a notification was sent. A sweep with any handled
+    session resets nothing on purpose: the marker is a rate limit on the
+    alert, not a health state, and a mixed sweep is not an outage.
+    """
+    errors = counts.get("error", 0)
+    if not errors or any(k != "error" for k in counts):
+        return False
+    now = now if now is not None else time.time()
+    try:
+        if marker.exists() and now - marker.stat().st_mtime < interval_s:
+            return False
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.touch()
+        os.utime(marker, (now, now))
+    except OSError:
+        logger.debug("alert marker unavailable", exc_info=True)
+        return False
+    notify("RAG summariser failing",
+           f"{errors} session summaries failed this sweep. "
+           "Check ~/.rag/logs/summariser.err (an expired `claude` login is the usual cause).")
+    logger.warning("alerted: %d failures and nothing written", errors)
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Summarise finished Claude Code sessions. "
@@ -435,13 +487,15 @@ def main() -> None:
 
     model = args.model or load_summary_model()
     try:
-        sweep(
+        counts = sweep(
             model=model,
             idle_minutes=args.idle_minutes,
             only_session=args.session,
             limit=args.limit,
             dry_run=args.dry_run,
         )
+        if not args.dry_run:
+            alert_if_failing(counts)
     finally:
         if lock is not None:
             lock.close()
