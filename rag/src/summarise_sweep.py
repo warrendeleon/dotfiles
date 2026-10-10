@@ -159,6 +159,34 @@ def load_summary_model() -> str:
     return DEFAULT_MODEL
 
 
+# Pipeline prompts: fixed instructions a script hands to `claude -p`. A session
+# that opens with one is a tool call, not a conversation. The defaults are the
+# prompts in use on 2026-10-10 (porn-catalog metadata scripts and the wiki
+# conflict resolver); `skip_prompt_prefixes` in ~/.rag/config.yaml adds more.
+DEFAULT_PIPELINE_PREFIXES = (
+    "The wiki repo at ",
+    "You research a gay adult performer",
+    "You split adult-content post captions",
+    "You identify an adult studio scene",
+    "Find the original release/publication date of this gay adult scene",
+    "Find a face/profile photo to use as the avatar",
+)
+
+
+def load_pipeline_prefixes() -> tuple[str, ...]:
+    """Default pipeline prompt prefixes plus any from config."""
+    extra: list[str] = []
+    try:
+        import yaml
+        if CONFIG_PATH.exists():
+            with open(CONFIG_PATH) as f:
+                cfg = yaml.safe_load(f) or {}
+            extra = [str(x) for x in (cfg.get("skip_prompt_prefixes") or [])]
+    except Exception:
+        logger.debug("Could not read skip_prompt_prefixes from config")
+    return DEFAULT_PIPELINE_PREFIXES + tuple(extra)
+
+
 def detect_domain(project: str, text_sample: str) -> str:
     """Classify a session as 'hl' or 'personal'.
 
@@ -239,15 +267,8 @@ def needs_summary(
     return mtime > row["updated_at"]
 
 
-def is_routine_transcript(path: Path) -> bool:
-    """True if the session was started by a scheduled task, not a person.
-
-    Routine runs (a seat watch, a daily rebase) are mechanical: a page per
-    run is noise in the wiki and in restore. The first user turn carries the
-    marker: ``turnOrigin: scheduled`` (desktop app since 2026-10) or, in
-    both the old and new formats, a prompt that opens with the
-    ``<scheduled-task`` tag. Only the first user line is read.
-    """
+def _first_user_turn(path: Path) -> tuple[dict, str] | None:
+    """The first top-level user turn and its text, or None. Reads to that line only."""
     try:
         with path.open(encoding="utf-8", errors="replace") as fh:
             for line in fh:
@@ -257,22 +278,58 @@ def is_routine_transcript(path: Path) -> bool:
                     d = json.loads(line)
                 except ValueError:
                     continue
-                if d.get("type") != "user":
+                if d.get("type") != "user" or d.get("isSidechain"):
                     continue
-                if d.get("turnOrigin") == "scheduled":
-                    return True
-                origin = d.get("origin")
-                if isinstance(origin, dict) and origin.get("subkind") == "scheduled-trigger":
-                    return True
                 content = (d.get("message") or {}).get("content")
                 if not isinstance(content, str):
                     content = " ".join(
                         c.get("text", "") for c in (content or []) if isinstance(c, dict)
                     )
-                return content.lstrip().startswith("<scheduled-task")
+                return d, content.lstrip()
     except OSError:
-        return False
-    return False
+        return None
+    return None
+
+
+def mechanical_reason(path: Path, prefixes: tuple[str, ...] | None = None) -> str | None:
+    """Why a session is mechanical ("routine" or "pipeline"), or None if a person ran it.
+
+    Routine: started by a scheduled task. The first user turn carries
+    ``turnOrigin: scheduled`` (desktop app since 2026-10) or, in both the old
+    and new formats, a prompt opening with the ``<scheduled-task`` tag.
+
+    Pipeline: a script's ``claude -p`` call. Either the entrypoint is
+    ``sdk-cli`` (headless from a shell or script: nobody at a keyboard), or
+    the prompt opens with a known pipeline instruction. The prefix list is
+    needed because a ``claude -p`` run from inside a desktop session inherits
+    the desktop entrypoint.
+
+    Both are mechanical: a page per run is noise in the wiki and in restore.
+    Only the first user line is read.
+    """
+    first = _first_user_turn(path)
+    if first is None:
+        return None
+    d, content = first
+    origin = d.get("origin")
+    if (d.get("turnOrigin") == "scheduled"
+            or (isinstance(origin, dict) and origin.get("subkind") == "scheduled-trigger")
+            or content.startswith("<scheduled-task")):
+        return "routine"
+    if d.get("entrypoint") == "sdk-cli":
+        return "pipeline"
+    prefixes = prefixes if prefixes is not None else load_pipeline_prefixes()
+    if any(content.startswith(p) for p in prefixes):
+        return "pipeline"
+    return None
+
+
+def is_routine_transcript(path: Path) -> bool:
+    return mechanical_reason(path) == "routine"
+
+
+def is_mechanical_transcript(path: Path) -> bool:
+    return mechanical_reason(path) is not None
 
 
 def _iter_session_pages():
@@ -333,10 +390,11 @@ def summarise_one(
     # Origin machine: from the hub map for a pulled session, else this machine.
     machine = (origins or {}).get(session_id) or local_machine_id()
 
-    if is_routine_transcript(path):
+    reason = mechanical_reason(path)
+    if reason:
         if not dry_run:
             ledger.record(session_id, str(path), _file_hash(str(path)), None, "skipped", None)
-        logger.info("skip (routine): %s", session_id[:8])
+        logger.info("skip (%s): %s", reason, session_id[:8])
         return "skipped"
 
     turns = parse_conversation(path)
@@ -427,19 +485,20 @@ def _page_fields(page: Path) -> tuple[str, str]:
     return (sid.group(1).strip() if sid else ""), (src.group(1) if src else "")
 
 
-def purge_routines(
+def purge_mechanical(
     ledger: SummaryLedger,
     store=None,
     dry_run: bool = False,
 ) -> int:
-    """Remove every page written for a routine run. Returns pages removed.
+    """Remove every page written for a routine or pipeline run. Returns pages removed.
 
     For each session page, find its transcript (the ledger's path, else the
-    page's own source line) and ask is_routine_transcript. The page is
-    deleted, de-indexed from both search legs, and the ledger marks the
-    session skipped so no sweep rewrites it. A page whose transcript is gone
-    is left alone: nothing can prove it was a routine.
+    page's own source line) and ask mechanical_reason. The page is deleted,
+    de-indexed from both search legs, and the ledger marks the session
+    skipped so no sweep rewrites it. A page whose transcript is gone is left
+    alone: nothing can prove it was mechanical.
     """
+    prefixes = load_pipeline_prefixes()
     removed = 0
     for page in list(_iter_session_pages()):
         sid, src = _page_fields(page)
@@ -449,11 +508,12 @@ def purge_routines(
         transcript = Path(row["file_path"]) if row else Path(src) if src else None
         if transcript is None or not transcript.is_file():
             continue
-        if not is_routine_transcript(transcript):
+        reason = mechanical_reason(transcript, prefixes)
+        if not reason:
             continue
         removed += 1
         if dry_run:
-            logger.info("would purge routine page %s", page.name)
+            logger.info("would purge %s page %s", reason, page.name)
             continue
         try:
             page.unlink()
@@ -466,8 +526,11 @@ def purge_routines(
             except Exception:
                 logger.exception("de-index failed for %s", page)
         ledger.record(sid, str(transcript), _file_hash(str(transcript)), None, "skipped", None)
-        logger.info("purged routine page %s", page.name)
+        logger.info("purged %s page %s", reason, page.name)
     return removed
+
+
+purge_routines = purge_mechanical  # earlier name
 
 
 def sweep(
@@ -588,8 +651,9 @@ def main() -> None:
                         help="Concurrent summaries (backfill: 8). Default 1.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Report what would be summarised without calling the model.")
-    parser.add_argument("--purge-routines", action="store_true",
-                        help="Delete and de-index pages already written for routine runs, then exit.")
+    parser.add_argument("--purge-mechanical", "--purge-routines", action="store_true",
+                        dest="purge_mechanical",
+                        help="Delete and de-index pages already written for routine or pipeline runs, then exit.")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -604,14 +668,14 @@ def main() -> None:
             logger.info("another summariser run holds the lock, exiting")
             return
 
-    if args.purge_routines:
+    if args.purge_mechanical:
         try:
             store = None
             if not args.dry_run:
                 from .store import Store  # noqa: PLC0415
                 store = Store()
-            n = purge_routines(SummaryLedger(), store=store, dry_run=args.dry_run)
-            logger.info("purge done: %d routine page(s)", n)
+            n = purge_mechanical(SummaryLedger(), store=store, dry_run=args.dry_run)
+            logger.info("purge done: %d mechanical page(s)", n)
         finally:
             if lock is not None:
                 lock.close()

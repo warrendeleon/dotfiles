@@ -561,7 +561,7 @@ class _FakeStore:
         self.deleted.append((collection, file_path))
 
 
-def test_purge_routines_removes_pages_deindexes_and_marks_skipped(tmp_path: Path, monkeypatch) -> None:
+def test_purge_mechanical_removes_pages_deindexes_and_marks_skipped(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(sweep, "WIKI_SESSIONS_ROOT", tmp_path / "wiki")
     proj = tmp_path / "projects" / "-Users-w-Developer"
     proj.mkdir(parents=True)
@@ -586,14 +586,81 @@ def test_purge_routines_removes_pages_deindexes_and_marks_skipped(tmp_path: Path
     # huma0001 and gone0001 have no ledger row: path comes from the page's source line.
     store = _FakeStore()
 
-    assert sweep.purge_routines(led, store=store, dry_run=True) == 1
+    assert sweep.purge_mechanical(led, store=store, dry_run=True) == 1
     assert rp.exists()  # dry run touches nothing
 
-    assert sweep.purge_routines(led, store=store) == 1
+    assert sweep.purge_mechanical(led, store=store) == 1
     assert not rp.exists()
     assert hp.exists() and gp.exists()
     assert store.deleted == [("wiki", str(rp))]
     assert led.get("rout0001")["status"] == "skipped"
     assert led.get("rout0001")["page_path"] is None
     # Idempotent: the page is gone, nothing left to purge.
-    assert sweep.purge_routines(led, store=store) == 0
+    assert sweep.purge_mechanical(led, store=store) == 0
+
+
+# --- pipelines --------------------------------------------------------------
+
+def _write_pipeline_jsonl(path: Path, entrypoint: str, prompt: str) -> None:
+    lines = [
+        {"type": "user", "entrypoint": entrypoint, "promptSource": "sdk", "userType": "external",
+         "message": {"role": "user", "content": prompt}},
+        {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "ok " * 60}]}},
+    ]
+    path.write_text("\n".join(json.dumps(l) for l in lines), encoding="utf-8")
+
+
+def test_mechanical_reason_pipeline_by_entrypoint_and_prefix(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(sweep, "load_pipeline_prefixes", lambda: sweep.DEFAULT_PIPELINE_PREFIXES + ("Custom job:",))
+    headless = tmp_path / "a.jsonl"
+    _write_pipeline_jsonl(headless, "sdk-cli", "--- title: a blog post pasted in ---")
+    known = tmp_path / "b.jsonl"
+    _write_pipeline_jsonl(known, "claude-desktop", "You split adult-content post captions into a short TITLE")
+    custom = tmp_path / "c.jsonl"
+    _write_pipeline_jsonl(custom, "claude-desktop", "Custom job: do the thing")
+    desktop = tmp_path / "d.jsonl"
+    _write_pipeline_jsonl(desktop, "claude-desktop", "are our sessions still being summarised?")
+    routine = tmp_path / "r.jsonl"; _write_routine_jsonl(routine)
+
+    assert sweep.mechanical_reason(headless) == "pipeline"
+    assert sweep.mechanical_reason(known) == "pipeline"
+    assert sweep.mechanical_reason(custom) == "pipeline"
+    assert sweep.mechanical_reason(desktop) is None
+    assert sweep.mechanical_reason(routine) == "routine"
+    assert sweep.is_mechanical_transcript(desktop) is False
+    assert sweep.is_routine_transcript(known) is False
+
+
+def test_mechanical_reason_ignores_sidechain_turns(tmp_path: Path) -> None:
+    # A subagent's first turn is not the session's first turn.
+    p = tmp_path / "s.jsonl"
+    lines = [
+        {"type": "user", "isSidechain": True, "entrypoint": "sdk-cli",
+         "message": {"role": "user", "content": "subagent prompt"}},
+        {"type": "user", "entrypoint": "claude-desktop", "turnOrigin": "human",
+         "message": {"role": "user", "content": "the real first prompt from a person"}},
+    ]
+    p.write_text("\n".join(json.dumps(l) for l in lines))
+    assert sweep.mechanical_reason(p) is None
+
+
+def test_load_pipeline_prefixes_merges_config(tmp_path: Path, monkeypatch) -> None:
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("skip_prompt_prefixes:\n  - 'Translate this post'\n")
+    monkeypatch.setattr(sweep, "CONFIG_PATH", cfg)
+    got = sweep.load_pipeline_prefixes()
+    assert got[: len(sweep.DEFAULT_PIPELINE_PREFIXES)] == sweep.DEFAULT_PIPELINE_PREFIXES
+    assert got[-1] == "Translate this post"
+    monkeypatch.setattr(sweep, "CONFIG_PATH", tmp_path / "missing.yaml")
+    assert sweep.load_pipeline_prefixes() == sweep.DEFAULT_PIPELINE_PREFIXES
+
+
+def test_summarise_one_skips_pipeline(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(sweep, "WIKI_SESSIONS_ROOT", tmp_path / "wiki")
+    monkeypatch.setattr(sweep, "run_claude", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no model call")))
+    t = tmp_path / "proj" / "pipe0001.jsonl"
+    t.parent.mkdir()
+    _write_pipeline_jsonl(t, "sdk-cli", "The wiki repo at /x has a git conflict.")
+    led = SummaryLedger(db_path=tmp_path / "l.db")
+    assert sweep.summarise_one(t, led, "haiku", index_queue=JobQueue(db_path=tmp_path / "q.db")) == "skipped"
+    assert led.get("pipe0001")["status"] == "skipped"
