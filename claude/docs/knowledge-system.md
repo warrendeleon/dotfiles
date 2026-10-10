@@ -149,7 +149,7 @@ Then commit and push.
 
 If you want the wiki to sync automatically across machines (recommended if you use more than one), commit a `sync.sh` at the root of **the wiki repo** (so each clone gets it). The dotfiles setup spots `~/.wiki/sync.sh` after the clone and installs a launchd job that runs it every 10 minutes on each laptop.
 
-The script runs **locally on each machine**. It pushes through GitHub (or whatever git remote you used). There is **no hub server, no rsync, nothing extra to host**. Each machine commits its local changes, rebases on remote, pushes. Conflicts resolve themselves because the AI is the only writer most of the time.
+The script runs **locally on each machine**. It pushes through GitHub (or whatever git remote you used). There is **no hub server, no rsync, nothing extra to host**. Each machine commits its local changes, rebases on remote, pushes. Conflicts are rare because the assistant is the only writer most of the time, and a `.gitattributes` with `*.md merge=union` lets git keep both sides when one does happen, so no model is needed in the sync.
 
 A minimal version:
 
