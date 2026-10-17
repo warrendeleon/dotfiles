@@ -610,6 +610,16 @@ class LongParagraphs(unittest.TestCase):
         long_table = "| a | b |\n|---|---|\n" + ("| x " * 60 + "|\n") * 5
         self.assertEqual(self.found(("word " * 150 + "\n\n") * 3 + long_table + "```\n" + "code " * 300 + "\n```\n"), [])
 
+    def test_a_list_counts_each_item_not_the_whole_list(self):
+        short_items = "Intro line.\n" + "".join("- item %d " % i + "word " * 40 + "\n" for i in range(8))
+        self.assertEqual(self.found(short_items), [])
+        long_item = "- short item\n- " + "word " * 230 + "\n- another short item\n"
+        self.assertEqual(self.found(long_item), ["230 words"])
+        self.assertEqual(wl.find_long_paragraphs(wl.Doc(long_item))[0]["line"], 2)
+
+    def test_a_list_item_continued_on_the_next_line_counts_as_one(self):
+        self.assertEqual(self.found("1. " + "word " * 120 + "\n   " + "word " * 100 + "\n2. short\n"), ["221 words"])
+
     def test_the_lint_reports_both_pointers(self):
         with tempfile.TemporaryDirectory() as d:
             for name, text in ((wl.GOTCHAS, GOTCHAS), (wl.REVISION, REVISION)):

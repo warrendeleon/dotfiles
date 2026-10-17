@@ -684,12 +684,19 @@ def find_long_paragraphs(doc):
         lines = [l for l in block.split("\n") if l.strip(MASK + " \t")]
         if not lines or any(re.match(r"\s*(\||#|>)", l) for l in lines):
             continue
-        n = len(WORD_RE.findall(block))
-        if n > LONG_PARAGRAPH:
-            start = m.start(1)
-            hits.append({"line": doc.line_of(start), "start": start, "text": "%d words" % n, "kind": "paragraph",
-                         "table": "paragraph over %d words" % LONG_PARAGRAPH, "tag": "house", "replacement": None,
-                         "also": [], "region": "prose"})
+        # Each list item is its own unit: a list of short bullets is not a long paragraph.
+        units, offset = [], m.start(1)
+        for line in block.split("\n"):
+            if not units or LIST_ITEM_RE.match(line):
+                units.append([offset, ""])
+            units[-1][1] += line + "\n"
+            offset += len(line) + 1
+        for start, unit in units:
+            n = len(WORD_RE.findall(unit))
+            if n > LONG_PARAGRAPH:
+                hits.append({"line": doc.line_of(start), "start": start, "text": "%d words" % n, "kind": "paragraph",
+                             "table": "paragraph over %d words" % LONG_PARAGRAPH, "tag": "house", "replacement": None,
+                             "also": [], "region": "prose"})
     return hits
 
 
