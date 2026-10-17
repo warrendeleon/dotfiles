@@ -22,7 +22,7 @@ Same principle applies to every other pass — authority calibration, UK-tone, c
 - `~/.wiki/personal/writing/uk-tone-writing.md` — guide 3: steelman framework, hedge non-absolutes, no defensive openers, argument shape
 - `~/.wiki/personal/writing/accuracy-and-reproducibility.md` — guide 5: evidence for every claim, including significance, attribution and named specifics
 - `~/.wiki/personal/writing/skim-layer.md` — guide 6: bold anchors, template structure
-- `~/.wiki/personal/writing/revision-passes.md` — guide 7: the whole read, the leftovers search and the structural pass
+- `~/.wiki/personal/writing/revision-passes.md` — guide 7: the whole read, the leftovers search, the structural pass and the tightening pass
 - `~/Developer/warrendeleon/warrendeleon.com/src/data/workxp-en.json` — Warren's actual work-experience data (use this to verify any authority claims; never embed a specific year if it can be checked here)
 - The target document, in full, before editing
 
@@ -40,7 +40,7 @@ When unclear, default to senior expertise.
 
 1. **Edit the document in place** for qualitative passes (voice, AI tells, UK tone, engagement, British English). These are the passes where the model performs well.
 2. **DEFAULT TO FLAGGING, not fixing, for Pass 5 (correctness)**. Numeric claims, identifier names, version numbers, statistics. **Do not auto-correct these.** Open the relevant file, read it, write your finding in the Pass 5 Evidence section of the change log, and let Warren decide whether to apply the change. The skill has historically been 70% wrong on numeric "corrections" — silent edits to numbers and identifiers are how that hallucination ships under Warren's name. Flag-not-fix is the default.
-3. **Run all seven passes in order.** Each pass has a clear remit; don't skip.
+3. **Take the content inventory, then run all eight passes in order.** Each pass has a clear remit; don't skip.
 4. **Never fabricate to fix a problem.** If you'd have to invent a fact, flag it instead.
 5. **Don't make Warren the cautionary tale** outside learning-post mode. He has been criticised for being too direct or dismissive; the steelman framework is how that gets calibrated, not by inserting self-deprecation.
 6. **Tags, publishDate, slug, campaign, series, heroImage, heroAlt, locale, draft, relatedPosts** in frontmatter are hands-off. Title and description are in scope; stay within the original character budget for description.
@@ -48,6 +48,10 @@ When unclear, default to senior expertise.
 8. **Every correctness-pass entry in the change log MUST cite the file path you read and an excerpt or paraphrase of what you saw.** If you cannot cite a specific file you opened, the claim is unverified and must be flagged, not fixed. Hand-waving "verified against codebase" is not acceptable. This is the verification gate.
 
 ## Passes (run in order, edit in place)
+
+### Before Pass 1 — Content inventory
+
+Before any edit, list every item the original carries, as guide 7's "Tighten without losing content" sets out: each claim, number, name, identifier, date, link, example, step, caveat, qualifier, condition, reason and decision. Context is content: the reason a step exists and the condition a claim holds under are items. Keep the list in working notes. Every later pass is checked against it, the structure pass included, because that pass cuts too.
 
 ### Pass 1 — Authority calibration
 
@@ -207,6 +211,14 @@ If Warren tags the doc with retention concerns ("readers aren't reaching the end
 
 Behaviour, colour, organisation, optimised, recognise, licence, analyse, modelled, prioritise, organisation, behaviour, favourite, defence, programme (in the BBC sense, not software-programme). Match across the document; don't touch quoted code, library names, or upstream identifiers (`color` in CSS stays `color`).
 
+### Pass 8 — Tighten
+
+Apply guide 7's "Tighten without losing content" to the whole document. Say each inventory item once, in the fewest words that keep it exact: shorten wordy phrasing, cut framing that announces what comes next, merge passages that cover the same ground (keeping the fuller detail) and cut restatements. Numbers, identifiers, code, commands, quotations and link targets stay byte-for-byte. Keep the sentences plain and connected; a shorter document comes from saying each thing once, not from a telegraphic style.
+
+Then verify: tick every inventory item against the edited text. Put back anything missing or weakened (a dropped qualifier, "may" turned into "will", a lost condition) in its shortest exact form.
+
+**You decide every cut. Never refer one to Warren.** When shortening a passage would lose an item, the item stays: rewrite around it, or leave the passage as it was. There is no target length, and a document that is already as short as its content allows is a valid result.
+
 ## Output — structured change log
 
 After editing, report under 500 words. Be specific so Warren can absorb the pattern and double-check the correctness work.
@@ -251,6 +263,10 @@ After editing, report under 500 words. Be specific so Warren can absorb the patt
 
 **British English**: count of Americanisms fixed
 
+**Tightening**:
+- Word-count delta from this pass, and the inventory result ("43 of 43 items kept")
+- Items restored after the verify step, if any
+
 **Banned-but-kept** (judgement clause):
 - Banned words kept for literal technical use, with reasoning
 
@@ -271,4 +287,5 @@ After editing, report under 500 words. Be specific so Warren can absorb the patt
 - Don't add AI / Claude / ChatGPT references in the body of any document, except posts that are literally about those tools (the Claude RAG series, MCP server tutorial, etc.).
 - Don't touch `tags`, `publishDate`, `slug`, `campaign`, `series`, `heroImage`, `heroAlt`, `locale`, `draft`, `relatedPosts` in frontmatter.
 - Don't downgrade the technical claim to make a sentence read more humble. The voice softens; the expertise doesn't.
+- Don't ask Warren to approve a cut, and don't drop content to hit a length. The inventory decides: an item a cut would lose stays.
 - Don't summarise back what Warren said as if it were a finding. The summary is for new information he can learn from.
