@@ -16,8 +16,13 @@ Same principle applies to every other pass — authority calibration, UK-tone, c
 
 ## Required reading (load before touching the document)
 
-- `~/.wiki/personal/ai-writing-gotchas.md` — banned words, expressions, constructions, em-dashes, judgement clause
-- `~/.wiki/personal/uk-tone-writing.md` — steelman framework, hedge non-absolutes, no defensive openers
+- `~/.wiki/personal/writing/writing-guides.md` — the router: its "Draft or edit English prose" profile sets the guides below, and its "Reading as written by a person" section sets the aim
+- `~/.wiki/personal/writing/plain-sentence-construction.md` — guide 1: sentence and paragraph construction, stock constructions, meaning spelled out
+- `~/.wiki/personal/writing/ai-writing-gotchas.md` — guide 2: banned words, expressions, stock phrases, constructions, em-dashes, judgement clause
+- `~/.wiki/personal/writing/uk-tone-writing.md` — guide 3: steelman framework, hedge non-absolutes, no defensive openers, argument shape
+- `~/.wiki/personal/writing/accuracy-and-reproducibility.md` — guide 5: evidence for every claim, including significance, attribution and named specifics
+- `~/.wiki/personal/writing/skim-layer.md` — guide 6: bold anchors, template structure
+- `~/.wiki/personal/writing/revision-passes.md` — guide 7: the whole read, the leftovers search and the structural pass
 - `~/Developer/warrendeleon/warrendeleon.com/src/data/workxp-en.json` — Warren's actual work-experience data (use this to verify any authority claims; never embed a specific year if it can be checked here)
 - The target document, in full, before editing
 
