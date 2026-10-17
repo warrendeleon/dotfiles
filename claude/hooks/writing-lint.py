@@ -645,6 +645,54 @@ def find_term_hits(doc, terms):
     return hits
 
 
+# Acronyms a technical reader already holds; every other one is spelled out on first use
+# (ai-writing-gotchas.md, "Spell Out Acronyms and Tool Names").
+COMMON_ACRONYMS = {"UK", "US", "EU", "URL", "URLs", "API", "APIs", "HTML", "CSS", "JS", "JSON", "PDF",
+                   "ID", "IDs", "HTTP", "HTTPS", "SDK", "UI", "UTC", "OK", "TV", "AM", "PM", "FAQ"}
+ACRONYM_RE = re.compile(r"(?<![\w./-])([A-Z][A-Z0-9]{1,5}s?)(?![\w/-])")
+LONG_PARAGRAPH = 200
+
+
+def find_acronyms(doc):
+    """The first use of each acronym that is not spelled out where it first appears."""
+    hits, seen = [], set()
+    for m in ACRONYM_RE.finditer(doc.masked):
+        acr = m.group(1)
+        base = acr[:-1] if acr.endswith("s") and acr[:-1].isupper() else acr
+        if base in seen or acr in COMMON_ACRONYMS or base in COMMON_ACRONYMS or not re.search(r"[A-Z].*[A-Z]", base):
+            continue
+        seen.add(base)
+        line_start = doc.text.rfind("\n", 0, m.start()) + 1
+        line_end = doc.text.find("\n", m.end())
+        line = doc.text[line_start:line_end if line_end != -1 else len(doc.text)]
+        if re.match(r"\s*#", line):
+            seen.discard(base)              # a heading is not a first use; wait for the prose
+            continue
+        if re.search(r"\(\s*" + re.escape(base) + r"s?\s*\)", line) or re.search(re.escape(acr) + r"\s*\([^)]*[a-z][^)]*\)", line):
+            continue                        # "Full Name (ACR)" or "ACR (full name)"
+        hits.append({"line": doc.line_of(m.start()), "start": m.start(), "text": acr, "kind": "acronym",
+                     "table": "acronym not spelled out at first use", "tag": "house", "replacement": None,
+                     "also": [], "region": "prose"})
+    return hits
+
+
+def find_long_paragraphs(doc):
+    """Prose paragraphs over LONG_PARAGRAPH words: one mechanism per paragraph (guide 1)."""
+    hits = []
+    for m in re.finditer(r"(?:^|\n\s*\n)((?:[^\n]+\n?)+)", doc.masked):
+        block = m.group(1)
+        lines = [l for l in block.split("\n") if l.strip(MASK + " \t")]
+        if not lines or any(re.match(r"\s*(\||#|>)", l) for l in lines):
+            continue
+        n = len(WORD_RE.findall(block))
+        if n > LONG_PARAGRAPH:
+            start = m.start(1)
+            hits.append({"line": doc.line_of(start), "start": start, "text": "%d words" % n, "kind": "paragraph",
+                         "table": "paragraph over %d words" % LONG_PARAGRAPH, "tag": "house", "replacement": None,
+                         "also": [], "region": "prose"})
+    return hits
+
+
 def find_leftovers(doc, regex):
     hits = []
     for lineno, line in enumerate(doc.text.split("\n"), 1):
@@ -712,7 +760,8 @@ def lint(files, guides_dir):
         except OSError as e:
             raise GuideError("input file cannot be read: %s: %s" % (path, e.strerror or e))
         doc = Doc(raw)
-        hits = find_term_hits(doc, guides["terms"]) + find_leftovers(doc, guides["leftovers"]["regex"])
+        hits = (find_term_hits(doc, guides["terms"]) + find_leftovers(doc, guides["leftovers"]["regex"])
+                + find_acronyms(doc) + find_long_paragraphs(doc))
         hits.sort(key=lambda h: (h["line"], h["start"], h["kind"]))
         for h in hits:
             del h["start"]
@@ -723,6 +772,11 @@ def lint(files, guides_dir):
         for h in r["hits"]:
             if h["kind"] == "leftovers":
                 leftovers += 1
+                continue
+            if h["kind"] in ("acronym", "paragraph"):
+                by_table.setdefault(h["table"], {"hits": 0, "by_tag": OrderedDict()})
+                by_table[h["table"]]["hits"] += 1
+                by_table[h["table"]]["by_tag"]["house"] = by_table[h["table"]]["by_tag"].get("house", 0) + 1
                 continue
             entry = by_table.setdefault(h["table"], {"hits": 0, "by_tag": OrderedDict()})
             entry["hits"] += 1

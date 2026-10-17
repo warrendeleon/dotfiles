@@ -318,3 +318,28 @@ test('every stage protects code, charts and raw data, and reads the surface guid
   assert.match(prompts['review:words'], /plus every surface guide in it/)
   assert.match(prompts.prepare, /including any surface guide it names/)
 })
+
+test('a document with tests gets a tests reviewer; one without does not', async () => {
+  const withTests = await runWith({ ...base, prepare: { ...prep(), has_tests: true }, 'review:tests': review() })
+  assert.ok(withTests.labels.includes('review:tests'))
+  assert.match(withTests.prompts['review:tests'], /Would each test fail on the code before the fix\?/)
+  assert.match(withTests.prompts['review:tests'], /exist at the cited commit, or is it clearly marked as proposed/)
+  const without = await runWith(base)
+  assert.ok(!without.labels.includes('review:tests'))
+})
+
+test('sources reach the claims reviewer and the check, which also lints the attachments', async () => {
+  const { prompts } = await runWith(base, { target: '/tmp/post.md', sources: ['/tmp/attachments/', 'ncu-ad-manager at 544654dfc'] })
+  for (const k of ['review:claims', 'check']) {
+    assert.match(prompts[k], /SOURCES OF TRUTH[^\n]*\n- \/tmp\/attachments\/\n- ncu-ad-manager at 544654dfc/)
+  }
+  assert.match(prompts['review:claims'], /Open every source the header lists/)
+  assert.match(prompts.check, /run the leftovers search on every source file that ships with the document/)
+  const none = await runWith(base)
+  assert.doesNotMatch(none.prompts.check, /SOURCES OF TRUTH|leftovers search on every source file/)
+})
+
+test('the length reviewer reads the lint, so it sees the long-paragraph pointers', async () => {
+  const { prompts } = await runWith(base)
+  assert.match(prompts['review:length'], /writing-lint\.py/)
+})

@@ -576,6 +576,52 @@ def write(directory, name, text):
     return path
 
 
+class Acronyms(unittest.TestCase):
+    def found(self, text):
+        return [h["text"] for h in wl.find_acronyms(wl.Doc(text))]
+
+    def test_an_acronym_not_spelled_out_is_flagged_once(self):
+        self.assertEqual(self.found("The TLS page failed. The TLS page failed again."), ["TLS"])
+
+    def test_either_expansion_form_passes(self):
+        self.assertEqual(self.found("The Times Literary Supplement (TLS) failed, then TLS failed."), [])
+        self.assertEqual(self.found("SWC (the Speedy Web Compiler) builds it."), [])
+
+    def test_common_acronyms_and_single_capitals_pass(self):
+        self.assertEqual(self.found("A US reader opens the URL and the API answers. I said A."), [])
+
+    def test_a_heading_is_not_the_first_use(self):
+        self.assertEqual(self.found("# TLS fails\n\nThe Times Literary Supplement (TLS) fails."), [])
+        self.assertEqual(self.found("# TLS fails\n\nThe TLS homepage fails."), ["TLS"])
+
+    def test_code_links_and_plurals(self):
+        self.assertEqual(self.found("Run `GPP_CHECK` on [it](http://x.test/TCF) for IDs."), [])
+        self.assertEqual(self.found("Two CMPs answered."), ["CMPs"])
+
+
+class LongParagraphs(unittest.TestCase):
+    def found(self, text):
+        return [h["text"] for h in wl.find_long_paragraphs(wl.Doc(text))]
+
+    def test_a_paragraph_over_the_limit_is_flagged(self):
+        self.assertEqual(self.found("word " * 230), ["230 words"])
+
+    def test_short_paragraphs_tables_and_code_pass(self):
+        long_table = "| a | b |\n|---|---|\n" + ("| x " * 60 + "|\n") * 5
+        self.assertEqual(self.found(("word " * 150 + "\n\n") * 3 + long_table + "```\n" + "code " * 300 + "\n```\n"), [])
+
+    def test_the_lint_reports_both_pointers(self):
+        with tempfile.TemporaryDirectory() as d:
+            for name, text in ((wl.GOTCHAS, GOTCHAS), (wl.REVISION, REVISION)):
+                with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
+                    fh.write(text)
+            p = os.path.join(d, "doc.md")
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write("The TLS page. " + "word " * 210 + "\n")
+            kinds = {h["kind"] for h in wl.lint([p], d)["files"][0]["hits"]}
+            self.assertTrue({"acronym", "paragraph"} <= kinds)
+
+
 class Cli(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
