@@ -307,12 +307,14 @@ test('a fault the check finds in another file goes to the author, not to the rep
   assert.ok(result.flags.some(f => f.location === 'ai-writing-gotchas.md'))
 })
 
-test('every stage is told to edit no file but the target and to batch its reads', async () => {
+test('every stage is told to edit no file but the target and to batch its reads and edits into few turns', async () => {
   const { prompts } = await runWith(repairing({ ...ready, verdict: 'NOT READY', findings: [finding()] },
     { tampered: false, resolved: [{ ref: 'F1', passage: 'solid' }], unresolved: [], words_after: 1490 }))
   for (const k of ['prepare', 'review:words', 'conduct', 'check', 'repair']) {
     assert.match(prompts[k], /No stage of this run edits any file but the target/)
-    assert.match(prompts[k], /as few tool calls as you can/)
+    assert.match(prompts[k], /Every turn re-sends your whole context/)
+    assert.match(prompts[k], /one Read call per file, all sent together/)
+    assert.match(prompts[k], /send independent edits together/)
   }
   assert.match(prompts.check, /goes under elsewhere/)
 })
