@@ -358,7 +358,41 @@ def check(original_text, edited_text, html=False):
     for key, v in fm_after.items():
         if key not in fm_before:
             add({"kind": "frontmatter", "value": f"{key} added: {v}", "line": 1, "key": key})
+    # An original that writes each paragraph on one line loses a paragraph break when an edit
+    # runs two of them together (a lost blank line renders them as one paragraph).
+    if not html and not joined_lines(original_text):
+        for n, line in joined_lines(edited_text):
+            add({"kind": "paragraph-break", "value": f"no blank line before: {line[:70]}", "line": n})
     return before, missing
+
+
+def joined_lines(text):
+    """Prose lines that follow another prose line with no blank line between them, as (line, text).
+
+    Code fences, frontmatter, headings, tables, quotes, HTML, list items and indented lines are
+    not prose here, so only two plain paragraphs run together count."""
+    joined, prev, fence = [], False, None
+    lines = text.split("\n")
+    start = 0
+    if lines and lines[0].strip() == "---":
+        end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+        start = end + 1 if end is not None else 0
+    for i in range(start, len(lines)):
+        line = lines[i]
+        m = re.match(r"\s*(`{3,}|~{3,})", line)
+        if fence:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
+                fence = None
+            prev = False
+            continue
+        if m:
+            fence, prev = m.group(1), False
+            continue
+        prose = bool(line.strip()) and not re.match(r"(\s|#|\||>|<|[-*+]\s|\d{1,3}[.)]\s)", line)
+        if prose and prev:
+            joined.append((i + 1, line))
+        prev = prose
+    return joined
 
 
 # ---------------------------------------------------------------- cli

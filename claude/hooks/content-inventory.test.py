@@ -182,6 +182,23 @@ class Check(unittest.TestCase):
         self.assertEqual(missing(doubled, DOC), set())
 
 
+class ParagraphBreaks(unittest.TestCase):
+    ORIG = "# Title\n\nFirst paragraph says one thing.\n\nSecond paragraph says another.\n\n- a list item\n- another item\n"
+
+    def test_two_paragraphs_run_together_are_reported(self):
+        edited = self.ORIG.replace("one thing.\n\nSecond", "one thing.\nSecond")
+        self.assertEqual(missing(self.ORIG, edited), {("paragraph-break", "no blank line before: Second paragraph says another.")})
+
+    def test_lists_code_and_frontmatter_are_not_paragraphs(self):
+        fm = "---\ntitle: x\ntags: y\n---\n"
+        tail = "\n```\nline one\nline two\n```\n\nText.\n    indented continuation\n"
+        self.assertEqual(missing(fm + self.ORIG + tail, fm + self.ORIG + tail), set())
+
+    def test_an_original_with_wrapped_paragraphs_is_not_judged(self):
+        wrapped = "A paragraph wrapped\nacross two lines.\n\nAnother one.\n"
+        self.assertEqual(missing(wrapped, wrapped.replace("one.\n\nAnother", "one.\nAnother")), set())
+
+
 class Protected(unittest.TestCase):
     DATA = "| Run | Cold start | Build |\n|---|---|---|\n| debug | 420 ms | 0.76 |\n| release | 380 ms | 0.76 |\n"
     PROSE = "| Rule | Why |\n|---|---|\n| Cut the tail | It adds rhythm and no information |\n"
