@@ -55,7 +55,7 @@ The wiki (`~/.wiki`) is long-term memory; memory files hold behaviour and pointe
 | `/recall` | Grep over past transcripts when RAG search isn't enough. |
 | `/check-dep` | Before adding any dependency. |
 | `/debug` | When something fails and the cause isn't obvious. |
-| `/voice-review` | Editing a document against the writing conventions. |
+| `/voice-review` | Every document before it is delivered (blog post, wiki page, ADR, README, email, deck notes, PR description; not commit messages, chat replies or code). Runs the voice-review workflow. |
 | `/graphify` | Any input to a knowledge graph; invoke the Skill tool first when Warren types it. |
 
 ## 7. No repetition

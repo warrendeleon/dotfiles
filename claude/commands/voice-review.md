@@ -2,6 +2,16 @@ Edit a document in place against Warren's writing conventions, then report a str
 
 If the user specifies a file, voice-review that. Otherwise, prompt for the file. If the user says "as a learning post" or "--learning", run in learning-post mode (see Mode section).
 
+## How to run it
+
+Run the voice-review workflow on the file, every time, whatever its length: the Workflow tool with `scriptPath: ~/Developer/dotfiles/claude/workflows/voice-review.js` and `args: {target, surface?, mode?, notes?, decisions?}`. Before launching, say the model plan and the expected agent count in one line (4 to 6 agents under 600 words, 7 to 9 above).
+
+The workflow is how a document is held to the guides. The conductor's first act is a backup to a fresh directory under `~/.claude/voice-review/`, so a rerun never overwrites an earlier original; if the backup fails it edits nothing. The conductor is the only writer and edits only the target: it takes the content inventory and does Passes 1 and 2. Read-only reviewers, one remit each, propose edits for Passes 3 to 8, and duplicate proposals are merged. The conductor rules on every proposal, applies them, tightens, and checks the inventory. A fresh reader then checks the result against the guides and the inventory, alongside `writing-lint.py` and `content-inventory.py`. The inventory script protects values that must survive byte for byte (numbers, code, links, footnotes, publishing fields); claims, qualifiers and reasons are the readers' job. At most one repair follows, and one final agent confirms exactly what it touched, so the run never loops. A run that ends more than 2% longer than it started is not clean: additions such as a named source are paid for by cuts in the same passage. A fault the reader finds in another file goes to Warren as a flag; the run edits one file only.
+
+When it returns, write the change log below from its result, in under 500 words. If `clean` is false, say why in one line and give the `original` path, which holds the backup. Flags and structure gaps go to Warren in the change log; nothing else is asked of him.
+
+Several files: one run per file, one at a time. Run the passes below inline only when the Workflow tool is unavailable. Every agent in the workflow also reads the sections below as its standard.
+
 ## This is AI judgement, not a substitution script
 
 The wiki gotchas page contains a table of banned-term → replacement entries. **Do not treat this table as a sed script.** Each occurrence of a flagged term must be read in its sentence context and assessed before any change is made:
@@ -15,6 +25,8 @@ The table is reference material. The work happens between your eye reading the s
 Same principle applies to every other pass — authority calibration, UK-tone, correctness, engagement. Every change is a judgement made in context, never a mechanical find-and-replace.
 
 ## Required reading (load before touching the document)
+
+This list is for an inline run and for the conductor. In the workflow, every other agent reads only what its stage names, within the reading profile the conductor resolved.
 
 - `~/.wiki/personal/writing/writing-guides.md` — the router: its "Draft or edit English prose" profile sets the guides below, and its "Reading as written by a person" section sets the aim
 - `~/.wiki/personal/writing/plain-sentence-construction.md` — guide 1: sentence and paragraph construction, stock constructions, meaning spelled out
