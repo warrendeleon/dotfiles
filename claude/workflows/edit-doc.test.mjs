@@ -387,3 +387,16 @@ test('every stage reads the memory index in its opening turn', async () => {
     { tampered: false, resolved: [{ ref: 'F1', passage: 'solid' }], unresolved: [], words_after: 1490 }))
   for (const k of ['prepare', 'review:words', 'conduct', 'check', 'repair']) assert.match(prompts[k], /memory\/MEMORY\.md/)
 })
+
+test('the misses from the 17 Oct Jira rerun are each owned by a reviewer and backed by the check', async () => {
+  const short = await runWith({ ...base, prepare: prep(1500), conduct: conduct({ words_after: 1490 }) })
+  const whole = short.prompts['review:whole']
+  assert.match(whole, /bold verdict or bold line that claims more scope than the body supports/)
+  assert.match(whole, /attached note or other file that ships with the document needs a cited file of its own/)
+  assert.match(whole, /over 200 words gets a proposal that splits it/)
+  const long = await runWith(base)
+  assert.match(long.prompts['review:argument'], /claims more scope than the body supports/)
+  assert.match(long.prompts['review:claims'], /needs a cited file of its own/)
+  assert.match(long.prompts['review:length'], /over 200 words gets a proposal that splits it/)
+  assert.match(long.prompts.check, /over 200 words is a length finding unless it is protected content/)
+})
