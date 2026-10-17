@@ -141,7 +141,7 @@ dotfiles/
 │
 ├── claude/
 │   ├── CLAUDE.md                # Global Claude Code instructions
-│   ├── commands/                # Global skills (audit, debug, recall, voice-review, etc.)
+│   ├── commands/                # Global skills (audit, debug, recall, edit-doc, etc.)
 │   ├── output-styles/           # Per-person voice profiles (warren.md = Warren's; copy & rename for your own)
 │   └── docs/                    # Shell reference, knowledge-system explainer, output-style guide
 │

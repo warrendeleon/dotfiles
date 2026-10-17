@@ -1,14 +1,14 @@
-// Runs voice-review.js with every agent stubbed, to check which stages run and how a run ends.
+// Runs edit-doc.js with every agent stubbed, to check which stages run and how a run ends.
 // The workflow runtime is replaced by plain functions: agent() answers by the label each stage
 // is given.
 //
-//   node --test claude/workflows/voice-review.test.mjs
+//   node --test claude/workflows/edit-doc.test.mjs
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 
-const source = readFileSync(new URL('./voice-review.js', import.meta.url), 'utf8')
+const source = readFileSync(new URL('./edit-doc.js', import.meta.url), 'utf8')
   .replace('export const meta =', 'const meta =')
 const run = new Function('agent', 'parallel', 'pipeline', 'log', 'phase', 'args', 'budget',
   `return (async () => {\n${source}\n})()`)
@@ -22,7 +22,7 @@ const budget = { total: null, spent: () => 0, remaining: () => Infinity }
 
 const okMech = { exit: 0, total: 40, missing: [] }
 const okLint = { exit: 0, hits: 0, emdash_per_1000: 0 }
-const backupOf = { backed_up: true, dir: '/h/.claude/voice-review/post.md.Ab12Cd', original: '/h/.claude/voice-review/post.md.Ab12Cd/original.md', backup_error: '' }
+const backupOf = { backed_up: true, dir: '/h/.claude/edit-doc/post.md.Ab12Cd', original: '/h/.claude/edit-doc/post.md.Ab12Cd/original.md', backup_error: '' }
 const backup = backupOf
 const prep = (words = 1800) => ({ ...backupOf, surface: 'blog', profile: 'Draft or edit English prose', guides: ['plain-sentence-construction.md', 'ai-writing-gotchas.md'],
   words_before: words + 200, words_after: words, inventory_items: 40, authority_changes: [],
@@ -101,13 +101,13 @@ test('the prepare stage backs up first and is told to stop and edit nothing if t
 test('every later stage uses the backup directory the prepare stage created', async () => {
   const { result, prompts } = await runWith(base)
   assert.equal(result.original, backup.original)
-  assert.match(prompts['review:words'], /\/h\/\.claude\/voice-review\/post\.md\.Ab12Cd\/inventory\.md/)
-  assert.match(prompts.check, /content-inventory\.py check '\/h\/\.claude\/voice-review\/post\.md\.Ab12Cd\/original\.md' '\/tmp\/post\.md'/)
+  assert.match(prompts['review:words'], /\/h\/\.claude\/edit-doc\/post\.md\.Ab12Cd\/inventory\.md/)
+  assert.match(prompts.check, /content-inventory\.py check '\/h\/\.claude\/edit-doc\/post\.md\.Ab12Cd\/original\.md' '\/tmp\/post\.md'/)
 })
 
 test('the backup is a fresh mktemp directory per run, so reruns never overwrite an original', async () => {
   const { prompts } = await runWith(base)
-  assert.match(prompts.prepare, /mktemp -d "\$HOME"\/\.claude\/voice-review\/'post\.md'\.XXXXXX/)
+  assert.match(prompts.prepare, /mktemp -d "\$HOME"\/\.claude\/edit-doc\/'post\.md'\.XXXXXX/)
   assert.match(prompts.prepare, /cmp '\/tmp\/post\.md' "\$d"\/original'\.md'/)
 })
 

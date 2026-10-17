@@ -30,7 +30,7 @@ values this script checks must survive byte for byte, so a mechanical comparison
 
 A value counts as kept when the edited file still contains it anywhere. That is a backstop,
 not proof that every claim survived: two values swapped between their labels still pass, and
-claims, qualifiers and reasons have no mechanical check. The fresh reader in the voice-review
+claims, qualifiers and reasons have no mechanical check. The fresh reader in the edit-doc
 workflow owns those.
 
 Exit 0 when every value is kept, 1 when any is missing (each one is printed), 2 when the
