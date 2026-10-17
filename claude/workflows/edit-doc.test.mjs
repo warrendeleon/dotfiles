@@ -400,3 +400,11 @@ test('the misses from the 17 Oct Jira rerun are each owned by a reviewer and bac
   assert.match(long.prompts['review:length'], /over 200 words gets a proposal that splits it/)
   assert.match(long.prompts.check, /over 200 words is a length finding unless it is protected content/)
 })
+
+test('the conductor, the check and the repair each get the word ceiling of the original plus 2%', async () => {
+  const { prompts } = await runWith(repairing({ ...ready, verdict: 'NOT READY', findings: [finding()] },
+    { tampered: false, resolved: [{ ref: 'F1', passage: 'solid' }], unresolved: [], words_after: 1490 }))
+  for (const k of ['conduct', 'check', 'repair']) assert.match(prompts[k], /WORD CEILING: 6324 words|over 6324 words/, k)
+  assert.match(prompts.conduct, /make one tightening pass over the prose of the whole document/)
+  assert.match(prompts.repair, /the target is now 1500/)
+})

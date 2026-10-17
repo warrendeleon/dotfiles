@@ -54,6 +54,8 @@ for (const k of Object.keys(TIER)) {
   if (args.efforts && args.efforts[k]) TIER[k].effort = args.efforts[k]
 }
 const tier = k => ({ model: TIER[k].model, effort: TIER[k].effort })
+// The most words a clean run may end with: the original plus 2%.
+const ceiling = prep => Math.floor(prep.words_before * 1.02)
 
 // Each stage runs as the edit-doc-stage agent (claude/agents/edit-doc-stage.md): four tools and the
 // global CLAUDE.md, about 7k tokens of context at start against about 65k for the default agent,
@@ -289,6 +291,7 @@ STAGE: conduct. An earlier stage of this run (prepare) made ${prep.structure_cha
 3. Rule on every proposal: apply, adapt (the same fix in different words) or reject with a reason. Reject a proposal that names no rule, breaks another guide, touches an author decision, loses or weakens an inventory item, changes a number or identifier, or touches the hands-off frontmatter (tags, publishDate, slug, campaign, series, heroImage, heroAlt, locale, draft, relatedPosts).
 4. Apply your rulings with exact-string edits. For each applied proposal, report the text you actually wrote.
 5. ${tightenAll ? 'The reviewer covering length failed or stopped at its cap: run the skill\'s Pass 8 over the whole document for the length it missed.' : 'The reviewer covering length read the whole document: tighten only the passages you edited, where the edit left a seam or a repeat.'} Say each item once, in the fewest exact words, plain and connected. An addition (a named specific, a restored qualifier) costs words: recover them by tightening the same passage, so the document ends no longer than it started unless a required addition cannot be paid for.
+   WORD CEILING: ${ceiling(prep)} words by wc -w on the target (the original's ${prep.words_before} plus 2%); after the structure pass it is ${prep.words_after}. After step 4, run wc -w. If the target is over the ceiling, make one tightening pass over the prose of the whole document (Pass 8: never protected content, never an inventory item), then run wc -w once more. Report any required addition you could not pay for, with its word cost.
 6. Tick every inventory item against the target and put back anything lost or weakened, in its shortest exact form. Then run the mechanical check and restore what it reports missing: ${invCmd(paths)}
    ${BOUNDED}
 7. Run the lint and read each hit in context: ${LINT}
@@ -309,7 +312,7 @@ STAGE: check. You did not write or edit this document. Do NOT edit, create or de
    ${LINT}
 2. Read the original in full, then the target in full, then the inventory.${(args.sources || []).length ? ' Check the claims against the sources of truth, and run the leftovers search on every source file that ships with the document (attachments, scripts): python3 ' + HOOKS + '/writing-lint.py <file>. A hit there goes under elsewhere.' : ''}
 3. Report every inventory item lost or weakened (a dropped qualifier, "may" become "will", a lost condition, reason or example), every protected block shortened, cut or turned into prose, and anything the target says that the original did not support.
-4. Read the target against every guide of the profile and the skill's rules, and report every breach in the target with the rule, the quote and a concrete fix. Read each lint hit in context; a hit that breaks a rule is a breach, a literal technical use is not. A paragraph or list item the lint reports over 200 words is a length finding unless it is protected content: give the split. Also report a passage that still restates, pads or announces, as a length finding under guide 7. A fault in any other file (a guide that now disagrees with the target, say) goes under elsewhere, not under findings.
+4. Read the target against every guide of the profile and the skill's rules, and report every breach in the target with the rule, the quote and a concrete fix. Read each lint hit in context; a hit that breaks a rule is a breach, a literal technical use is not. A target over ${ceiling(prep)} words by wc -w (the original's ${prep.words_before} plus 2%) is a length finding: name the passages to tighten and the words each saves. A paragraph or list item the lint reports over 200 words is a length finding unless it is protected content: give the split. Also report a passage that still restates, pads or announces, as a length finding under guide 7. A fault in any other file (a guide that now disagrees with the target, say) goes under elsewhere, not under findings.
 5. Verdict: READY only when nothing is missing, the inventory check exits 0, the lint ran (exit 0) and you found no breach; otherwise NOT READY with the reason.
 
 The conductor already ruled on these proposals. Do not raise a rejected one again unless you can name a rule its rejection reason did not answer; then set reraised true. Do not report an applied one unless the edit itself broke a rule.
@@ -321,12 +324,13 @@ const refsOf = check => [
   ...check.findings.map((f, i) => ({ ref: `F${i + 1}`, text: `${f.location}${f.reraised ? ' (re-raised)' : ''}\n   quote: ${f.quote}\n   rule: ${f.rule}\n   fix: ${f.fix}` })),
 ]
 
-const repairPrompt = (paths, prep, sha, refs) => `${header('conductor', paths, prep)}
+const repairPrompt = (paths, prep, sha, refs, words) => `${header('conductor', paths, prep)}
 
 STAGE: repair. A fresh reader checked the edit. This is the only repair, and one final reader will confirm each fix below, so apply each one completely.
 
 0. Run shasum -a 256 on the target. If it is not ${sha}, something other than the conductor changed the file: set tampered true, edit nothing, and report.
 1. Fix every reference below with exact-string edits in the target only, opening a guide only at the section a reference cites: put back each missing item in its shortest exact form, and apply each finding. A finding wins over the conductor's earlier ruling, including a re-raised one. Leave one unapplied only when applying it would lose an inventory item, change a number or identifier, or touch an author decision.
+   WORD CEILING: ${ceiling(prep)} words by wc -w (the original's ${prep.words_before} plus 2%); the target is now ${words}. A fix that adds words pays for them by tightening prose in the same section, never protected content or an inventory item. Run wc -w before you report.
 2. Account for every reference: each one goes under resolved (with the passage as it now reads) or under unresolved (with the reason). A reference in neither list keeps the run from counting as clean.
 3. Run the mechanical check and restore what it reports: ${invCmd(paths)}
    ${BOUNDED}
@@ -428,7 +432,7 @@ let repair = null, final = null, uncovered = []
 if (needsRepair) {
   phase('Repair')
   const refs = refsOf(check)
-  repair = await stage(repairPrompt(paths, prep, conduct.sha_after, refs), { phase: 'Repair', label: `repair (${refs.length})`, schema: REPAIR_SCHEMA, ...tier('repair') })
+  repair = await stage(repairPrompt(paths, prep, conduct.sha_after, refs, conduct.words_after), { phase: 'Repair', label: `repair (${refs.length})`, schema: REPAIR_SCHEMA, ...tier('repair') })
   if (repair && !repair.tampered) {
     const answered = new Set([...repair.resolved.map(r => r.ref), ...repair.unresolved.map(r => r.ref)])
     uncovered = refs.map(r => r.ref).filter(r => !answered.has(r))
