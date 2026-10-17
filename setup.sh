@@ -976,6 +976,13 @@ if command -v claude &>/dev/null || [[ "${CLAUDE_CODE_INSTALLED:-}" == "true" ]]
       [[ -f "$wf" ]] && symlink "$wf" "$HOME/.claude/workflows/$(basename "$wf")"
     done
   fi
+  # Symlink subagent types (workflow stages run as these to carry fewer tools)
+  if [[ -d "${DOTFILES_DIR}/claude/agents" ]]; then
+    mkdir -p "$HOME/.claude/agents"
+    for ag in "${DOTFILES_DIR}/claude/agents/"*.md; do
+      [[ -f "$ag" ]] && symlink "$ag" "$HOME/.claude/agents/$(basename "$ag")"
+    done
+  fi
   # Receipts written by the review-loop workflow; read by the verify-receipt hook
   mkdir -p "$HOME/.claude/receipts"
   success "Claude Code configured"

@@ -35,11 +35,12 @@ const ready = { verdict: 'READY', missing: [], findings: [], elsewhere: [], inve
 const finding = (extra = {}) => ({ location: 'line 4', quote: 'robust', rule: 'gotchas', fix: 'solid', reraised: false, ...extra })
 const finalOk = { inventory: okMech, lint: okLint, unconfirmed: [], breaches: [] }
 
-async function runWith(answers, args = { target: '/tmp/post.md' }) {
+async function runWith(answers, args = { target: '/tmp/post.md' }, { noStageAgent = false } = {}) {
   const calls = [], prompts = {}, logs = []
   const agent = async (prompt, opts) => {
     const label = opts.label || ''
-    calls.push({ label, model: opts.model, effort: opts.effort })
+    calls.push({ label, model: opts.model, effort: opts.effort, agentType: opts.agentType })
+    if (noStageAgent && opts.agentType) throw new Error(`agent({agentType}): agent type '${opts.agentType}' not found. Available agents: claude, Explore`)
     prompts[label.split(' ')[0]] = prompt
     const key = Object.keys(answers).find(k => label === k || label.startsWith(k))
     if (!key) throw new Error(`unexpected agent ${label}`)
@@ -361,4 +362,28 @@ test('sources reach the claims reviewer and the check, which also lints the atta
 test('the length reviewer reads the lint, so it sees the long-paragraph pointers', async () => {
   const { prompts } = await runWith(base)
   assert.match(prompts['review:length'], /writing-lint\.py/)
+})
+
+test('every stage runs as the four-tool stage agent', async () => {
+  const { calls } = await runWith(repairing({ ...ready, verdict: 'NOT READY', findings: [finding()] },
+    { tampered: false, resolved: [{ ref: 'F1', passage: 'solid' }], unresolved: [], words_after: 1490 }))
+  assert.ok(calls.length >= 8)
+  for (const c of calls) assert.equal(c.agentType, 'edit-doc-stage', c.label)
+})
+
+test('a session without the stage agent falls back to the default agent once and still finishes', async () => {
+  const { result, calls, logs } = await runWith(base, { target: '/tmp/post.md' }, { noStageAgent: true })
+  assert.equal(result.clean, true, result.reasons.join('; '))
+  assert.equal(logs.filter(l => /edit-doc-stage agent is not loaded/.test(l)).length, 1)
+  assert.equal(calls.filter(c => c.agentType).length, 1, 'only the first stage tries the stage agent')
+})
+
+test('a stage agent error other than a missing agent is not swallowed', async () => {
+  await assert.rejects(runWith({ ...base, prepare: () => { throw new Error('API overloaded') } }), /API overloaded/)
+})
+
+test('every stage reads the memory index in its opening turn', async () => {
+  const { prompts } = await runWith(repairing({ ...ready, verdict: 'NOT READY', findings: [finding()] },
+    { tampered: false, resolved: [{ ref: 'F1', passage: 'solid' }], unresolved: [], words_after: 1490 }))
+  for (const k of ['prepare', 'review:words', 'conduct', 'check', 'repair']) assert.match(prompts[k], /memory\/MEMORY\.md/)
 })

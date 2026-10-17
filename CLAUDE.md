@@ -32,6 +32,7 @@ dotfiles/
 ├── claude/              Claude Code config (global, applies to every project)
 │   ├── CLAUDE.md        Global instructions Claude reads at every session start
 │   ├── commands/        Custom skills (audit, debug, recall, edit-doc, ...)
+│   ├── agents/          Subagent types (edit-doc-stage: four tools, for workflow stages)
 │   ├── output-styles/   Output presets (warren.md)
 │   └── docs/            Shell reference + RAG/wiki explainer
 │
