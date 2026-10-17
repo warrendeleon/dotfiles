@@ -24,7 +24,7 @@ const okMech = { exit: 0, total: 40, missing: [] }
 const okLint = { exit: 0, hits: 0, emdash_per_1000: 0 }
 const backupOf = { backed_up: true, dir: '/h/.claude/edit-doc/post.md.Ab12Cd', original: '/h/.claude/edit-doc/post.md.Ab12Cd/original.md', backup_error: '' }
 const backup = backupOf
-const prep = (words = 1800) => ({ ...backupOf, surface: 'blog', profile: 'Draft or edit English prose', guides: ['plain-sentence-construction.md', 'ai-writing-gotchas.md'],
+const prep = (words = 6000) => ({ ...backupOf, surface: 'blog', profile: 'Draft or edit English prose', guides: ['plain-sentence-construction.md', 'ai-writing-gotchas.md'],
   words_before: words + 200, words_after: words, inventory_items: 40, authority_changes: [],
   structure_changes: [{ what: 'moved the verdict up', why: 'guide 7' }], gaps: [], sha_after: 'bbb' })
 const proposal = (before, after = 'plain') => ({ before, after, rule: 'ai-writing-gotchas.md: Words', reason: 'listed word', keeps: [] })
@@ -56,6 +56,7 @@ const base = {
   'review:argument': review(),
   'review:claims': review(),
   'review:length': review(),
+  'review:whole': review(),
   conduct: conduct(),
   check: ready,
 }
@@ -69,10 +70,26 @@ test('a long document gets four reviewers and a clean check ends the run with no
   assert.equal(labels.length, 7)
 })
 
-test('a short document gets one combined reviewer', async () => {
-  const { result, labels } = await runWith({ ...base, prepare: prep(300), 'review:combined': review(), conduct: conduct({ words_after: 280 }) })
-  assert.deepEqual(labels.filter(l => l.startsWith('review:')), ['review:combined'])
-  assert.equal(result.clean, true)
+test('a document under 5,000 words gets one reviewer that reads the whole bundle', async () => {
+  for (const words of [300, 1800, 4900]) {
+    const { result, labels, prompts, calls } = await runWith({ ...base, prepare: prep(words), conduct: conduct({ words_after: words - 20 }) })
+    assert.deepEqual(labels.filter(l => l.startsWith('review:')), ['review:whole'])
+    assert.equal(result.clean, true, result.reasons.join('; '))
+    assert.match(prompts['review:whole'], /Read the whole bundle together/)
+    assert.match(prompts['review:whole'], /a decision a comment leaves open that the target closes/)
+    assert.equal(calls.find(c => c.label === 'review:whole').model, 'opus')
+    assert.equal(calls.find(c => c.label === 'review:whole').effort, 'high')
+  }
+})
+
+test('a document of 5,000 words or more gets one reviewer per remit', async () => {
+  const { labels } = await runWith({ ...base, prepare: prep(5000) })
+  assert.deepEqual(labels.filter(l => l.startsWith('review:')).sort(), ['review:argument', 'review:claims', 'review:length', 'review:words'])
+})
+
+test('the conductor tightens the whole document when the whole-document reviewer was capped', async () => {
+  const { prompts } = await runWith({ ...base, prepare: prep(1800), 'review:whole': review([], { capped: true }), conduct: conduct({ words_after: 1700 }) })
+  assert.match(prompts.conduct, /run the skill's Pass 8 over the whole document/)
 })
 
 test('every stage runs on the model and effort set for it, and args can override one', async () => {

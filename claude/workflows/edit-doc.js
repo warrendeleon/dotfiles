@@ -1,7 +1,7 @@
 export const meta = {
   name: 'edit-doc',
   description: 'Edit one document to the house writing guides and cut its length without losing content: one conductor writes, read-only reviewers propose, a fresh reader checks, once',
-  whenToUse: 'Every document before it is delivered: blog post, wiki page, ADR, deck notes, README, email, PR description. args: {target: path (one file), surface?: "blog" | "wiki" | "email" | "jira" | "adr" | "deck" | "readme" | "pr" | "slack" | "other", mode?: "senior" | "learning" (default senior), notes?: string, decisions?: [author framings to leave alone], sources?: [paths, or "repo at commit" notes: the evidence the claims are checked against, such as attachments, drafts, code], models?: {prepare, words, argument, claims, length, tests, combined, conduct, check, repair, final}, efforts?: {same keys}}. The conductor\'s first act is a backup to a fresh directory under $HOME/.claude/edit-doc; it edits nothing if that fails. The conductor is the only writer and edits only the target: it takes the content inventory and does the structure pass, then rules on every proposal and applies it. Reviewers never edit and each owns one remit, so they do not repeat each other; proposals touching the same passage are grouped and exact duplicates dropped. A fresh reader checks the result against the guides and the inventory, with writing-lint.py and content-inventory.py. At most one repair follows, then one final confirmation of exactly what the repair touched. No stage runs twice, so the run cannot loop. A run that ends more than 2% longer than it started is not clean. A tests reviewer joins when the document carries tests, acceptance criteria or reproduction steps. Under 600 words one combined reviewer replaces them all. Agents: 4 to 6 for a short piece, 7 to 10 for a long one. Launch by scriptPath (~/Developer/dotfiles/claude/workflows/edit-doc.js).',
+  whenToUse: 'Every document before it is delivered: blog post, wiki page, ADR, deck notes, README, email, PR description. args: {target: path (one file), surface?: "blog" | "wiki" | "email" | "jira" | "adr" | "deck" | "readme" | "pr" | "slack" | "other", mode?: "senior" | "learning" (default senior), notes?: string, decisions?: [author framings to leave alone], sources?: [paths, or "repo at commit" notes: the evidence the claims are checked against, such as attachments, drafts, code], models?: {prepare, whole, words, argument, claims, length, tests, conduct, check, repair, final}, efforts?: {same keys}}. The conductor\'s first act is a backup to a fresh directory under $HOME/.claude/edit-doc; it edits nothing if that fails. The conductor is the only writer and edits only the target: it takes the content inventory and does the structure pass, then rules on every proposal and applies it. Reviewers never edit and each owns one remit, so they do not repeat each other; proposals touching the same passage are grouped and exact duplicates dropped. A fresh reader checks the result against the guides and the inventory, with writing-lint.py and content-inventory.py. At most one repair follows, then one final confirmation of exactly what the repair touched. No stage runs twice, so the run cannot loop. A run that ends more than 2% longer than it started is not clean. Under 5,000 words one reviewer reads the whole document and its sources together, because split remits let faults that cross them slip through (17 Oct 2026, six Jira tickets). Longer documents get one reviewer per remit, plus a tests reviewer when the document carries tests, acceptance criteria or reproduction steps. Agents: 4 to 6 under 5,000 words, 7 to 10 above. Launch by scriptPath (~/Developer/dotfiles/claude/workflows/edit-doc.js).',
   phases: [
     { title: 'Prepare', detail: 'conductor: confirmed backup, content inventory, authority and structure passes' },
     { title: 'Review', detail: 'read-only reviewers, one remit each, proposing exact edits' },
@@ -27,7 +27,8 @@ const SKILL = '$HOME/Developer/dotfiles/claude/commands/edit-doc.md'
 const GUIDES = '$HOME/.wiki/personal/writing'
 const HOOKS = '"$HOME"/Developer/dotfiles/claude/hooks'
 const LINT = `python3 ${HOOKS}/writing-lint.py ${sh(target)}`
-const SHORT_WORDS = 600
+// One reader holds a document this size and its sources in one context; past it the remits split.
+const LONG_WORDS = 5000
 
 // Models and effort per stage. Judgement that changes the document (the structure pass, ruling
 // on proposals, the final read) runs on Opus; finding work runs on Sonnet unless the remit needs
@@ -36,12 +37,12 @@ const SHORT_WORDS = 600
 // pinned version IDs retire and fail every agent at launch.
 const TIER = {
   prepare:  { model: 'opus',   effort: 'high' },
+  whole:    { model: 'opus',   effort: 'high' },
   words:    { model: 'sonnet', effort: 'medium' },
   argument: { model: 'sonnet', effort: 'high' },
   claims:   { model: 'opus',   effort: 'medium' },
   length:   { model: 'opus',   effort: 'medium' },
   tests:    { model: 'opus',   effort: 'medium' },
-  combined: { model: 'opus',   effort: 'medium' },
   conduct:  { model: 'opus',   effort: 'high' },
   check:    { model: 'opus',   effort: 'high' },
   repair:   { model: 'opus',   effort: 'medium' },
@@ -96,11 +97,11 @@ const REMITS = {
     notMine: 'wording (words reviewer); tone and page (argument reviewer); other claims (claims reviewer); length (length reviewer)',
   },
 }
-const COMBINED = {
-  title: 'every remit',
-  passes: 'Passes 3 to 8 of the skill',
-  guides: 'the guides the reading profile names',
-  covers: Object.values(REMITS).map(r => `${r.title}: ${r.covers}`).join('\n'),
+const WHOLE = {
+  title: 'the whole document',
+  passes: 'Passes 3 to 8 of the skill, and the tests remit below',
+  guides: 'every guide the reading profile names, including its surface guides, in full',
+  covers: Object.values(REMITS).map(r => `${r.title}: ${r.covers}`).join('\n') + '\nRead the whole bundle together: the target, every source the header lists (attachments, comments, drafts, code) and the inventory. A fault that spans sections or files is yours too: a list the target promises but never gives, a decision a comment leaves open that the target closes, a figure or claim an attachment contradicts, a file the target cites that is not attached. A fault in a file other than the target goes under flags with that file.',
   notMine: 'nothing; you are the only reviewer',
   lint: true,
 }
@@ -269,7 +270,7 @@ STAGE: conduct. An earlier stage of this run (prepare) made ${prep.structure_cha
 2. Locate each proposal's "before" text in the target. Reject a proposal whose text is absent or occurs more than once. The passages below are grouped by the text they share, as a hint only: proposals whose located spans intersect are one passage, whether or not they are grouped here, and you make one edit that settles each passage.
 3. Rule on every proposal: apply, adapt (the same fix in different words) or reject with a reason. Reject a proposal that names no rule, breaks another guide, touches an author decision, loses or weakens an inventory item, changes a number or identifier, or touches the hands-off frontmatter (tags, publishDate, slug, campaign, series, heroImage, heroAlt, locale, draft, relatedPosts).
 4. Apply your rulings with exact-string edits. For each applied proposal, report the text you actually wrote.
-5. ${tightenAll ? 'The length reviewer failed or stopped at its cap: run the skill\'s Pass 8 over the whole document for the length it missed.' : 'The length reviewer covered the whole document: tighten only the passages you edited, where the edit left a seam or a repeat.'} Say each item once, in the fewest exact words, plain and connected. An addition (a named specific, a restored qualifier) costs words: recover them by tightening the same passage, so the document ends no longer than it started unless a required addition cannot be paid for.
+5. ${tightenAll ? 'The reviewer covering length failed or stopped at its cap: run the skill\'s Pass 8 over the whole document for the length it missed.' : 'The reviewer covering length read the whole document: tighten only the passages you edited, where the edit left a seam or a repeat.'} Say each item once, in the fewest exact words, plain and connected. An addition (a named specific, a restored qualifier) costs words: recover them by tightening the same passage, so the document ends no longer than it started unless a required addition cannot be paid for.
 6. Tick every inventory item against the target and put back anything lost or weakened, in its shortest exact form. Then run the mechanical check and restore what it reports missing: ${invCmd(paths)}
    ${BOUNDED}
 7. Run the lint and read each hit in context: ${LINT}
@@ -368,10 +369,10 @@ const prep = await agent(preparePrompt(paths), { phase: 'Prepare', label: 'prepa
 if (!prep) return finish({ clean: false, stage: 'prepare', reason: 'the prepare stage failed; if its first command ran, a backup is under $HOME/.claude/edit-doc' })
 if (!prep.backed_up || !prep.dir) return finish({ clean: false, stage: 'prepare', reason: `the backup could not be confirmed${prep.backup_error ? `: ${prep.backup_error}` : ''}; nothing was edited` })
 paths = { dir: prep.dir, original: prep.original, inventory: `${prep.dir}/inventory.md` }
-const short = prep.words_after < SHORT_WORDS
-const units = short ? [['combined', COMBINED]] : Object.entries(REMITS).filter(([k]) => k !== 'tests' || prep.has_tests)
-const CAP = short ? 40 : 25
-log(`${prep.words_before} words, ${prep.words_after} after the structure pass, ${prep.inventory_items} inventory items; ${short ? 'one combined reviewer' : `${units.length} reviewers`}`)
+const short = prep.words_after < LONG_WORDS
+const units = short ? [['whole', WHOLE]] : Object.entries(REMITS).filter(([k]) => k !== 'tests' || prep.has_tests)
+const CAP = short ? 60 : 25
+log(`${prep.words_before} words, ${prep.words_after} after the structure pass, ${prep.inventory_items} inventory items; ${short ? 'one reviewer for the whole document' : `${units.length} reviewers, one per remit`}`)
 
 phase('Review')
 const reviews = await parallel(units.map(([key, r]) => () =>
@@ -391,7 +392,7 @@ const { groups, dropped } = group(proposals)
 log(`${proposals.length} proposals in ${groups.length} passages${dropped ? `, ${dropped} exact duplicates dropped` : ''}; ${flags.length} flags for the author`)
 const lengthSaved = (done.find(d => d.remit === 'length') || {}).words_saved
 if (lengthSaved !== undefined) log(`length reviewer: proposals save ${lengthSaved} words`)
-const tightenAll = short || lost.includes('length') || capped.includes('length') || capped.includes('combined')
+const tightenAll = ['length', 'whole'].some(k => lost.includes(k) || capped.includes(k))
 
 phase('Conduct')
 const conduct = await agent(conductPrompt(paths, prep, groups, flags, lost, tightenAll), { phase: 'Conduct', label: `conduct (${proposals.length})`, schema: CONDUCT_SCHEMA, ...tier('conduct') })
