@@ -102,7 +102,8 @@ Run this before any word-level pass: rewriting a section removes many flagged wo
 - **Real shape.** The dead end that changed the decision, a cause that came from outside, the cost of the choice and a question still open. Restore one the draft tidied away when the document or its sources contain it. When they do not, flag the gap for Warren; never write one.
 - **Named specifics.** Where the draft alludes ("a popular library", "some teams"), name the thing if a source you opened gives it; otherwise flag.
 - **Register.** The piece sounds like its surface: a blog post, an email, a Slack reply, an ADR or a deck.
-- **Template structure.** Bold-label bullets in an argument, template headings, small tables that should be sentences, a closing challenges section.
+- **Template structure.** Bold-label bullets in an argument, template headings, small tables of prose facts that should be sentences (never a table of raw data), a closing challenges section.
+- **Protected content.** A code block, diagram, chart, data table, log, console output, data excerpt (JSON, CSV, YAML) or quoted record may move with its section. No structural change removes, shortens or summarises one.
 
 A structural change rewrites whole sections. Record each one in the change log: what moved or went, and why.
 
@@ -225,7 +226,7 @@ Behaviour, colour, organisation, optimised, recognise, licence, analyse, modelle
 
 ### Pass 8 — Tighten
 
-Apply guide 7's "Tighten without losing content" to the whole document. Say each inventory item once, in the fewest words that keep it exact: shorten wordy phrasing, cut framing that announces what comes next, merge passages that cover the same ground (keeping the fuller detail) and cut restatements. Numbers, identifiers, code, commands, quotations and link targets stay byte-for-byte. Keep the sentences plain and connected; a shorter document comes from saying each thing once, not from a telegraphic style.
+Apply guide 7's "Tighten without losing content" to the whole document. Say each inventory item once, in the fewest words that keep it exact: shorten wordy phrasing, cut framing that announces what comes next, merge passages that cover the same ground (keeping the fuller detail) and cut restatements. Numbers, identifiers, code, commands, quotations and link targets stay byte-for-byte. Tighten prose only: never shorten, cut, merge, summarise or turn into prose a code block, diagram, chart, data table, log, console output, data excerpt or quoted record. Keep the sentences plain and connected; a shorter document comes from saying each thing once, not from a telegraphic style.
 
 Then verify: tick every inventory item against the edited text. Put back anything missing or weakened (a dropped qualifier, "may" turned into "will", a lost condition) in its shortest exact form.
 
@@ -295,6 +296,7 @@ After editing, report under 500 words. Be specific so Warren can absorb the patt
 - Don't invent or speculate. Flag, never fabricate. This applies especially to dates, statistics, code identifiers, and personal facts.
 - Don't invent a dead end, source, opinion or experience to make a piece read as written by a person. The structure pass restores what the material holds and flags what it lacks.
 - Don't add new sections or new examples. Clean, calibrate, correct, tighten. Restructure within the existing scope.
+- Don't shorten code, charts or raw data. Tightening is for prose; the content-inventory check reports a changed code block, chart or data row as missing.
 - Don't make Warren the cautionary tale outside learning-post mode.
 - Don't add AI / Claude / ChatGPT references in the body of any document, except posts that are literally about those tools (the Claude RAG series, MCP server tutorial, etc.).
 - Don't touch `tags`, `publishDate`, `slug`, `campaign`, `series`, `heroImage`, `heroAlt`, `locale`, `draft`, `relatedPosts` in frontmatter.

@@ -182,6 +182,39 @@ class Check(unittest.TestCase):
         self.assertEqual(missing(doubled, DOC), set())
 
 
+class Protected(unittest.TestCase):
+    DATA = "| Run | Cold start | Build |\n|---|---|---|\n| debug | 420 ms | 0.76 |\n| release | 380 ms | 0.76 |\n"
+    PROSE = "| Rule | Why |\n|---|---|\n| Cut the tail | It adds rhythm and no information |\n"
+
+    def test_value_rows_are_data_rows_and_prose_rows_are_not(self):
+        rows = of(ci.extract(self.DATA + "\n" + self.PROSE), "data-row")
+        self.assertEqual(rows, {"debug | 420 ms | 0.76", "release | 380 ms | 0.76"})
+
+    def test_a_changed_or_dropped_data_row_is_missing(self):
+        self.assertIn(("data-row", "release | 380 ms | 0.76"), missing(self.DATA, self.DATA.replace("| release | 380 ms | 0.76 |\n", "")))
+        self.assertIn(("data-row", "debug | 420 ms | 0.76"), missing(self.DATA, self.DATA.replace("debug", "dbg")))
+
+    def test_a_tightened_prose_row_passes(self):
+        self.assertEqual(missing(self.PROSE, self.PROSE.replace("It adds rhythm and no information", "Rhythm, no information")), set())
+
+    def test_a_data_table_turned_into_a_sentence_is_missing(self):
+        self.assertTrue(missing(self.DATA, "Debug takes 420 ms and release 380 ms on 0.76.\n"))
+
+    def test_html_data_rows(self):
+        html = "<table><tr><th>Run</th><th>ms</th></tr><tr><td>debug</td><td>420</td></tr></table>"
+        self.assertIn(("data-row", "debug | 420"), missing(html, html.replace("420", "400"), True))
+
+    def test_svg_data_attributes_and_json_data_are_kept_whole(self):
+        doc = '<svg viewBox="0 0 10 10"><rect width="4"/></svg>\n<div data-values="3,5,8"></div>\n<script type="application/json">{"a": 1}</script>'
+        self.assertEqual(missing(doc, doc), set())
+        self.assertTrue(any(k == "chart" for k, _ in missing(doc, doc.replace('width="4"', 'width="5"'))))
+        self.assertIn(("chart", "3,5,8"), missing(doc, doc.replace("3,5,8", "3,5")))
+        self.assertIn(("chart", '{"a": 1}'), missing(doc, doc.replace('{"a": 1}', '{"a": 2}')))
+
+    def test_a_pipe_in_prose_is_not_a_table(self):
+        self.assertEqual(of(ci.extract("Intro.\nIt was 3 | 4 | 5 today.\n"), "data-row"), set())
+
+
 class Cli(unittest.TestCase):
     def run_cli(self, *args):
         return subprocess.run([sys.executable, "-I", HOOK, *args], capture_output=True, text=True)

@@ -306,3 +306,15 @@ test('the length reviewer is asked for every cut and the conductor must pay for 
   assert.match(prompts.conduct, /recover them by tightening the same passage/)
   assert.ok(logs.some(l => /proposals save 240 words/.test(l)))
 })
+
+test('every stage protects code, charts and raw data, and reads the surface guides', async () => {
+  const { prompts } = await runWith(base)
+  for (const k of ['prepare', 'review:words', 'review:argument', 'review:length', 'conduct', 'check']) {
+    assert.match(prompts[k], /PROTECTED CONTENT: code blocks, diagrams and charts/)
+  }
+  assert.match(prompts['review:length'], /protected content \(see above\) is never a length proposal/)
+  assert.match(prompts['review:argument'], /never a table of raw data/)
+  assert.match(prompts.check, /every protected block shortened, cut or turned into prose/)
+  assert.match(prompts['review:words'], /plus every surface guide in it/)
+  assert.match(prompts.prepare, /including any surface guide it names/)
+})

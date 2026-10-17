@@ -20,6 +20,10 @@ values this script checks must survive byte for byte, so a mechanical comparison
                  footnote labels and the markers of ordered lists
     footnote     every footnote the body references, by its text, so renumbering passes and a
                  footnote cut from its claim does not
+    data-row     every table row, Markdown or HTML, whose cells are mostly values (numbers,
+                 dates, versions, percentages, inline code, yes/no marks): raw data stays whole
+    chart        every <svg> block, every data-* attribute value and every JSON data block
+                 (<script type="application/json">), byte for byte
     frontmatter  the publishing fields an edit must not touch (tags, publishDate, slug,
                  campaign, series, heroImage, heroAlt, locale, draft, relatedPosts), compared in
                  both directions so an added field counts too
@@ -58,6 +62,14 @@ FOOT_REF = re.compile(r"\[\^([^\]\n]+)\](?!:)")
 LIST_MARKER = re.compile(r"^(\s*)\d+[.)](?=\s)", re.M)
 NUMBER = re.compile(r"(?<![\w.,:/])v?-?\d+(?:[.,:/\-]\d+)*%?(?![\w])")
 SENTENCE_END = ".,;:!?'\"»”’"
+SVG = re.compile(r"(?is)<svg\b.*?</svg\s*>")
+DATA_ATTR = re.compile(r"""(?i)\bdata-[\w-]+\s*=\s*(?:"([^"]*)"|'([^']*)')""")
+JSON_SCRIPT = re.compile(r"""(?is)<script\b[^>]*type\s*=\s*["']application/(?:ld\+)?json["'][^>]*>(.*?)</script\s*>""")
+HTML_ROW = re.compile(r"(?is)<tr\b[^>]*>(.*?)</tr\s*>")
+HTML_CELL = re.compile(r"(?is)<t[dh]\b[^>]*>(.*?)</t[dh]\s*>")
+MD_SEPARATOR = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$")
+VALUE_CELL = re.compile(r"[\s~≈<>±+−–—-]*(?:v?-?\d+(?:[.,:/\-]\d+)*%?\s*[A-Za-zµ°%/]{0,6}\.?[\s,;–—-]*)+")
+MARKS = {"", "—", "–", "-", "n/a", "N/A", "yes", "no", "Yes", "No", "✓", "✗", "✔", "✖", "x", "X", "true", "false"}
 
 
 class InventoryError(Exception):
@@ -172,6 +184,44 @@ def code_blocks(body):
     return items, "\n".join(out)
 
 
+def cell_is_value(cell):
+    c = re.sub(r"[*_]", "", cell).strip()
+    if c.startswith("`") and c.endswith("`") and len(c) > 1:
+        return True
+    return c in MARKS or VALUE_CELL.fullmatch(c) is not None
+
+
+def data_row(cells):
+    """A row whose non-empty cells are mostly values, normalised to "a | b | c"; else None."""
+    cells = [re.sub(r"\s+", " ", c).strip() for c in cells]
+    filled = [c for c in cells if c]
+    if len(filled) < 2:
+        return None
+    values = sum(1 for c in filled if cell_is_value(c))
+    return " | ".join(cells) if values * 2 >= len(filled) else None
+
+
+def md_rows(prose):
+    """Markdown table rows, skipping header and separator rows: (line index, cells)."""
+    lines, rows = prose.split("\n"), []
+    for i, line in enumerate(lines):
+        if "|" not in line or MD_SEPARATOR.match(line):
+            continue
+        nxt = lines[i + 1] if i + 1 < len(lines) else ""
+        prev = lines[i - 1] if i > 0 else ""
+        if MD_SEPARATOR.match(nxt):
+            continue                      # a header row
+        if "|" not in prev and not MD_SEPARATOR.match(prev):
+            continue                      # a stray pipe in prose, not a table row
+        body = line.strip()
+        if body.startswith("|"):
+            body = body[1:]
+        if body.endswith("|"):
+            body = body[:-1]
+        rows.append((i, [c for c in re.split(r"(?<!\\)\|", body)]))
+    return rows
+
+
 def line_of(text, pos, offset):
     return text.count("\n", 0, pos) + 1 + offset
 
@@ -193,12 +243,27 @@ def extract(text, html=False):
     for it in code:
         it["line"] += offset
     items += code
+    for m in JSON_SCRIPT.finditer(prose):
+        items.append({"kind": "chart", "value": m.group(1).strip(), "line": line_of(prose, m.start(), offset)})
+    for m in SVG.finditer(prose):
+        items.append({"kind": "chart", "value": m.group(0), "line": line_of(prose, m.start(), offset)})
+    for m in DATA_ATTR.finditer(prose):
+        items.append({"kind": "chart", "value": m.group(1) if m.group(1) is not None else m.group(2), "line": line_of(prose, m.start(), offset)})
+    for m in HTML_ROW.finditer(prose):
+        row = data_row([TAG.sub("", c) for c in HTML_CELL.findall(m.group(1))])
+        if row:
+            items.append({"kind": "data-row", "value": row, "line": line_of(prose, m.start(), offset)})
+    prose = SVG.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), prose)
     prose = SCRIPT_STYLE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), prose)
     for m in list(PRE.finditer(prose)):
         content = TAG.sub("", m.group(1))
         items.append({"kind": "code", "value": "\n" + content.strip("\n"), "line": line_of(prose, m.start(), offset)})
     prose = PRE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), prose)
 
+    for i, cells in md_rows(prose):
+        row = data_row(cells)
+        if row:
+            items.append({"kind": "data-row", "value": row, "line": i + 1 + offset})
     for m in INLINE.finditer(prose):
         items.append({"kind": "inline-code", "value": m.group(2).replace("\n", " ").strip(), "line": line_of(prose, m.start(), offset)})
     prose = INLINE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), prose)
@@ -258,6 +323,8 @@ def check(original_text, edited_text, html=False):
     links_after = values(after, "link")
     numbers_after = values(after, "number")
     notes_after = values(after, "footnote")
+    rows_after = values(after, "data-row")
+    charts_after = values(after, "chart")
     fm_before = {it["key"]: it["value"] for it in before if it["kind"] == "frontmatter"}
     fm_after = {it["key"]: it["value"] for it in after if it["kind"] == "frontmatter"}
     missing, seen = [], set()
@@ -280,6 +347,10 @@ def check(original_text, edited_text, html=False):
             kept = v in links_after
         elif k == "footnote":
             kept = v in notes_after
+        elif k == "data-row":
+            kept = v in rows_after
+        elif k == "chart":
+            kept = v in charts_after
         else:
             kept = v in numbers_after
         if not kept:
