@@ -39,12 +39,12 @@ When unclear, default to senior expertise.
 ## Rules
 
 1. **Edit the document in place** for qualitative passes (voice, AI tells, UK tone, engagement, British English). These are the passes where the model performs well.
-2. **DEFAULT TO FLAGGING, not fixing, for Pass 4 (correctness)**. Numeric claims, identifier names, version numbers, statistics. **Do not auto-correct these.** Open the relevant file, read it, write your finding in the Pass 4 Evidence section of the change log, and let Warren decide whether to apply the change. The skill has historically been 70% wrong on numeric "corrections" — silent edits to numbers and identifiers are how that hallucination ships under Warren's name. Flag-not-fix is the default.
-3. **Run all six passes in order.** Each pass has a clear remit; don't skip.
+2. **DEFAULT TO FLAGGING, not fixing, for Pass 5 (correctness)**. Numeric claims, identifier names, version numbers, statistics. **Do not auto-correct these.** Open the relevant file, read it, write your finding in the Pass 5 Evidence section of the change log, and let Warren decide whether to apply the change. The skill has historically been 70% wrong on numeric "corrections" — silent edits to numbers and identifiers are how that hallucination ships under Warren's name. Flag-not-fix is the default.
+3. **Run all seven passes in order.** Each pass has a clear remit; don't skip.
 4. **Never fabricate to fix a problem.** If you'd have to invent a fact, flag it instead.
 5. **Don't make Warren the cautionary tale** outside learning-post mode. He has been criticised for being too direct or dismissive; the steelman framework is how that gets calibrated, not by inserting self-deprecation.
 6. **Tags, publishDate, slug, campaign, series, heroImage, heroAlt, locale, draft, relatedPosts** in frontmatter are hands-off. Title and description are in scope; stay within the original character budget for description.
-7. **Em-dashes only where they genuinely fit** (parenthetical aside, appositive, `term — definition` list), never stitching two clauses. Same judgement in every language; don't strip by count.
+7. **Em-dashes near zero in prose**, judged sentence by sentence by density and function as guide 2 sets out; `term — definition` rows stay. Same judgement in every language; don't strip by count.
 8. **Every correctness-pass entry in the change log MUST cite the file path you read and an excerpt or paraphrase of what you saw.** If you cannot cite a specific file you opened, the claim is unverified and must be flagged, not fixed. Hand-waving "verified against codebase" is not acceptable. This is the verification gate.
 
 ## Passes (run in order, edit in place)
@@ -77,11 +77,27 @@ Cross-check authority claims against `workxp-en.json` if specific years or roles
 
 **Hard rule**: industry-standard tools (TanStack Query, Zustand, RTK Query, Redux Toolkit, MSW, Detox, Cucumber, Zod, Axios, etc.) are NOT framed as things Warren just learned. Even if a particular post emerged from a learning moment, the framing is senior comparison, not novice discovery. Strip any line that reads "I didn't know X exists" for any tool that's industry-standard.
 
-### Pass 2 — AI tells
+### Pass 2 — Structure
 
-Scan the document against the gotchas wiki page. Strip:
+Run this before any word-level pass: rewriting a section removes many flagged words anyway, and a word pass never changes the structure. Read the outline first (headings and the first sentence of each section), then apply the structural pass in guide 7, argument shape and register in guide 3, the eighth habit in guide 1 and template structure in guide 6.
 
-- **Clause-stitching em-dashes** (two independent clauses joined where a full stop or colon belongs); replace those with a period, colon, comma, or parenthesis. Keep em-dashes that genuinely fit (parenthetical, appositive, `term — definition` list). Judge each, never strip by count
+- **Order.** Does the piece open where the reader's problem is, and is its outline the one this material needs rather than the default context, problem, solution, lesson? Reorder sections when it is not. Tutorial steps keep their execution order.
+- **Endings.** Cut a stated lesson at the end of a section and any epilogue. The piece ends on its last substantive point.
+- **Real shape.** The dead end that changed the decision, a cause that came from outside, the cost of the choice and a question still open. Restore one the draft tidied away when the document or its sources contain it. When they do not, flag the gap for Warren; never write one.
+- **Named specifics.** Where the draft alludes ("a popular library", "some teams"), name the thing if a source you opened gives it; otherwise flag.
+- **Register.** The piece sounds like its surface: a blog post, an email, a Slack reply, an ADR or a deck.
+- **Template structure.** Bold-label bullets in an argument, template headings, small tables that should be sentences, a closing challenges section.
+
+A structural change rewrites whole sections. Record each one in the change log: what moved or went, and why.
+
+### Pass 3 — AI tells
+
+Scan the document against guide 2 (`ai-writing-gotchas.md`) and the sentence habits in guide 1. Guide 2's tables are the canonical list, including the stock phrases, the model-era vocabulary and the change-summary rules; the bullets below are reminders, not the list.
+
+Start by running `python3 ~/Developer/dotfiles/claude/hooks/writing-lint.py <file>`. It prints every place a guide 2 term or a leftovers-search pattern appears, plus the em-dash density. Each hit is a pointer: read it in its sentence and apply the judgement clause before changing anything. If it exits 2, a guide is missing or no longer parses; say so in the change log and scan by hand. Then strip:
+
+- **Em-dashes, near zero in prose.** Judge each one by density and by function: where a colon, semicolon, parentheses, comma or full stop serves as well, use it, and keep the punctuation varied rather than falling back on commas and full stops alone. Keep `term — definition` rows. Never strip by count
+- **Stock constructions and the dense noun style** (guide 1, seventh and ninth habits): "serves as" for "is", negative parallelism in every form, reflex lists of three, significance tails, nominalisations and stacked "-ing" clauses
 - **Banned words** from the canonical list (moreover, furthermore, however, therefore, additionally, leverage, robust, seamless, ensure, delve, foster, and the rest)
 - **Banned expressions** ("It's important to note", "That being said", "dive into", "In conclusion", and the rest)
 - **Banned constructions** ("It's not X, it's Y" → state the positive)
@@ -94,7 +110,7 @@ Scan the document against the gotchas wiki page. Strip:
 
 Apply the judgement clause: keep a banned word only when used in its **literal technical sense** (e.g. "framework" as a software framework, "dynamic" as dynamic dispatch). Note the keep in the change log. Marketing uses of the same word always get replaced.
 
-### Pass 3 — UK tone
+### Pass 4 — UK tone
 
 Apply the framework from the UK-tone wiki page. Warren's specific calibration matters here: he has been criticised for being too direct or dismissive of other opinions. The steelman framework is how that is corrected; it is not optional.
 
@@ -107,11 +123,11 @@ Apply the framework from the UK-tone wiki page. Warren's specific calibration ma
 
 Concrete pattern for any section where Warren is arguing for a choice: first paragraph credits the alternative; second paragraph names the trade-off that shifts; third paragraph defends Warren's pick on its own terms.
 
-### Pass 4 — Correctness (hallucination prevention)
+### Pass 5 — Correctness (hallucination prevention)
 
-**Read this first: the historical failure rate on Pass 4 is ~70%.** Voice-review previously shipped hallucinated "corrections" (renaming real identifiers, replacing correct counts with arbitrary ones, swapping methodology mid-document). All of those failures had the same root cause: I ran a grep, didn't open the matching files, and substituted my count for the deck's. **This pass defaults to flagging, not fixing.**
+**Read this first: the historical failure rate on Pass 5 is ~70%.** Voice-review previously shipped hallucinated "corrections" (renaming real identifiers, replacing correct counts with arbitrary ones, swapping methodology mid-document). All of those failures had the same root cause: I ran a grep, didn't open the matching files, and substituted my count for the deck's. **This pass defaults to flagging, not fixing.**
 
-**Default behaviour for Pass 4:**
+**Default behaviour for Pass 5:**
 
 - **Qualitative correctness** (does this sentence make sense, is the argument structurally sound, is the punctuation right): fix in place, normal.
 - **Quantitative correctness** (numeric counts, identifier names, version numbers, file paths, percentages, statistics, performance claims): **flag, do not fix**, unless the change log can cite a specific file you opened and read.
@@ -172,7 +188,7 @@ For code blocks specifically:
 
 **Be honest in the change log about what you actually checked.** "Verified against `~/Developer/HL/hl-mobile-app/features/account/src/hooks/useInvestmentsPriceManager.ts` lines 1-50" beats "verified against codebase" because it tells the user *what file you read* and lets them check your work.
 
-### Pass 5 — Engagement / retention
+### Pass 6 — Engagement / retention
 
 For blog posts and slide decks especially, but applies to any longer-form artefact. Without changing the core argument:
 
@@ -183,11 +199,11 @@ For blog posts and slide decks especially, but applies to any longer-form artefa
 - **Break up walls of text** with short sentences, fragments, or a code block.
 - **Tutorials**: signpost the journey. Number the steps. State what the reader has built at each milestone. Readers drop off when they lose the thread.
 - **Slide decks**: each slide should earn its place. Bullets should land payoffs, not list topics. Presenter notes are spoken scripts (follow existing convention; not editorial commentary).
-- **End on something concrete**: a takeaway, a working result, a question worth thinking about. Not "Hopefully this helped". A single earned punchline blockquote at the close is fine.
+- **End on the last substantive point**: a working result, or the question still open. Not a stated lesson, an epilogue or "Hopefully this helped" (Pass 2). A single earned punchline blockquote is fine where the prose runs thickest, per guide 6.
 
 If Warren tags the doc with retention concerns ("readers aren't reaching the end", "this feels dry"), elevate this pass: be more aggressive on padding, more deliberate on signposting.
 
-### Pass 6 — British English
+### Pass 7 — British English
 
 Behaviour, colour, organisation, optimised, recognise, licence, analyse, modelled, prioritise, organisation, behaviour, favourite, defence, programme (in the BBC sense, not software-programme). Match across the document; don't touch quoted code, library names, or upstream identifiers (`color` in CSS stays `color`).
 
@@ -203,6 +219,10 @@ After editing, report under 500 words. Be specific so Warren can absorb the patt
 **Authority calibration**:
 - Cautionary-tale framings stripped (line N → senior observation)
 - Authority claims cross-checked (against workxp-en.json: ...)
+
+**Structure**:
+- Sections reordered, endings cut, template structures removed (what moved or went, and why)
+- Gaps flagged for Warren: missing dead end, outside cause, cost, open question or named specific
 
 **AI tells removed** (rough count by category):
 - Clause-stitching em-dashes fixed: N (legitimate em-dashes kept) · Banned words/expressions: N · Templated openers/closers: N
@@ -240,11 +260,12 @@ After editing, report under 500 words. Be specific so Warren can absorb the patt
 - Self-hosted infra config not in this repo
 ```
 
-**The verification gate**: every entry under "Correctness — fixed" MUST have an Evidence section (file read + what you saw). If you can't produce that, the entry belongs under "Correctness — flagged" instead. No exceptions. A change log with five fixed entries and zero Evidence subsections is a failed run — go back to Pass 4 and either gather the evidence or move them to flagged.
+**The verification gate**: every entry under "Correctness — fixed" MUST have an Evidence section (file read + what you saw). If you can't produce that, the entry belongs under "Correctness — flagged" instead. No exceptions. A change log with five fixed entries and zero Evidence subsections is a failed run — go back to Pass 5 and either gather the evidence or move them to flagged.
 
 ## What NOT to do
 
 - Don't invent or speculate. Flag, never fabricate. This applies especially to dates, statistics, code identifiers, and personal facts.
+- Don't invent a dead end, source, opinion or experience to make a piece read as written by a person. The structure pass restores what the material holds and flags what it lacks.
 - Don't add new sections or new examples. Clean, calibrate, correct, tighten. Restructure within the existing scope.
 - Don't make Warren the cautionary tale outside learning-post mode.
 - Don't add AI / Claude / ChatGPT references in the body of any document, except posts that are literally about those tools (the Claude RAG series, MCP server tutorial, etc.).
