@@ -1,11 +1,12 @@
 export const meta = {
   name: 'edit-doc',
   description: 'Edit one document to the house writing guides and cut its length without losing content: one conductor writes, read-only reviewers propose, a fresh reader checks, once',
-  whenToUse: 'Every document before it is delivered: blog post, wiki page, ADR, deck notes, README, email, PR description. args: {target: path (one file), surface?: "blog" | "wiki" | "email" | "jira" | "adr" | "deck" | "readme" | "pr" | "slack" | "other", mode?: "senior" | "learning" (default senior), notes?: string, decisions?: [author framings to leave alone], sources?: [paths, or "repo at commit" notes: the evidence the claims are checked against, such as attachments, drafts, code], models?: {prepare, whole, words, argument, claims, length, tests, conduct, check, repair, final}, efforts?: {same keys}}. The conductor\'s first act is a backup to a fresh directory under $HOME/.claude/edit-doc; it edits nothing if that fails. The conductor is the only writer and edits only the target: it takes the content inventory and does the structure pass, then rules on every proposal and applies it. Reviewers never edit and each owns one remit, so they do not repeat each other; proposals touching the same passage are grouped and exact duplicates dropped. A fresh reader checks the result against the guides and the inventory, with writing-lint.py and content-inventory.py. At most one repair follows, then one final confirmation of exactly what the repair touched. No stage runs twice, so the run cannot loop. A run that ends more than 2% longer than it started is not clean. Under 5,000 words one reviewer reads the whole document and its sources together, because split remits let faults that cross them slip through (17 Oct 2026, six Jira tickets). Longer documents get one reviewer per remit, plus a tests reviewer when the document carries tests, acceptance criteria or reproduction steps. Agents: 4 to 6 under 5,000 words, 7 to 10 above. Launch by scriptPath (~/Developer/dotfiles/claude/workflows/edit-doc.js).',
+  whenToUse: 'Every document before it is delivered: blog post, wiki page, ADR, deck notes, README, email, PR description. args: {target: path (one file), surface?: "blog" | "wiki" | "email" | "jira" | "adr" | "deck" | "readme" | "pr" | "slack" | "other", mode?: "senior" | "learning" (default senior), notes?: string, decisions?: [author framings to leave alone], sources?: [paths, or "repo at commit" notes: the evidence the claims are checked against, such as attachments, drafts, code], models?: {prepare, whole, words, argument, claims, length, tests, conduct, tighten, check, repair, final}, efforts?: {same keys}}. The conductor\'s first act is a backup to a fresh directory under $HOME/.claude/edit-doc; it edits nothing if that fails. The conductor edits only the target: it takes the content inventory and does the structure pass, then rules on every proposal and applies it. A separate tightener then cuts the whole document with the /tighten skill, after every addition is in, because a conductor that both adds and cuts left every Jira run longer (17 and 18 Oct 2026). Reviewers never edit and each owns one remit, so they do not repeat each other; proposals touching the same passage are grouped and exact duplicates dropped. A fresh reader checks the result against the guides and the inventory, with writing-lint.py and content-inventory.py. At most one repair follows, then one final confirmation of exactly what the repair touched. No stage runs twice, so the run cannot loop. A run that ends more than 2% longer than it started is not clean. Under 5,000 words one reviewer reads the whole document and its sources together, because split remits let faults that cross them slip through (17 Oct 2026, six Jira tickets). Longer documents get one reviewer per remit, plus a tests reviewer when the document carries tests, acceptance criteria or reproduction steps. Agents: 5 to 7 under 5,000 words, 8 to 11 above. Launch by scriptPath (~/Developer/dotfiles/claude/workflows/edit-doc.js).',
   phases: [
     { title: 'Prepare', detail: 'conductor: confirmed backup, content inventory, authority and structure passes' },
     { title: 'Review', detail: 'read-only reviewers, one remit each, proposing exact edits' },
-    { title: 'Conduct', detail: 'conductor rules on every proposal, applies, tightens, checks the inventory' },
+    { title: 'Conduct', detail: 'conductor rules on every proposal, applies, checks the inventory' },
+    { title: 'Tighten', detail: 'tightener: cuts the whole document with /tighten, inventory kept whole' },
     { title: 'Check', detail: 'a fresh reader plus the two mechanical checks' },
     { title: 'Repair', detail: 'one repair of what the check found, then a final confirmation of that repair' },
   ],
@@ -24,6 +25,7 @@ const name = target.split('/').pop()
 const ext = /\.[A-Za-z0-9]+$/.test(name) ? name.slice(name.lastIndexOf('.')) : ''
 const SAFE = name.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80) || 'document'
 const SKILL = '$HOME/Developer/dotfiles/claude/commands/edit-doc.md'
+const TIGHTEN_SKILL = '$HOME/Developer/dotfiles/claude/commands/tighten.md'
 const GUIDES = '$HOME/.wiki/personal/writing'
 const HOOKS = '"$HOME"/Developer/dotfiles/claude/hooks'
 const LINT = `python3 ${HOOKS}/writing-lint.py ${sh(target)}`
@@ -45,6 +47,7 @@ const TIER = {
   length:   { model: 'opus',   effort: 'medium' },
   tests:    { model: 'opus',   effort: 'medium' },
   conduct:  { model: 'opus',   effort: 'high' },
+  tighten:  { model: 'opus',   effort: 'high' },  // the same model and effort as the /tighten skill's frontmatter
   check:    { model: 'opus',   effort: 'high' },
   repair:   { model: 'opus',   effort: 'medium' },
   final:    { model: 'sonnet', effort: 'medium' },
@@ -196,6 +199,20 @@ const CONDUCT_SCHEMA = {
   required: ['tampered', 'applied', 'rejected', 'tightened', 'restored', 'words_after', 'inventory', 'lint', 'sha_after'],
 }
 
+const TIGHTEN_SCHEMA = {
+  type: 'object',
+  properties: {
+    tampered: { type: 'boolean', description: 'true when the target\'s sha256 did not match before you edited; you then edited nothing' },
+    words_before: { type: 'integer', description: 'wc -w on the target before your first cut' },
+    words_after: { type: 'integer' },
+    cuts: { type: 'array', items: { type: 'string' }, description: 'the larger cuts, each as "passage: what went or merged, words saved"' },
+    restored: { type: 'array', items: { type: 'string' }, description: 'items the loss read or the inventory check found gone or weakened, and you put back' },
+    inventory: MECH,
+    sha_after: { type: 'string' },
+  },
+  required: ['tampered', 'words_before', 'words_after', 'cuts', 'restored', 'inventory', 'sha_after'],
+}
+
 const CHECK_SCHEMA = {
   type: 'object',
   properties: {
@@ -281,7 +298,7 @@ NOT YOURS (other reviewers own these; do not spend effort on them): ${r.notMine}
 ${r.lint ? `\nRun the lint first and read every hit in context: ${LINT}\n` : ''}
 For each fault give one proposal: the exact text now in the target (long enough to occur once), the replacement, the rule it breaks and the inventory ids the passage holds, every one of which must survive in the replacement. Most important first, at most ${cap}; set capped true if faults remain past that. Numbers, identifiers, versions and quoted text are never changed by a proposal: put a doubt about one under flags with the file you read. List listed words you kept under the judgement clause.`
 
-const conductPrompt = (paths, prep, groups, flags, lost, tighten) => `${header('conductor', paths, prep)}
+const conductPrompt = (paths, prep, groups, flags, lost) => `${header('conductor', paths, prep)}
 
 STAGE: conduct. An earlier stage of this run (prepare) made ${prep.structure_changes.length} structure changes and wrote the inventory of ${prep.inventory_items} items. The reviewers' proposals follow. Do these in order:
 
@@ -290,8 +307,8 @@ STAGE: conduct. An earlier stage of this run (prepare) made ${prep.structure_cha
 2. Locate each proposal's "before" text in the target. Reject a proposal whose text is absent or occurs more than once. The passages below are grouped by the text they share, as a hint only: proposals whose located spans intersect are one passage, whether or not they are grouped here, and you make one edit that settles each passage.
 3. Rule on every proposal: apply, adapt (the same fix in different words) or reject with a reason. Reject a proposal that names no rule, breaks another guide, touches an author decision, loses or weakens an inventory item, changes a number or identifier, or touches the hands-off frontmatter (tags, publishDate, slug, campaign, series, heroImage, heroAlt, locale, draft, relatedPosts).
 4. Apply your rulings with exact-string edits. For each applied proposal, report the text you actually wrote.
-5. ${tighten === 'short' ? 'No reviewer on this run owns length alone, so run the skill\'s Pass 8 over the whole document after your edits. An accreted document usually runs 15 to 20 per cent longer than its content needs (guide 7, Application Notes): find every cut that keeps every inventory item, not only the obvious ones.' : tighten === 'missed' ? 'The reviewer covering length failed or stopped at its cap: run the skill\'s Pass 8 over the whole document for the length it missed.' : 'The reviewer covering length read the whole document: tighten only the passages you edited, where the edit left a seam or a repeat.'} Say each item once, in the fewest exact words, plain and connected. An addition (a named specific, a restored qualifier) costs words: recover them by tightening the same passage. The aim is a document shorter than it started wherever the content allows, and never longer unless a required addition cannot be paid for.
-   WORD CEILING: ${ceiling(prep)} words by wc -w on the target (the original's ${prep.words_before} plus 2%); after the structure pass it is ${prep.words_after}. After step 4, run wc -w. If the target is over the ceiling, make one tightening pass over the prose of the whole document (Pass 8: never protected content, never an inventory item), then run wc -w once more. Report any required addition you could not pay for, with its word cost.
+5. Fix only the seams your edits left: a repeated word, a dangling reference, a count an edit made wrong. Do not cut the document to make room for your additions. A separate tightener runs after you with /tighten and cuts the whole document, so write each addition (a named specific, a restored qualifier) in its fewest exact words and leave the paying to that stage.
+   WORD CEILING for the run: ${ceiling(prep)} words by wc -w on the target (the original's ${prep.words_before} plus 2%); after the structure pass it is ${prep.words_after}. Run wc -w after step 4 and report it.
 6. Tick every inventory item against the target and put back anything lost or weakened, in its shortest exact form. Then run the mechanical check and restore what it reports missing: ${invCmd(paths)}
    ${BOUNDED}
 7. Run the lint and read each hit in context: ${LINT}
@@ -302,6 +319,17 @@ ${groups.map((g, gi) => `Passage ${gi + 1}:\n` + g.map(p => `  ${p.id} [${p.remi
 
 FLAGS FROM REVIEWERS (not for you to edit; they go to the author):
 ${flags.map(f => `- ${f.location}: ${f.issue}`).join('\n') || '- none'}`
+
+const tightenPrompt = (paths, prep, conduct) => `${header('tightener', paths, prep)}
+
+STAGE: tighten. The conductor has applied every edit that adds or changes words, so you are the only stage that cuts. You edit the target and nothing else.
+
+0. Run shasum -a 256 on the target. If it is not ${conduct.sha_after}, something other than the conductor changed the file: set tampered true, edit nothing, and report.
+1. Read ${TIGHTEN_SKILL} and follow its steps 3 to 5. Steps 1 and 2 are done: the backup is ${paths.original} and the inventory is ${paths.inventory}. Read the inventory and the original before you cut; do not take a new backup or inventory.
+2. The target is ${conduct.words_after} words, the original had ${prep.words_before}, and the run is not clean above ${ceiling(prep)}. The aim is a document shorter than it started wherever the content allows. The earlier stages added words (named sources, restored qualifiers, rewrites into product terms, expanded acronyms) and a conductor's phrase-level trims have never paid for them, so look beyond phrases: in every section find the sentences and paragraphs the inventory shows are carried elsewhere (a criterion that repeats the technical approach, an evidence line that repeats the description, a paragraph copied from another document the reader does not need here) and keep each item once, in the section the document's structure gives it. Merge passages that cover the same ground, cut restatements and closing recaps, shorten wordy phrasing. A cut that would lose an inventory item, or weaken a qualifier, condition, reason or example, is not made.
+3. Tick every inventory item against the target and put back anything lost or weakened, in its shortest exact form. Then run the mechanical check and restore what it reports missing: ${invCmd(paths)}
+   ${BOUNDED}
+4. Run wc -w on the target and report the words before your first cut and after your last, the larger cuts with the words each saved, anything you put back, the last inventory check (exit, total, missing) and the target's sha256.`
 
 const checkPrompt = (paths, prep, ruled, byId) => `${header('fresh reader', paths, prep)}
 
@@ -404,7 +432,7 @@ const done = reviews.filter(Boolean)
 const lost = units.map(([k]) => k).filter(k => !done.some(d => d.remit === k))
 if (lost.length) log(`INCOMPLETE: ${lost.join(', ')} failed; the run cannot count as clean`)
 const capped = done.filter(d => d.capped).map(d => d.remit)
-if (capped.length) log(`${capped.join(', ')} stopped at the cap of ${CAP} proposals; the conductor tightens the whole document and the check reads it all`)
+if (capped.length) log(`${capped.join(', ')} stopped at the cap of ${CAP} proposals; the tightener cuts the whole document and the check reads it all`)
 
 const proposals = done.flatMap(d => d.proposals.map(p => ({ ...p, remit: d.remit }))).map((p, i) => ({ ...p, id: `P${i + 1}` }))
 const byId = Object.fromEntries(proposals.map(p => [p.id, p]))
@@ -414,15 +442,20 @@ const { groups, dropped } = group(proposals)
 log(`${proposals.length} proposals in ${groups.length} passages${dropped ? `, ${dropped} exact duplicates dropped` : ''}; ${flags.length} flags for the author`)
 const lengthSaved = (done.find(d => d.remit === 'length') || {}).words_saved
 if (lengthSaved !== undefined) log(`length reviewer: proposals save ${lengthSaved} words`)
-// Under 5,000 words no reviewer owns length alone, so the conductor tightens the whole document on
-// every run: with tightening left to the edited passages, every Jira run ended longer (17 Oct 2026).
-const tighten = short ? 'short' : ['length'].some(k => lost.includes(k) || capped.includes(k)) ? 'missed' : 'edited'
 
 phase('Conduct')
-const conduct = await stage(conductPrompt(paths, prep, groups, flags, lost, tighten), { phase: 'Conduct', label: `conduct (${proposals.length})`, schema: CONDUCT_SCHEMA, ...tier('conduct') })
+const conduct = await stage(conductPrompt(paths, prep, groups, flags, lost), { phase: 'Conduct', label: `conduct (${proposals.length})`, schema: CONDUCT_SCHEMA, ...tier('conduct') })
 if (!conduct) return finish({ clean: false, stage: 'conduct', reason: `the conduct stage failed; the original is at ${paths.original}`, prep, flags })
 if (conduct.tampered) return finish({ clean: false, stage: 'conduct', reason: `the target changed after the prepare stage, so a reviewer may have written to it; nothing further was edited. The original is at ${paths.original}`, prep, flags })
 log(`${conduct.applied.length} applied, ${conduct.rejected.length} rejected, ${conduct.restored.length} restored; inventory exit ${conduct.inventory.exit}; ${conduct.words_after} words`)
+
+// The conductor adds and the tightener cuts. With one agent doing both, the cuts were phrase-level
+// trims smaller than the additions, and every Jira run ended longer (17 and 18 Oct 2026).
+phase('Tighten')
+const tight = await stage(tightenPrompt(paths, prep, conduct), { phase: 'Tighten', label: 'tighten', schema: TIGHTEN_SCHEMA, ...tier('tighten') })
+if (!tight) return finish({ clean: false, stage: 'tighten', reason: `the tighten stage failed; the target may be half-edited and the original is at ${paths.original}`, prep, conduct, flags })
+if (tight.tampered) return finish({ clean: false, stage: 'tighten', reason: `the target changed after the conduct stage; nothing further was edited. The original is at ${paths.original}`, prep, conduct, flags })
+log(`tighten: ${tight.words_before} to ${tight.words_after} words, ${tight.restored.length} restored; inventory exit ${tight.inventory.exit}`)
 
 phase('Check')
 const check = await stage(checkPrompt(paths, prep, conduct, byId), { phase: 'Check', label: 'check', schema: CHECK_SCHEMA, ...tier('check') })
@@ -434,7 +467,7 @@ let repair = null, final = null, uncovered = []
 if (needsRepair) {
   phase('Repair')
   const refs = refsOf(check)
-  repair = await stage(repairPrompt(paths, prep, conduct.sha_after, refs, conduct.words_after), { phase: 'Repair', label: `repair (${refs.length})`, schema: REPAIR_SCHEMA, ...tier('repair') })
+  repair = await stage(repairPrompt(paths, prep, tight.sha_after, refs, tight.words_after), { phase: 'Repair', label: `repair (${refs.length})`, schema: REPAIR_SCHEMA, ...tier('repair') })
   if (repair && !repair.tampered) {
     const answered = new Set([...repair.resolved.map(r => r.ref), ...repair.unresolved.map(r => r.ref)])
     uncovered = refs.map(r => r.ref).filter(r => !answered.has(r))
@@ -448,7 +481,7 @@ if (needsRepair) {
 // the lint ran on the final text, and either the fresh reader found nothing, or the one repair
 // accounted for every reference, left none unresolved, and the final reader confirmed every fix
 // and found no breach in the repaired passages.
-const wordsAfter = (repair && repair.words_after) || conduct.words_after
+const wordsAfter = (repair && repair.words_after) || tight.words_after
 const grew = wordsAfter - prep.words_before
 const finalInventory = final ? final.inventory : check.inventory
 const finalLint = final ? final.lint : check.lint
@@ -478,6 +511,7 @@ return finish({
   reviewers: { ran: done.map(d => d.remit), lost, capped },
   proposals: proposals.length, passages: groups.length, changes, rejected: conduct.rejected,
   tightened: conduct.tightened, restored: conduct.restored, kept,
+  tighten: { before: tight.words_before, after: tight.words_after, cuts: tight.cuts, restored: tight.restored },
   flags: [...flags, ...(check.elsewhere || []).map(e => ({ location: e.file, quote: '', issue: e.issue, evidence: 'reported by the check; outside this run\'s one file', remit: 'check' }))],
   check: { verdict: check.verdict, missing: check.missing, findings: check.findings, reason: check.reason },
   repair, final, finalInventory, finalLint,

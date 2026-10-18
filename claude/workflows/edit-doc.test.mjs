@@ -31,6 +31,7 @@ const proposal = (before, after = 'plain') => ({ before, after, rule: 'ai-writin
 const review = (proposals = [], extra = {}) => ({ proposals, flags: [], kept: [], capped: false, ...extra })
 const conduct = (extra = {}) => ({ tampered: false, applied: [{ id: 'P1', final: 'a solid cache', note: '' }], rejected: [], tightened: [], restored: [],
   words_after: 1500, inventory: okMech, lint: okLint, sha_after: 'ccc', ...extra })
+const tightened = (extra = {}) => ({ tampered: false, words_before: 1500, words_after: 1400, cuts: ['Evidence: a line the Description repeats, 40 words'], restored: [], inventory: okMech, sha_after: 'ddd', ...extra })
 const ready = { verdict: 'READY', missing: [], findings: [], elsewhere: [], inventory: okMech, lint: okLint, reason: 'nothing found' }
 const finding = (extra = {}) => ({ location: 'line 4', quote: 'robust', rule: 'gotchas', fix: 'solid', reraised: false, ...extra })
 const finalOk = { inventory: okMech, lint: okLint, unconfirmed: [], breaches: [] }
@@ -59,6 +60,7 @@ const base = {
   'review:length': review(),
   'review:whole': review(),
   conduct: conduct(),
+  tighten: tightened(),
   check: ready,
 }
 const repairing = (check, repair, final = finalOk) => ({ ...base, check, repair, final })
@@ -68,12 +70,13 @@ test('a long document gets four reviewers and a clean check ends the run with no
   assert.deepEqual(labels.filter(l => l.startsWith('review:')).sort(), ['review:argument', 'review:claims', 'review:length', 'review:words'])
   assert.ok(!labels.includes('repair') && !labels.includes('final'))
   assert.equal(result.clean, true, result.reasons.join('; '))
-  assert.equal(labels.length, 7)
+  assert.equal(labels.length, 8)
+  assert.deepEqual(labels.filter(l => ['conduct', 'tighten', 'check'].includes(l)), ['conduct', 'tighten', 'check'])
 })
 
 test('a document under 5,000 words gets one reviewer that reads the whole bundle', async () => {
   for (const words of [300, 1800, 4900]) {
-    const { result, labels, prompts, calls } = await runWith({ ...base, prepare: prep(words), conduct: conduct({ words_after: words - 20 }) })
+    const { result, labels, prompts, calls } = await runWith({ ...base, prepare: prep(words), conduct: conduct({ words_after: words - 20 }), tighten: tightened({ words_before: words - 20, words_after: words - 40 }) })
     assert.deepEqual(labels.filter(l => l.startsWith('review:')), ['review:whole'])
     assert.equal(result.clean, true, result.reasons.join('; '))
     assert.match(prompts['review:whole'], /Read the whole bundle together/)
@@ -88,14 +91,6 @@ test('a document of 5,000 words or more gets one reviewer per remit', async () =
   assert.deepEqual(labels.filter(l => l.startsWith('review:')).sort(), ['review:argument', 'review:claims', 'review:length', 'review:words'])
 })
 
-test('the conductor tightens the whole of every document under 5,000 words and aims for a shorter one', async () => {
-  for (const extra of [{}, { 'review:whole': review([], { capped: true }) }]) {
-    const { prompts } = await runWith({ ...base, prepare: prep(1800), conduct: conduct({ words_after: 1700 }), ...extra })
-    assert.match(prompts.conduct, /No reviewer on this run owns length alone, so run the skill's Pass 8 over the whole document/)
-    assert.match(prompts.conduct, /The aim is a document shorter than it started/)
-  }
-})
-
 test('every stage runs on the model and effort set for it, and args can override one', async () => {
   const { calls } = await runWith(base, { target: '/tmp/post.md', models: { words: 'haiku' }, efforts: { check: 'max' } })
   const by = l => calls.find(c => c.label.startsWith(l))
@@ -104,6 +99,8 @@ test('every stage runs on the model and effort set for it, and args can override
   assert.equal(by('review:argument').model, 'sonnet')
   assert.equal(by('check').effort, 'max')
   assert.equal(by('conduct').effort, 'high')
+  assert.equal(by('tighten').model, 'opus')
+  assert.equal(by('tighten').effort, 'high')
 })
 
 test('a backup the prepare stage could not confirm stops the run with nothing edited', async () => {
@@ -184,13 +181,6 @@ test('reviewers get the reading profile the prepare stage resolved, not the full
   assert.match(prompts['review:words'], /"Required reading" list is for inline runs/)
 })
 
-test('the conductor tightens the whole document only when the length reviewer failed or was capped', async () => {
-  const normal = await runWith(base)
-  assert.match(normal.prompts.conduct, /tighten only the passages you edited/)
-  const capped = await runWith({ ...base, 'review:length': review([], { capped: true }) })
-  assert.match(capped.prompts.conduct, /run the skill's Pass 8 over the whole document/)
-})
-
 test('a reviewer that wrote to the file is detected and the run stops before more edits', async () => {
   const { result, labels } = await runWith({ ...base, conduct: conduct({ tampered: true }) })
   assert.equal(result.clean, false)
@@ -201,7 +191,7 @@ test('a reviewer that wrote to the file is detected and the run stops before mor
 test('the restore loops are bounded in the prompts', async () => {
   const { prompts } = await runWith(repairing({ ...ready, verdict: 'NOT READY', findings: [finding()] },
     { tampered: false, resolved: [{ ref: 'F1', passage: 'solid' }], unresolved: [], words_after: 1490 }))
-  for (const p of [prompts.conduct, prompts.repair]) {
+  for (const p of [prompts.conduct, prompts.tighten, prompts.repair]) {
     assert.match(p, /at most three times/)
     assert.match(p, /Stop at once on exit 2/)
     assert.doesNotMatch(p, /until it exits 0/)
@@ -297,10 +287,10 @@ test('a missing target is refused', async () => {
 })
 
 test('a run that ends more than 2% longer than it started is not clean', async () => {
-  const grown = await runWith({ ...base, prepare: { ...prep(1000), words_before: 1000 }, conduct: conduct({ words_after: 1030 }) })
+  const grown = await runWith({ ...base, prepare: { ...prep(1000), words_before: 1000 }, conduct: conduct({ words_after: 1030 }), tighten: tightened({ words_before: 1030, words_after: 1030 }) })
   assert.equal(grown.result.clean, false)
   assert.ok(grown.result.reasons.some(r => /grew by 30 words/.test(r)))
-  const level = await runWith({ ...base, prepare: { ...prep(1000), words_before: 1000 }, conduct: conduct({ words_after: 1015 }) })
+  const level = await runWith({ ...base, prepare: { ...prep(1000), words_before: 1000 }, conduct: conduct({ words_after: 1015 }), tighten: tightened({ words_before: 1015, words_after: 1015 }) })
   assert.equal(level.result.clean, true, level.result.reasons.join('; '))
 })
 
@@ -314,7 +304,7 @@ test('a fault the check finds in another file goes to the author, not to the rep
 test('every stage is told to edit no file but the target and to batch its reads and edits into few turns', async () => {
   const { prompts } = await runWith(repairing({ ...ready, verdict: 'NOT READY', findings: [finding()] },
     { tampered: false, resolved: [{ ref: 'F1', passage: 'solid' }], unresolved: [], words_after: 1490 }))
-  for (const k of ['prepare', 'review:words', 'conduct', 'check', 'repair']) {
+  for (const k of ['prepare', 'review:words', 'conduct', 'tighten', 'check', 'repair']) {
     assert.match(prompts[k], /No stage of this run edits any file but the target/)
     assert.match(prompts[k], /Every turn re-sends your whole context/)
     assert.match(prompts[k], /one Read call per file, all sent together/)
@@ -323,16 +313,17 @@ test('every stage is told to edit no file but the target and to batch its reads 
   assert.match(prompts.check, /goes under elsewhere/)
 })
 
-test('the length reviewer is asked for every cut and the conductor must pay for additions', async () => {
+test('the length reviewer is asked for every cut and the tightener must pay for the additions', async () => {
   const { prompts, logs } = await runWith({ ...base, 'review:length': review([], { words_saved: 240 }) })
   assert.match(prompts['review:length'], /15 to 20 per cent longer/)
-  assert.match(prompts.conduct, /recover them by tightening the same passage/)
+  assert.match(prompts.conduct, /leave the paying to that stage/)
+  assert.match(prompts.tighten, /phrase-level trims have never paid for them/)
   assert.ok(logs.some(l => /proposals save 240 words/.test(l)))
 })
 
 test('every stage protects code, charts and raw data, and reads the surface guides', async () => {
   const { prompts } = await runWith(base)
-  for (const k of ['prepare', 'review:words', 'review:argument', 'review:length', 'conduct', 'check']) {
+  for (const k of ['prepare', 'review:words', 'review:argument', 'review:length', 'conduct', 'tighten', 'check']) {
     assert.match(prompts[k], /PROTECTED CONTENT: code blocks, diagrams and charts/)
   }
   assert.match(prompts['review:length'], /protected content \(see above\) is never a length proposal/)
@@ -388,7 +379,7 @@ test('a stage agent error other than a missing agent is not swallowed', async ()
 test('every stage reads the memory index in its opening turn', async () => {
   const { prompts } = await runWith(repairing({ ...ready, verdict: 'NOT READY', findings: [finding()] },
     { tampered: false, resolved: [{ ref: 'F1', passage: 'solid' }], unresolved: [], words_after: 1490 }))
-  for (const k of ['prepare', 'review:words', 'conduct', 'check', 'repair']) assert.match(prompts[k], /memory\/MEMORY\.md/)
+  for (const k of ['prepare', 'review:words', 'conduct', 'tighten', 'check', 'repair']) assert.match(prompts[k], /memory\/MEMORY\.md/)
 })
 
 test('the misses from the 17 Oct Jira rerun are each owned by a reviewer and backed by the check', async () => {
@@ -407,7 +398,64 @@ test('the misses from the 17 Oct Jira rerun are each owned by a reviewer and bac
 test('the conductor, the check and the repair each get the word ceiling of the original plus 2%', async () => {
   const { prompts } = await runWith(repairing({ ...ready, verdict: 'NOT READY', findings: [finding()] },
     { tampered: false, resolved: [{ ref: 'F1', passage: 'solid' }], unresolved: [], words_after: 1490 }))
-  for (const k of ['conduct', 'check', 'repair']) assert.match(prompts[k], /WORD CEILING: 6324 words|over 6324 words/, k)
-  assert.match(prompts.conduct, /make one tightening pass over the prose of the whole document/)
-  assert.match(prompts.repair, /the target is now 1500/)
+  for (const k of ['conduct', 'tighten', 'check', 'repair']) assert.match(prompts[k], /WORD CEILING( for the run)?: 6324 words|not clean above 6324|over 6324 words/, k)
+  assert.match(prompts.repair, /the target is now 1400/)
+})
+
+test('the conductor adds and a separate tightener cuts, so the conductor is told not to cut the whole document', async () => {
+  const { prompts } = await runWith({ ...base, prepare: prep(1800), conduct: conduct({ words_after: 1700 }), tighten: tightened({ words_before: 1700, words_after: 1650 }) })
+  assert.match(prompts.conduct, /Fix only the seams your edits left/)
+  assert.match(prompts.conduct, /A separate tightener runs after you with \/tighten/)
+  assert.doesNotMatch(prompts.conduct, /run the skill's Pass 8 over the whole document/)
+  assert.doesNotMatch(prompts.conduct, /make one tightening pass/)
+})
+
+test('the tighten stage runs once, on every size of document, between the conduct and check stages', async () => {
+  for (const words of [1800, 6000]) {
+    const { labels, calls } = await runWith({ ...base, prepare: prep(words), conduct: conduct({ words_after: words - 20 }), tighten: tightened({ words_before: words - 20, words_after: words - 60 }) })
+    assert.equal(labels.filter(l => l === 'tighten').length, 1)
+    assert.ok(labels.indexOf('conduct') < labels.indexOf('tighten') && labels.indexOf('tighten') < labels.indexOf('check'))
+    assert.equal(calls.find(c => c.label === 'tighten').agentType, 'edit-doc-stage')
+  }
+})
+
+test('the tighten stage follows /tighten from step 3, reuses the backup and inventory, checks the sha and aims shorter', async () => {
+  const { prompts } = await runWith({ ...base, prepare: prep(1800), conduct: conduct({ words_after: 1700 }), tighten: tightened({ words_before: 1700, words_after: 1650 }) })
+  const p = prompts.tighten
+  assert.match(p, /Read \$HOME\/Developer\/dotfiles\/claude\/commands\/tighten\.md and follow its steps 3 to 5/)
+  assert.match(p, /Steps 1 and 2 are done: the backup is \/h\/\.claude\/edit-doc\/post\.md\.Ab12Cd\/original\.md and the inventory is/)
+  assert.match(p, /do not take a new backup or inventory/)
+  assert.match(p, /shasum -a 256 on the target\. If it is not ccc/)
+  assert.match(p, /The target is 1700 words, the original had 2000, and the run is not clean above 2040/)
+  assert.match(p, /The aim is a document shorter than it started/)
+  assert.match(p, /look beyond phrases/)
+  assert.match(p, /content-inventory\.py check '\/h\/\.claude\/edit-doc\/post\.md\.Ab12Cd\/original\.md' '\/tmp\/post\.md'/)
+  assert.match(p, /at most three times/)
+})
+
+test('a tighten stage that fails, or finds the file changed, ends the run before the check', async () => {
+  for (const tighten of [null, tightened({ tampered: true })]) {
+    const { result, labels } = await runWith({ ...base, tighten })
+    assert.equal(result.clean, false)
+    assert.equal(result.stage, 'tighten')
+    assert.ok(!labels.includes('check'))
+    assert.equal(result.original, backup.original)
+  }
+})
+
+test('the repair works from the sha and the word count the tighten stage reports, and the result carries its cuts', async () => {
+  const { result, prompts } = await runWith(repairing({ ...ready, verdict: 'NOT READY', findings: [finding()] },
+    { tampered: false, resolved: [{ ref: 'F1', passage: 'solid' }], unresolved: [], words_after: 1390 }))
+  assert.match(prompts.repair, /shasum -a 256 on the target\. If it is not ddd/)
+  assert.deepEqual(result.tighten, { before: 1500, after: 1400, cuts: ['Evidence: a line the Description repeats, 40 words'], restored: [] })
+  const noRepair = await runWith(base)
+  assert.equal(noRepair.result.words.after, 1400)
+})
+
+test('the tighten and words stages use the model and effort set in /tighten and /plain-words', () => {
+  const front = f => Object.fromEntries(readFileSync(new URL(`../commands/${f}.md`, import.meta.url), 'utf8').match(/^---\n([\s\S]*?)\n---/)[1]
+    .split('\n').map(l => l.split(/:\s*/, 2)))
+  const tierOf = k => new RegExp(`${k}:\\s*\\{ model: '(\\w+)',\\s+effort: '(\\w+)' \\}`).exec(source).slice(1)
+  assert.deepEqual([front('tighten').model, front('tighten').effort], tierOf('tighten'))
+  assert.deepEqual([front('plain-words').model, front('plain-words').effort], tierOf('words'))
 })

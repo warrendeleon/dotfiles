@@ -56,6 +56,8 @@ The wiki (`~/.wiki`) is long-term memory; memory files hold behaviour and pointe
 | `/check-dep` | Before adding any dependency. |
 | `/debug` | When something fails and the cause isn't obvious. |
 | `/edit-doc` | Every document before it is delivered (blog post, wiki page, ADR, README, email, deck notes, PR description; not commit messages, chat replies or code). Runs the edit-doc workflow. |
+| `/tighten` | Shorten any text without losing content (Jira comment, email, PR text, wiki page). edit-doc runs it as its tighten stage. |
+| `/plain-words` | Word and sentence pass for any text, long or short. |
 | `/graphify` | Any input to a knowledge graph; invoke the Skill tool first when Warren types it. |
 
 ## 7. No repetition
