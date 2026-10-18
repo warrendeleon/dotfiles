@@ -32,9 +32,9 @@ const review = (proposals = [], extra = {}) => ({ proposals, flags: [], kept: []
 const conduct = (extra = {}) => ({ tampered: false, applied: [{ id: 'P1', final: 'a solid cache', note: '' }], rejected: [], tightened: [], restored: [],
   words_after: 1500, inventory: okMech, lint: okLint, sha_after: 'ccc', ...extra })
 const tightened = (extra = {}) => ({ tampered: false, words_before: 1500, words_after: 1400, cuts: ['Evidence: a line the Description repeats, 40 words'], restored: [], inventory: okMech, sha_after: 'ddd', ...extra })
-const ready = { verdict: 'READY', missing: [], findings: [], elsewhere: [], inventory: okMech, lint: okLint, reason: 'nothing found' }
+const ready = { verdict: 'READY', missing: [], findings: [], elsewhere: [], inventory: okMech, inbound: okMech, lint: okLint, reason: 'nothing found' }
 const finding = (extra = {}) => ({ location: 'line 4', quote: 'robust', rule: 'gotchas', fix: 'solid', reraised: false, ...extra })
-const finalOk = { inventory: okMech, lint: okLint, unconfirmed: [], breaches: [] }
+const finalOk = { inventory: okMech, inbound: okMech, lint: okLint, unconfirmed: [], breaches: [] }
 
 async function runWith(answers, args = { target: '/tmp/post.md' }, { noStageAgent = false } = {}) {
   const calls = [], prompts = {}, logs = []
@@ -458,4 +458,53 @@ test('the tighten and words stages use the model and effort set in /tighten and 
   const tierOf = k => new RegExp(`${k}:\\s*\\{ model: '(\\w+)',\\s+effort: '(\\w+)' \\}`).exec(source).slice(1)
   assert.deepEqual([front('tighten').model, front('tighten').effort], tierOf('tighten'))
   assert.deepEqual([front('plain-words').model, front('plain-words').effort], tierOf('words'))
+})
+
+const quoted = ['/blog/later.md:22 quotes "The chunks are guarded; the map is naked."']
+const inboundBroken = { exit: 1, total: 3, missing: quoted }
+
+test('the prepare stage finds what other files quote and keeps it in the inventory', async () => {
+  const { prompts } = await runWith(base, { target: '/blog/post.md' })
+  assert.match(prompts.prepare, /inbound-quotes\.py find '<dir>\/original\.md' --in '\/blog' --self '\/blog\/post\.md'/)
+  assert.match(prompts.prepare, /an item of kind quote \("quoted by <file>:<line>"\)/)
+  assert.match(prompts.prepare, /because the file that quotes it cannot be edited here/)
+})
+
+test('args.related adds folders and files to the quote search, and a tilde path keeps $HOME expandable', async () => {
+  const { prompts } = await runWith(base, { target: '/blog/post.md', related: ['/wiki/series', '~/notes/index.md'] })
+  for (const k of ['prepare', 'check']) assert.match(prompts[k], /--in '\/blog' --in '\/wiki\/series' --in "\$HOME"\/'notes\/index\.md'/, k)
+})
+
+test('the conductor, the tightener, the check, the repair and the final reader all run the quote check', async () => {
+  const { prompts } = await runWith(repairing({ ...ready, verdict: 'NOT READY', inbound: inboundBroken },
+    { tampered: false, resolved: [{ ref: 'Q1', passage: 'The chunks are guarded; the map is naked.' }], unresolved: [], words_after: 1390 }), { target: '/blog/post.md' })
+  for (const k of ['conduct', 'tighten', 'check', 'repair', 'final'])
+    assert.match(prompts[k], /inbound-quotes\.py check '\/h\/\.claude\/edit-doc\/post\.md\.Ab12Cd\/original\.md' '\/blog\/post\.md' --in '\/blog'/, k)
+})
+
+test('a span another file quotes that the edit removed goes to repair as a Q reference, and the repair puts it back', async () => {
+  const { result, prompts, labels } = await runWith(repairing({ ...ready, verdict: 'NOT READY', inbound: inboundBroken },
+    { tampered: false, resolved: [{ ref: 'Q1', passage: 'The chunks are guarded; the map is naked.' }], unresolved: [], words_after: 1390 }))
+  assert.ok(labels.includes('repair'))
+  assert.match(prompts.repair, /Q1\. another file quotes this and the target no longer holds it: \/blog\/later\.md:22 quotes/)
+  assert.match(prompts.repair, /put back each quoted span a Q reference names exactly as the other file quotes it/)
+  assert.equal(result.clean, true, result.reasons.join('; '))
+})
+
+test('a READY verdict with a failing quote check still goes to repair', async () => {
+  const { labels } = await runWith(repairing({ ...ready, inbound: inboundBroken },
+    { tampered: false, resolved: [{ ref: 'Q1', passage: 'x' }], unresolved: [], words_after: 1390 }))
+  assert.ok(labels.includes('repair'))
+})
+
+test('a quote still missing after the repair, or a quote check that cannot run, is not clean', async () => {
+  const c = { ...ready, verdict: 'NOT READY', inbound: inboundBroken }
+  const r = { tampered: false, resolved: [{ ref: 'Q1', passage: 'x' }], unresolved: [], words_after: 1390 }
+  const still = await runWith(repairing(c, r, { ...finalOk, inbound: inboundBroken }))
+  assert.equal(still.result.clean, false)
+  assert.ok(still.result.reasons.some(x => /another file quotes text the target no longer holds: .*the map is naked/.test(x)))
+  const cannot = await runWith(repairing(c, r, { ...finalOk, inbound: { exit: 2, total: 0, missing: [] } }))
+  assert.equal(cannot.result.clean, false)
+  assert.ok(cannot.result.reasons.some(x => /quote check could not run/.test(x)))
+  assert.deepEqual((await runWith(base)).result.finalInbound, okMech)
 })
