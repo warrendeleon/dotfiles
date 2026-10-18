@@ -281,7 +281,7 @@ NOT YOURS (other reviewers own these; do not spend effort on them): ${r.notMine}
 ${r.lint ? `\nRun the lint first and read every hit in context: ${LINT}\n` : ''}
 For each fault give one proposal: the exact text now in the target (long enough to occur once), the replacement, the rule it breaks and the inventory ids the passage holds, every one of which must survive in the replacement. Most important first, at most ${cap}; set capped true if faults remain past that. Numbers, identifiers, versions and quoted text are never changed by a proposal: put a doubt about one under flags with the file you read. List listed words you kept under the judgement clause.`
 
-const conductPrompt = (paths, prep, groups, flags, lost, tightenAll) => `${header('conductor', paths, prep)}
+const conductPrompt = (paths, prep, groups, flags, lost, tighten) => `${header('conductor', paths, prep)}
 
 STAGE: conduct. An earlier stage of this run (prepare) made ${prep.structure_changes.length} structure changes and wrote the inventory of ${prep.inventory_items} items. The reviewers' proposals follow. Do these in order:
 
@@ -290,7 +290,7 @@ STAGE: conduct. An earlier stage of this run (prepare) made ${prep.structure_cha
 2. Locate each proposal's "before" text in the target. Reject a proposal whose text is absent or occurs more than once. The passages below are grouped by the text they share, as a hint only: proposals whose located spans intersect are one passage, whether or not they are grouped here, and you make one edit that settles each passage.
 3. Rule on every proposal: apply, adapt (the same fix in different words) or reject with a reason. Reject a proposal that names no rule, breaks another guide, touches an author decision, loses or weakens an inventory item, changes a number or identifier, or touches the hands-off frontmatter (tags, publishDate, slug, campaign, series, heroImage, heroAlt, locale, draft, relatedPosts).
 4. Apply your rulings with exact-string edits. For each applied proposal, report the text you actually wrote.
-5. ${tightenAll ? 'The reviewer covering length failed or stopped at its cap: run the skill\'s Pass 8 over the whole document for the length it missed.' : 'The reviewer covering length read the whole document: tighten only the passages you edited, where the edit left a seam or a repeat.'} Say each item once, in the fewest exact words, plain and connected. An addition (a named specific, a restored qualifier) costs words: recover them by tightening the same passage, so the document ends no longer than it started unless a required addition cannot be paid for.
+5. ${tighten === 'short' ? 'No reviewer on this run owns length alone, so run the skill\'s Pass 8 over the whole document after your edits. An accreted document usually runs 15 to 20 per cent longer than its content needs (guide 7, Application Notes): find every cut that keeps every inventory item, not only the obvious ones.' : tighten === 'missed' ? 'The reviewer covering length failed or stopped at its cap: run the skill\'s Pass 8 over the whole document for the length it missed.' : 'The reviewer covering length read the whole document: tighten only the passages you edited, where the edit left a seam or a repeat.'} Say each item once, in the fewest exact words, plain and connected. An addition (a named specific, a restored qualifier) costs words: recover them by tightening the same passage. The aim is a document shorter than it started wherever the content allows, and never longer unless a required addition cannot be paid for.
    WORD CEILING: ${ceiling(prep)} words by wc -w on the target (the original's ${prep.words_before} plus 2%); after the structure pass it is ${prep.words_after}. After step 4, run wc -w. If the target is over the ceiling, make one tightening pass over the prose of the whole document (Pass 8: never protected content, never an inventory item), then run wc -w once more. Report any required addition you could not pay for, with its word cost.
 6. Tick every inventory item against the target and put back anything lost or weakened, in its shortest exact form. Then run the mechanical check and restore what it reports missing: ${invCmd(paths)}
    ${BOUNDED}
@@ -414,10 +414,12 @@ const { groups, dropped } = group(proposals)
 log(`${proposals.length} proposals in ${groups.length} passages${dropped ? `, ${dropped} exact duplicates dropped` : ''}; ${flags.length} flags for the author`)
 const lengthSaved = (done.find(d => d.remit === 'length') || {}).words_saved
 if (lengthSaved !== undefined) log(`length reviewer: proposals save ${lengthSaved} words`)
-const tightenAll = ['length', 'whole'].some(k => lost.includes(k) || capped.includes(k))
+// Under 5,000 words no reviewer owns length alone, so the conductor tightens the whole document on
+// every run: with tightening left to the edited passages, every Jira run ended longer (17 Oct 2026).
+const tighten = short ? 'short' : ['length'].some(k => lost.includes(k) || capped.includes(k)) ? 'missed' : 'edited'
 
 phase('Conduct')
-const conduct = await stage(conductPrompt(paths, prep, groups, flags, lost, tightenAll), { phase: 'Conduct', label: `conduct (${proposals.length})`, schema: CONDUCT_SCHEMA, ...tier('conduct') })
+const conduct = await stage(conductPrompt(paths, prep, groups, flags, lost, tighten), { phase: 'Conduct', label: `conduct (${proposals.length})`, schema: CONDUCT_SCHEMA, ...tier('conduct') })
 if (!conduct) return finish({ clean: false, stage: 'conduct', reason: `the conduct stage failed; the original is at ${paths.original}`, prep, flags })
 if (conduct.tampered) return finish({ clean: false, stage: 'conduct', reason: `the target changed after the prepare stage, so a reviewer may have written to it; nothing further was edited. The original is at ${paths.original}`, prep, flags })
 log(`${conduct.applied.length} applied, ${conduct.rejected.length} rejected, ${conduct.restored.length} restored; inventory exit ${conduct.inventory.exit}; ${conduct.words_after} words`)

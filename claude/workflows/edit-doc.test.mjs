@@ -88,9 +88,12 @@ test('a document of 5,000 words or more gets one reviewer per remit', async () =
   assert.deepEqual(labels.filter(l => l.startsWith('review:')).sort(), ['review:argument', 'review:claims', 'review:length', 'review:words'])
 })
 
-test('the conductor tightens the whole document when the whole-document reviewer was capped', async () => {
-  const { prompts } = await runWith({ ...base, prepare: prep(1800), 'review:whole': review([], { capped: true }), conduct: conduct({ words_after: 1700 }) })
-  assert.match(prompts.conduct, /run the skill's Pass 8 over the whole document/)
+test('the conductor tightens the whole of every document under 5,000 words and aims for a shorter one', async () => {
+  for (const extra of [{}, { 'review:whole': review([], { capped: true }) }]) {
+    const { prompts } = await runWith({ ...base, prepare: prep(1800), conduct: conduct({ words_after: 1700 }), ...extra })
+    assert.match(prompts.conduct, /No reviewer on this run owns length alone, so run the skill's Pass 8 over the whole document/)
+    assert.match(prompts.conduct, /The aim is a document shorter than it started/)
+  }
 })
 
 test('every stage runs on the model and effort set for it, and args can override one', async () => {
