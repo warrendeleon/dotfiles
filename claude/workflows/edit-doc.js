@@ -284,6 +284,7 @@ Every turn re-sends your whole context, so the cost grows with turns, not tool c
 const BACKUP_CMD = `mkdir -p "$HOME"/.claude/edit-doc && d=$(mktemp -d "$HOME"/.claude/edit-doc/${q(SAFE)}.XXXXXX) && cp -p ${sh(target)} "$d"/original${ext ? q(ext) : ''} && cmp ${sh(target)} "$d"/original${ext ? q(ext) : ''} && echo "$d"`
 
 const invCmd = paths => `python3 ${HOOKS}/content-inventory.py check ${sh(paths.original)} ${sh(target)}`
+const removedCmd = paths => `python3 ${HOOKS}/content-inventory.py removed ${sh(paths.original)} ${sh(target)}`
 const BOUNDED = 'Run it at most three times in all. Stop at once on exit 2 (the check cannot run; report it). Stop when a run reports the same missing set as the run before (you cannot restore those; report them).'
 
 const preparePrompt = paths => `${header('conductor', paths)}
@@ -351,12 +352,13 @@ const checkPrompt = (paths, prep, ruled, byId) => `${header('fresh reader', path
 
 STAGE: check. You did not write or edit this document. Do NOT edit, create or delete any file.
 
-1. Run the three mechanical checks and read their whole output:
+1. Run the four mechanical checks and read their whole output:
    ${invCmd(paths)}
    ${inboundCmd(paths)}
    ${LINT}
+   ${removedCmd(paths)}
 2. Read the original in full, then the target in full, then the inventory.${(args.sources || []).length ? ' Check the claims against the sources of truth, and run the leftovers search on every source file that ships with the document (attachments, scripts): python3 ' + HOOKS + '/writing-lint.py <file>. A hit there goes under elsewhere.' : ''}
-3. Report every inventory item lost or weakened (a dropped qualifier, "may" become "will", a lost condition, reason or example), every protected block shortened, cut or turned into prose, and anything the target says that the original did not support. The quote check lists spans that other files cite from the original and the target no longer holds; report its result as inbound (the lines it prints under MISSING, one string each).
+3. Account for every passage the removed list shows: find where its content now lives in the target. A claim, reason, consequence, condition, qualifier or pointer that lives nowhere in the target is missing, even when the inventory check passes; the value check cannot see a lost reason (17 to 19 Oct 2026, a blog post and an audit lost reasons it passed). Report every inventory item lost or weakened (a dropped qualifier, "may" become "will", a lost condition, reason or example), every protected block shortened, cut or turned into prose, and anything the target says that the original did not support. The quote check lists spans that other files cite from the original and the target no longer holds; report its result as inbound (the lines it prints under MISSING, one string each).
 4. Read the target against every guide of the profile and the skill's rules, and report every breach in the target with the rule, the quote and a concrete fix. Read each lint hit in context; a hit that breaks a rule is a breach, a literal technical use is not. A target over ${ceiling(prep)} words by wc -w (the original's ${prep.words_before} plus 2%) is a length finding: name the passages to tighten and the words each saves. A paragraph or list item the lint reports over 200 words is a length finding unless it is protected content: give the split. Also report a passage that still restates, pads or announces, as a length finding under guide 7. A fault in any other file (a guide that now disagrees with the target, say) goes under elsewhere, not under findings.
 5. Verdict: READY only when nothing is missing, the inventory check and the quote check exit 0, the lint ran (exit 0) and you found no breach; otherwise NOT READY with the reason.
 

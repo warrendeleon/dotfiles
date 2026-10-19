@@ -199,6 +199,30 @@ class ParagraphBreaks(unittest.TestCase):
         self.assertEqual(missing(wrapped, wrapped.replace("one.\n\nAnother", "one.\nAnother")), set())
 
 
+class Removed(unittest.TestCase):
+    ORIG = ("# Title\n\nThe host is blocked here, and a blocked CMP means no banner and no ads. "
+            "The rest stays.\n\n```\ncode line\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n")
+
+    def test_a_cut_reason_is_listed_with_what_replaced_it(self):
+        edited = self.ORIG.replace("The host is blocked here, and a blocked CMP means no banner and no ads.", "The host is blocked here.")
+        self.assertEqual(ci.removed(self.ORIG, edited),
+                         [(["The host is blocked here, and a blocked CMP means no banner and no ads."], ["The host is blocked here."])])
+
+    def test_an_unchanged_document_lists_nothing_and_code_and_tables_are_left_to_check(self):
+        self.assertEqual(ci.removed(self.ORIG, self.ORIG), [])
+        edited = self.ORIG.replace("code line", "other code").replace("| 1 | 2 |", "| 3 | 4 |")
+        self.assertEqual(ci.removed(self.ORIG, edited), [])
+
+    def test_html_prose_is_compared_without_tags_tables_or_svg(self):
+        o = "<p>One reason stays.</p><p>Another reason goes.</p><table><tr><td>1</td></tr></table><svg><text>x</text></svg>"
+        e = "<p>One reason stays.</p><table><tr><td>2</td></tr></table><svg><text>y</text></svg>"
+        self.assertEqual(ci.removed(o, e, html=True), [(["Another reason goes."], [])])
+
+    def test_a_wrapped_markdown_paragraph_reads_as_one(self):
+        o = "First half of a sentence\nthat wraps. Second sentence.\n"
+        self.assertEqual(ci.removed(o, "First half of a sentence that wraps.\n"), [(["Second sentence."], [])])
+
+
 class Protected(unittest.TestCase):
     DATA = "| Run | Cold start | Build |\n|---|---|---|\n| debug | 420 ms | 0.76 |\n| release | 380 ms | 0.76 |\n"
     PROSE = "| Rule | Why |\n|---|---|\n| Cut the tail | It adds rhythm and no information |\n"

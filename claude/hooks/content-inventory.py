@@ -3,6 +3,11 @@
 
     content-inventory.py extract FILE [--json]
     content-inventory.py check ORIGINAL EDITED [--json]
+    content-inventory.py removed ORIGINAL EDITED
+
+removed lists every prose sentence of the original that the edit cut or changed, each with what
+now stands in its place, for a reader to find where its content lives in the edit. Code, tables,
+charts and styles are left to check.
 
 The tightening pass in the revision guide (~/.wiki/personal/writing/revision-passes.md,
 "Tighten without losing content") lets an editor cut length on its own judgement as long as
@@ -36,6 +41,8 @@ workflow owns those.
 Exit 0 when every value is kept, 1 when any is missing (each one is printed), 2 when the
 script cannot run (a file is missing or unreadable).
 """
+import difflib
+import html as htmllib
 import json
 import re
 import sys
@@ -395,6 +402,35 @@ def joined_lines(text):
     return joined
 
 
+def prose_sentences(text, html=False):
+    """The prose of a document as sentences, without code, tables, charts or frontmatter."""
+    if html:
+        text = re.sub(r"(?is)<(script|style|svg|table|pre)\b.*?</\1>", " ", text)
+        text = re.sub(r"(?i)<(br|/p|/li|/h\d|/div|/td|/th|/dd|/dt|/caption|/figcaption)\b[^>]*>", "\n", text)
+        text = htmllib.unescape(re.sub(r"<[^>]+>", "", text))
+    else:
+        text = split_frontmatter(text)[1] if text.startswith("---") else text
+        text = re.sub(r"(?ms)^\s*(`{3,}|~{3,}).*?^\s*\1\s*$", "\n", text)
+        text = "\n".join("" if re.match(r"\s*\|", l) else l for l in text.split("\n"))
+        text = re.sub(r"\n(?![ \t]*(\n|[-*+] |\d{1,3}[.)] |#|>))", " ", text)
+    out = []
+    for para in text.split("\n"):
+        para = " ".join(para.split())
+        if para:
+            out += re.split(r"(?<=[.!?:])\s+(?=[A-Z(\u201c\"'`])", para)
+    return out
+
+
+def removed(original_text, edited_text, html=False):
+    """(cut or changed sentences of the original, what stands in their place) pairs."""
+    a, b = prose_sentences(original_text, html), prose_sentences(edited_text, html)
+    pairs = []
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if op in ("replace", "delete"):
+            pairs.append((a[i1:i2], b[j1:j2]))
+    return pairs
+
+
 # ---------------------------------------------------------------- cli
 
 def summarise(items):
@@ -423,6 +459,17 @@ def main(argv=None):
                 for it in items:
                     print(f"{path}:{it['line']}: {it['kind']}: {show(it['value'])}")
                 print(f"{len(items)} item(s): {json.dumps(summarise(items))}")
+            return 0
+        if len(argv) == 3 and argv[0] == "removed":
+            orig, edited = argv[1], argv[2]
+            pairs = removed(read(orig), read(edited), is_html(orig))
+            for n, (cut, now) in enumerate(pairs, 1):
+                print(f"## {n}")
+                for s in cut:
+                    print(f"  - {s}")
+                for s in now:
+                    print(f"  + {s}")
+            print(f"{len(pairs)} passage(s) cut or changed")
             return 0
         if len(argv) == 3 and argv[0] == "check":
             orig, edited = argv[1], argv[2]

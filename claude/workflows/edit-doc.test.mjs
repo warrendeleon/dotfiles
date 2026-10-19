@@ -508,3 +508,10 @@ test('a quote still missing after the repair, or a quote check that cannot run, 
   assert.ok(cannot.result.reasons.some(x => /quote check could not run/.test(x)))
   assert.deepEqual((await runWith(base)).result.finalInbound, okMech)
 })
+
+test('the check accounts for every cut or changed sentence, not only the protected values', async () => {
+  const { prompts } = await runWith(base)
+  assert.match(prompts.check, /content-inventory\.py removed /)
+  assert.match(prompts.check, /Account for every passage the removed list shows/)
+  assert.match(prompts.check, /lives nowhere in the target is missing, even when the inventory check passes/)
+})
