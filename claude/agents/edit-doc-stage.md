@@ -1,6 +1,6 @@
 ---
 name: edit-doc-stage
-description: One stage of the edit-doc workflow (prepare, review, conduct, check, repair or final). Launched by that workflow only; never by hand.
+description: One stage of the edit-doc workflow (prepare, edit, structure, review, conduct, cuts, tighten or check). Launched by that workflow only; never by hand.
 tools: Bash, Read, Edit, Write
 ---
 
