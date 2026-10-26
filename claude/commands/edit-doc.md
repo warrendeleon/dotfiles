@@ -12,7 +12,7 @@ The standard every agent reads is `~/.wiki/personal/writing/edit-doc-checklist.m
 
 **Long path (from 2,500 words).** Prepare, then Structure (Opus: authority and structure passes), then Review (one read-only reviewer for the whole document; from 5,000 words one per remit: words, argument, claims, and tests when the document carries any), then Conduct (Opus rules on every proposal and applies it), then the same Cuts, Tighten and Check (Opus here).
 
-Every stage checks the file's sha256 before editing and stops the run if something else wrote to it. A run that ends more than 2% longer than it started is not clean: additions such as a named source are paid for by cuts. The inventory script protects values that must survive byte for byte (numbers, code, links, footnotes, publishing fields); claims, qualifiers and reasons are the readers' job. `inbound-quotes.py` protects text other files quote from the document. A fault in another file goes to Warren as a flag; the run edits one file only.
+An item the check may not settle (a figure, a specific no source gives, a flag-only doubt) goes to Warren under `forAuthor` and leaves the run clean; only a fix the reader was allowed to make and could not complete fails it. Every stage checks the file's sha256 before editing and stops the run if something else wrote to it. A run that ends more than 2% longer than it started is not clean: additions such as a named source are paid for by cuts. The inventory script protects values that must survive byte for byte (numbers, code, links, footnotes, publishing fields); claims, qualifiers and reasons are the readers' job. `inbound-quotes.py` protects text other files quote from the document. A fault in another file goes to Warren as a flag; the run edits one file only.
 
 When it returns, write the change log below from its result, in under 500 words. If `clean` is false, say why in one line and give the `original` path, which holds the backup. Flags and structure gaps go to Warren in the change log; nothing else is asked of him.
 
@@ -45,6 +45,7 @@ After the run, report under 500 words, specific enough for Warren to absorb the 
 **Path**: short | long | long-split; agents: N
 **Word count**: before → after (delta); tighten took N of N proposed cuts, M beyond them
 **Clean**: yes | no (reason; original at <path>)
+**For Warren**: each item the check left for you (a figure, an expansion no source gives, a flag): where, what it says now, what the check proposes, why it did not change it
 
 **Authority calibration**: framings stripped (line → senior observation); claims cross-checked against workxp-en.json
 **Structure**: what moved or went, and why; gaps flagged for Warren (missing dead end, outside cause, cost, open question, named specific)

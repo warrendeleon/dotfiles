@@ -412,12 +412,28 @@ test('the check reads original against edit, repairs what it finds, re-checks, a
 })
 
 test('a finding the check could not fix, or did not account for, keeps the run from being clean', async () => {
-  const unresolved = await runWith({ ...short, check: checked(1450, { verdict_before: 'NOT READY', findings: [finding({ reraised: true })], unresolved: [{ ref: 'F1', reason: 'would lose I7' }] }) })
+  const unresolved = await runWith({ ...short, check: checked(1450, { verdict_before: 'NOT READY', findings: [finding({ reraised: true })], unresolved: [{ ref: 'F1', reason: 'edit failed to apply', needs_author: false }] }) })
   assert.equal(unresolved.result.clean, false)
   assert.ok(unresolved.result.reasons.some(r => /1 unresolved/.test(r)))
   const ignored = await runWith({ ...short, check: checked(1450, { verdict_before: 'NOT READY', findings: [finding(), finding({ ref: 'Q1' })] }) })
   assert.equal(ignored.result.clean, false)
   assert.ok(ignored.result.reasons.some(r => /2 findings not accounted for \(F1, Q1\)/.test(r)))
+})
+
+test('an item only the author can settle goes to the author and leaves the run clean', async () => {
+  const findings = [finding({ ref: 'F4', location: 'Objective 7', quote: 'every one of six', rule: 'guide 5: a figure the source contradicts', fix: 'five of them' }), finding({ ref: 'F5', location: 'Objective 9', quote: 'NDAP', rule: 'guide 2: acronym', fix: 'needs the expansion' }), finding()]
+  const { result, logs } = await runWith({ ...short, check: checked(1450, { verdict_before: 'NOT READY', findings,
+    resolved: [{ ref: 'F1', passage: 'a solid cache' }],
+    unresolved: [{ ref: 'F4', reason: 'changes a figure', needs_author: true }, { ref: 'F5', reason: 'no source gives the expansion', needs_author: true }] }) })
+  assert.equal(result.clean, true, result.reasons.join('; '))
+  assert.deepEqual(result.forAuthor.map(f => [f.ref, f.location, f.fix, f.reason]), [['F4', 'Objective 7', 'five of them', 'changes a figure'], ['F5', 'Objective 9', 'needs the expansion', 'no source gives the expansion']])
+  assert.deepEqual(result.check.unresolved, [])
+  assert.ok(logs.some(l => /1 resolved, 2 for the author, 0 unresolved/.test(l)))
+  const mixed = await runWith({ ...short, check: checked(1450, { verdict_before: 'NOT READY', findings, resolved: [{ ref: 'F1', passage: 'x' }],
+    unresolved: [{ ref: 'F4', reason: 'changes a figure', needs_author: true }, { ref: 'F5', reason: 'could not place the edit', needs_author: false }] }) })
+  assert.equal(mixed.result.clean, false)
+  assert.ok(mixed.result.reasons.some(r => /1 unresolved/.test(r)))
+  assert.equal(mixed.result.forAuthor.length, 1)
 })
 
 test('a failed inventory check, a missing quoted span or a lint that cannot run on the final text is not clean', async () => {

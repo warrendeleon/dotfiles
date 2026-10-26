@@ -9,7 +9,7 @@ export const meta = {
     { title: 'Review', detail: 'long path: read-only reviewers proposing exact edits' },
     { title: 'Conduct', detail: 'long path: the writer rules on every proposal and applies it' },
     { title: 'Tighten', detail: 'a cheap reader proposes cuts; the tightener rules and cuts' },
-    { title: 'Check', detail: 'a fresh reader runs the mechanical checks, reads original against edit, repairs, re-checks' },
+    { title: 'Check', detail: 'a fresh reader runs the mechanical checks, reads original against edit, repairs, re-checks; what only the author can settle goes to the author' },
   ],
 }
 
@@ -265,7 +265,7 @@ const CHECK_SCHEMA = {
       reraised: { type: 'boolean', description: 'true when the writer rejected this proposal before and you raise it under a rule its reason did not answer' } },
       required: ['ref', 'location', 'quote', 'rule', 'fix', 'reraised'] } },
     resolved: { type: 'array', items: { type: 'object', properties: { ref: { type: 'string' }, passage: { type: 'string', description: 'the text as it now reads' } }, required: ['ref', 'passage'] } },
-    unresolved: { type: 'array', items: { type: 'object', properties: { ref: { type: 'string' }, reason: { type: 'string' } }, required: ['ref', 'reason'] } },
+    unresolved: { type: 'array', items: { type: 'object', properties: { ref: { type: 'string' }, reason: { type: 'string' }, needs_author: { type: 'boolean', description: 'true when the rules forbid you to make the change (a number, identifier or figure; an author decision; a specific no source gives; a flag-only doubt); false when you could not complete a fix you were allowed to make' } }, required: ['ref', 'reason', 'needs_author'] } },
     elsewhere: { type: 'array', description: 'faults in files other than the target; they go to the author', items: { type: 'object', properties: { file: { type: 'string' }, issue: { type: 'string' } }, required: ['file', 'issue'] } },
     words_after: { type: 'integer' },
     inventory: MECH, inbound: MECH, lint: LINT_RESULT,
@@ -409,7 +409,7 @@ STAGE: check and repair. You did not write this edit. First you find everything 
 2. Account for every passage the removed list shows: find where its content now lives in the target. A claim, reason, consequence, condition, qualifier or pointer that lives nowhere in the target is missing even when the inventory check passes; the value check cannot see a lost reason. List every inventory item lost or weakened (a dropped qualifier, "may" become "will", a lost condition, reason or example), every protected block shortened or turned into prose, anything the target says that the original did not support, and every quoted span the quote check reports missing.${(args.sources || []).length ? ' Check the claims against the sources of truth; a claim they do not support is a finding. Run the lint on every source file that ships with the document; a hit there goes under elsewhere.' : ''}
 3. Read the target against every section of the checklist and list every breach with the rule, the quote and a concrete fix. Read each lint hit in context; a literal technical use is not a breach. A target over ${ceiling(prep)} words by wc -w (the original's ${prep.words_before} plus 2%) is a length finding: name the passages to tighten and the words each saves. A paragraph or list item the lint reports over 200 words is a length finding unless it is protected content. A passage that still restates, pads or announces is a length finding. A fault in any other file goes under elsewhere.
 4. Set verdict_before: READY only when you found nothing in steps 2 and 3 and every check exited 0.
-5. Fix every finding with exact-string edits in the target only: put back each missing item in its shortest exact form, put back each quoted span exactly as the other file quotes it, apply each breach's fix, make each length cut. Leave one unresolved only when fixing it would lose an inventory item, change a number or identifier, or touch an author decision. A fix that adds words pays for them by tightening prose in the same section. Every finding goes under resolved (with the passage as it now reads) or unresolved (with the reason); one in neither list keeps the run from counting as clean.
+5. Fix every finding with exact-string edits in the target only: put back each missing item in its shortest exact form, put back each quoted span exactly as the other file quotes it, apply each breach's fix, make each length cut. Leave one unresolved only when fixing it would lose an inventory item, change a number or identifier, or touch an author decision, or when no source gives the specific it needs; mark such an item needs_author true, since it is the author's to settle and does not fail the run. A fix you were allowed to make and could not complete is needs_author false and fails the run. A fix that adds words pays for them by tightening prose in the same section. Every finding goes under resolved (with the passage as it now reads) or unresolved (with the reason); one in neither list keeps the run from counting as clean.
 6. Run the inventory and quote checks again and restore what they report, then the lint, and report all three on the final text, with wc -w and the target's sha256: ${invCmd(paths)}
    ${inboundCmd(paths)}
    ${BOUNDED}
@@ -526,8 +526,13 @@ if (!check) return fail('check', `the check stage failed; the edit stands unchec
 if (check.tampered) return fail('check', `the target changed before the check; nothing was checked. The original is at ${paths.original}`, { prep, flags, changes, tight })
 const answered = new Set([...check.resolved.map(r => r.ref), ...check.unresolved.map(r => r.ref)])
 const uncovered = check.findings.map(f => f.ref).filter(r => !answered.has(r))
+// An unresolved item the rules reserve for the author (a figure, a specific no source gives, a
+// flag) is the run working, not failing: it goes to the author and leaves the run clean. An
+// allowed fix the reader could not complete fails the run (26 Oct 2026: a clean edit read as failed).
+const forAuthor = check.unresolved.filter(u => u.needs_author)
+const failed = check.unresolved.filter(u => !u.needs_author)
 words = check.words_after
-log(`check: ${check.verdict_before} before repair, ${check.findings.length} findings, ${check.resolved.length} resolved, ${check.unresolved.length} unresolved${uncovered.length ? `, ${uncovered.length} not accounted for` : ''}; inventory exit ${check.inventory.exit}, lint exit ${check.lint.exit}; ${words} words`)
+log(`check: ${check.verdict_before} before repair, ${check.findings.length} findings, ${check.resolved.length} resolved, ${forAuthor.length} for the author, ${failed.length} unresolved${uncovered.length ? `, ${uncovered.length} not accounted for` : ''}; inventory exit ${check.inventory.exit}, lint exit ${check.lint.exit}; ${words} words`)
 
 // Clean means: every reviewer ran, nothing else wrote to the file, the mechanical checks passed and
 // the lint ran on the final text, the fresh reader accounted for every finding and left none
@@ -539,7 +544,7 @@ const reasons = [
   check.inbound.exit === 2 && 'the quote check could not run',
   check.inbound.exit === 1 && `another file quotes text the target no longer holds: ${check.inbound.missing.join('; ')}`,
   check.lint.exit !== 0 && `the lint could not run (exit ${check.lint.exit})`,
-  check.unresolved.length && `${check.unresolved.length} unresolved`,
+  failed.length && `${failed.length} unresolved`,
   uncovered.length && `${uncovered.length} findings not accounted for (${uncovered.join(', ')})`,
   grew > prep.words_before * 0.02 && `the document grew by ${grew} words (${prep.words_before} to ${words}); the tighten pass did not pay for the additions`,
 ].filter(Boolean)
@@ -556,6 +561,7 @@ return finish({
   restored: [...(edit ? edit.restored : conduct ? conduct.restored : []), ...tight.restored, ...(check.resolved.filter(r => /^[MQ]/.test(r.ref)).map(r => r.ref))], kept,
   tighten: { proposed: cuts.cuts.length, proposedSaves: cuts.total_saves, taken: tight.taken, declined: tight.declined, beyond: tight.beyond, before: tight.words_before, after: tight.words_after },
   flags: [...flags, ...(check.elsewhere || []).map(e => ({ location: e.file, quote: '', issue: e.issue, evidence: 'reported by the check; outside this run\'s one file', remit: 'check' }))],
-  check: { verdictBefore: check.verdict_before, findings: check.findings, resolved: check.resolved, unresolved: check.unresolved, uncovered },
+  check: { verdictBefore: check.verdict_before, findings: check.findings, resolved: check.resolved, unresolved: failed, uncovered },
+  forAuthor: forAuthor.map(u => { const f = check.findings.find(x => x.ref === u.ref) || {}; return { ref: u.ref, location: f.location || '', quote: f.quote || '', issue: f.rule || '', fix: f.fix || '', reason: u.reason } }),
   finalInventory: check.inventory, finalInbound: check.inbound, finalLint: check.lint,
 })

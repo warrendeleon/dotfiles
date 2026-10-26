@@ -598,6 +598,14 @@ class Acronyms(unittest.TestCase):
         self.assertEqual(self.found("Run `GPP_CHECK` on [it](http://x.test/TCF) for IDs."), [])
         self.assertEqual(self.found("Two CMPs answered."), ["CMPs"])
 
+    def test_an_expansion_in_a_heading_defines_the_acronym_for_the_prose(self):
+        self.assertEqual(self.found("# Objectives and key results (KRs)\n\n| KR | Target |\n| KR 1.1 | 7 |"), [])
+        self.assertEqual(self.found("# Objectives and key results (KR)\n\nKR 1.1 is met."), [])
+        self.assertEqual(self.found("# Key results\n\nKR 1.1 is met."), ["KR"])
+
+    def test_a_plural_expansion_covers_the_singular_and_the_plural(self):
+        self.assertEqual(self.found("Consent management platforms (CMPs) differ. The CMP answers; two CMPs do not."), [])
+
 
 class LongParagraphs(unittest.TestCase):
     def found(self, text):

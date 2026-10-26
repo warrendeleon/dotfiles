@@ -665,11 +665,11 @@ def find_acronyms(doc):
         line_start = doc.text.rfind("\n", 0, m.start()) + 1
         line_end = doc.text.find("\n", m.end())
         line = doc.text[line_start:line_end if line_end != -1 else len(doc.text)]
-        if re.match(r"\s*#", line):
-            seen.discard(base)              # a heading is not a first use; wait for the prose
-            continue
         if re.search(r"\(\s*" + re.escape(base) + r"s?\s*\)", line) or re.search(re.escape(acr) + r"\s*\([^)]*[a-z][^)]*\)", line):
-            continue                        # "Full Name (ACR)" or "ACR (full name)"
+            continue                        # "Full Name (ACR)" or "ACR (full name)", in prose or in a heading
+        if re.match(r"\s*#", line):
+            seen.discard(base)              # a heading that does not expand it is not a first use; wait for the prose
+            continue
         hits.append({"line": doc.line_of(m.start()), "start": m.start(), "text": acr, "kind": "acronym",
                      "table": "acronym not spelled out at first use", "tag": "house", "replacement": None,
                      "also": [], "region": "prose"})
