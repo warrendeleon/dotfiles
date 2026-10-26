@@ -127,6 +127,11 @@ test('args.models and args.efforts override one stage, on either path', async ()
   assert.deepEqual([by(l.calls, 'check').model, by(l.calls, 'check').effort], ['sonnet', 'max'])
 })
 
+test('the stage agent carries the four tools and the two RAG tools, so the check can search the record', () => {
+  const front = readFileSync(new URL('../agents/edit-doc-stage.md', import.meta.url), 'utf8').match(/^tools:\s*(.*)$/m)[1]
+  assert.deepEqual(front.split(/,\s*/), ['Bash', 'Read', 'Edit', 'Write', 'mcp__rag__search', 'mcp__rag__get_chunks'])
+})
+
 test('the tighten and words stages use the model and effort set in /tighten and /plain-words', () => {
   const front = f => Object.fromEntries(readFileSync(new URL(`../commands/${f}.md`, import.meta.url), 'utf8').match(/^---\n([\s\S]*?)\n---/)[1]
     .split('\n').map(l => l.split(/:\s*/, 2)))
@@ -404,6 +409,8 @@ test('the check reads original against edit, repairs what it finds, re-checks, a
   assert.match(p, /over 1530 words by wc -w \(the original's 1500 plus 2%\) is a length finding/)
   assert.match(p, /over 200 words is a length finding unless it is protected content/)
   assert.match(p, /5\. Fix every finding with exact-string edits in the target only/)
+  assert.match(p, /Before you leave a finding to the author, search the record for its answer[^\n]*mcp__rag__search/)
+  assert.match(p, /with every place you searched in its reason/)
   assert.match(p, /6\. Run the inventory and quote checks again/)
   assert.ok(!labels.includes('repair') && !labels.includes('final'))
   assert.equal(result.clean, true, result.reasons.join('; '))
