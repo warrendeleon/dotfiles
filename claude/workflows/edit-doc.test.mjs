@@ -482,3 +482,19 @@ test('no stage runs twice and nothing loops', async () => {
     assert.equal(new Set(labels).size, labels.length, labels.join(','))
   }
 })
+
+// The checklist every stage reads is derived from the guides. When a guide changes after the
+// checklist was last regenerated, this fails until someone regenerates it and bumps its date.
+test('the checklist is not older than any guide it condenses', () => {
+  const home = process.env.HOME
+  const updated = f => {
+    const text = readFileSync(`${home}/.wiki/personal/writing/${f}.md`, 'utf8')
+    const m = /^updated:\s*(\d{4}-\d{2}-\d{2})/m.exec(text) || /^date:\s*(\d{4}-\d{2}-\d{2})/m.exec(text)
+    assert.ok(m, `${f}.md has no updated: or date: field`)
+    return m[1]
+  }
+  const checklist = updated('edit-doc-checklist')
+  for (const guide of ['plain-sentence-construction', 'ai-writing-gotchas', 'uk-tone-writing', 'accuracy-and-reproducibility', 'skim-layer', 'revision-passes']) {
+    assert.ok(updated(guide) <= checklist, `${guide}.md was updated on ${updated(guide)}, after the checklist (${checklist}): regenerate the checklist and bump its updated: date`)
+  }
+})
