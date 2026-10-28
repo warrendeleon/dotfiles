@@ -99,12 +99,24 @@ if not label:
 # exact outward command unattended. A scheduled run has no human turn (its prompt
 # arrives as a <scheduled-task> block), so without this every such push was blocked.
 # The whole command must match: no chaining, no other branch or remote.
+_SWEEP_REPOS = r"(?:ncu-ad-manager|ncu-commercial-assets|nuk-cdn)"
+_SWEEP_RUN = r"/Users/warrendeleon/\.claude/pr-review-sweep/runs/\d{8}-\d{4}/"
 STANDING = {
     # 2 Oct 2026: "configure this routine so I never ever have to interact again".
     "rebase-scb-6272-triplelift": re.compile(
         r"git -C (~|/Users/warrendeleon)/Developer/news\.co\.uk/\.worktrees/ncu-ad-manager-SCB-6272"
         r" push --force-with-lease=feat/SCB-6272-triplelift-parent-id-news-uk:[0-9a-f]{40}"
         r" origin feat/SCB-6272-triplelift-parent-id-news-uk( 2>&1)?"
+    ),
+    # 28 Oct 2026, the hourly PR review sweep: "I was letting you decide on what gets published".
+    # Only a receipted review payload or thread reply from this run's own lane folder, posted to
+    # the same repository and PR (and, for a reply, the same thread) the file is named after.
+    "pr-review-sweep": re.compile(
+        r"gh api repos/newsuk/(?:"
+        r"(?P<r1>" + _SWEEP_REPOS + r")/pulls/(?P<n1>\d+)/reviews --input " + _SWEEP_RUN + r"(?P=r1)-(?P=n1)/payload\.json"
+        r"|(?P<r2>" + _SWEEP_REPOS + r")/pulls/(?P<n2>\d+)/comments/(?P<c2>\d+)/replies --input " + _SWEEP_RUN + r"(?P=r2)-(?P=n2)/reply-(?P=c2)\.json"
+        r"|(?P<r3>" + _SWEEP_REPOS + r")/issues/(?P<n3>\d+)/comments --input " + _SWEEP_RUN + r"(?P=r3)-(?P=n3)/reply-\d+\.json"
+        r") --jq '\.html_url'"
     ),
 }
 

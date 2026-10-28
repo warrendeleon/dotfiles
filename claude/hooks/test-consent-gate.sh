@@ -100,6 +100,23 @@ check sched-gh-write        deny  "gh pr reopen 3392" "$SCHED"
 check other-task-push       deny  "$W push --force-with-lease=$B:$SHA origin $B" "$OTHER"
 check human-not-standing    deny  "$W push --force-with-lease=$B:$SHA origin $B" "what's the status?"
 
+# Standing go for the hourly PR review sweep (28 Oct): only its own receipted files, to the PR and thread they name.
+SW='<scheduled-task name="pr-review-sweep" file="x">Review the PRs.</scheduled-task>'
+RUN=/Users/warrendeleon/.claude/pr-review-sweep/runs/20261028-1300
+J="--jq '.html_url'"
+check sweep-review          allow "gh api repos/newsuk/ncu-ad-manager/pulls/3482/reviews --input $RUN/ncu-ad-manager-3482/payload.json $J" "$SW"
+check sweep-reply           allow "gh api repos/newsuk/ncu-ad-manager/pulls/3482/comments/4281601281/replies --input $RUN/ncu-ad-manager-3482/reply-4281601281.json $J" "$SW"
+check sweep-issue-reply     allow "gh api repos/newsuk/nuk-cdn/issues/8060/comments --input $RUN/nuk-cdn-8060/reply-77.json $J" "$SW"
+check sweep-assets          allow "gh api repos/newsuk/ncu-commercial-assets/pulls/228/reviews --input $RUN/ncu-commercial-assets-228/payload.json $J" "$SW"
+check sweep-other-pr        deny  "gh api repos/newsuk/ncu-ad-manager/pulls/3481/reviews --input $RUN/ncu-ad-manager-3482/payload.json $J" "$SW"
+check sweep-other-thread    deny  "gh api repos/newsuk/ncu-ad-manager/pulls/3482/comments/1/replies --input $RUN/ncu-ad-manager-3482/reply-2.json $J" "$SW"
+check sweep-other-repo      deny  "gh api repos/newsuk/ncu-commercial-ads-txt/pulls/5/reviews --input $RUN/ncu-commercial-ads-txt-5/payload.json $J" "$SW"
+check sweep-outside-folder  deny  "gh api repos/newsuk/ncu-ad-manager/pulls/3482/reviews --input /tmp/x/ncu-ad-manager-3482/payload.json $J" "$SW"
+check sweep-new-comment     deny  "gh api repos/newsuk/ncu-ad-manager/pulls/3482/comments --input $RUN/ncu-ad-manager-3482/reply-1.json $J" "$SW"
+check sweep-chained         deny  "gh api repos/newsuk/ncu-ad-manager/pulls/3482/reviews --input $RUN/ncu-ad-manager-3482/payload.json $J && git push origin main" "$SW"
+check sweep-merge           deny  "gh pr merge 3482 --repo newsuk/ncu-ad-manager" "$SW"
+check sweep-other-task      deny  "gh api repos/newsuk/ncu-ad-manager/pulls/3482/comments/4281601281/replies --input $RUN/ncu-ad-manager-3482/reply-4281601281.json $J" "$OTHER"
+
 # Standing go for the SCB-6338 sub-task branches (2 Oct), whatever the latest turn says.
 VW='git -C /Users/warrendeleon/Developer/news.co.uk/.worktrees/ncu-ad-manager-SCB-6310'
 VB='feat/SCB-6310-talksport-xandr-config-update'
