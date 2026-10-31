@@ -185,8 +185,70 @@ alias dots="cd ~/Developer/dotfiles"
 alias flush="sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder"
 alias ip="curl -s ifconfig.me"
 alias localip="ipconfig getifaddr en0"
-# Menu bar stuck in full screen: restart the DisplayLink agent, launchd relaunches it
-alias fixbar="pkill -x DisplayLinkUserAgent"
+
+# Menu bar stuck in full screen: quit every app with a menu bar item, then reopen
+# each one that launchd has not already restarted. Tailscale is reconnected if it
+# was connected before, because quitting the app stops the VPN.
+# The first run asks for permission for this terminal to control System Events.
+fixbar() {
+  local apps pid bid app ts_was_up=0 i
+  local -a pids alive
+  apps=$(osascript <<'EOF'
+set out to ""
+tell application "System Events"
+  repeat with p in (every process)
+    try
+      if exists menu bar 2 of p then set out to out & (unix id of p) & tab & (bundle identifier of p) & tab & (POSIX path of (application file of p)) & linefeed
+    end try
+  end repeat
+end tell
+return out
+EOF
+  ) || { echo "fixbar: could not list menu bar apps; allow this terminal to control System Events" >&2; return 1; }
+  if [[ -z "$apps" ]]; then
+    echo "fixbar: no menu bar apps found" >&2
+    return 1
+  fi
+
+  tailscale status 2>&1 | grep -q "stopped" || ts_was_up=1
+
+  while IFS=$'\t' read -r pid bid app; do
+    [[ -z "$pid" ]] && continue
+    echo "Quitting ${app:t:r}"
+    osascript -e 'with timeout of 5 seconds' -e "tell application id \"$bid\" to quit" -e 'end timeout' &>/dev/null \
+      || kill "$pid" 2>/dev/null
+    pids+=("$pid")
+  done <<< "$apps"
+
+  # Give each app up to 10 seconds to exit, then kill what is left
+  for i in {1..10}; do
+    alive=()
+    for pid in $pids; do kill -0 "$pid" 2>/dev/null && alive+=("$pid"); done
+    (( ${#alive} == 0 )) && break
+    sleep 1
+  done
+  for pid in $alive; do kill "$pid" 2>/dev/null; done
+  sleep 2
+
+  while IFS=$'\t' read -r pid bid app; do
+    [[ -z "$pid" ]] && continue
+    [[ $(osascript -e "application id \"$bid\" is running") == true ]] || open -g "$app"
+  done <<< "$apps"
+  sleep 3
+
+  if (( ts_was_up )) && tailscale status 2>&1 | grep -q "stopped"; then
+    tailscale up && echo "Tailscale reconnected"
+  fi
+
+  while IFS=$'\t' read -r pid bid app; do
+    [[ -z "$pid" ]] && continue
+    if [[ $(osascript -e "application id \"$bid\" is running") == true ]]; then
+      echo "Running again: ${app:t:r}"
+    else
+      echo "NOT running: ${app:t:r}" >&2
+    fi
+  done <<< "$apps"
+}
 
 # Docker (Colima)
 alias dcu="docker compose up -d"
@@ -299,7 +361,7 @@ aliases() {
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
   printf '│ localip    │ local IP address                                 │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
-  printf '│ fixbar     │ restart DisplayLink when the menu bar sticks     │\n'
+  printf '│ fixbar     │ restart every menu bar app (stuck menu bar)      │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
   printf '│ dcu        │ docker compose up -d                             │\n'
   printf '├────────────┼──────────────────────────────────────────────────┤\n'
