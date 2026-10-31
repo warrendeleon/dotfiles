@@ -111,9 +111,19 @@ if tool == "Bash":
                 paths.append(v)
             elif t.startswith("--body-file=") or t.startswith("--input="):
                 paths.append(t.split("=", 1)[1])
-    elif re.match(r"^\s*(cp|mv|rsync)\b", cmd) and "My Drive" in cmd:
-        srcs = [t for t in toks[1:] if not t.startswith("-") and "My Drive" not in t]
-        paths.extend(s for s in srcs if s.lower().endswith(GATED))
+    elif re.match(r"^\s*(cp|mv|rsync)\b", cmd):
+        # Only a copy whose destination is in Drive sends a deliverable out. On 26 Oct 2026
+        # a copy out of Drive into Downloads was refused, because any "My Drive" in the
+        # command matched and every later token, the destination and an `ls` included, was
+        # read as a source.
+        seg = []
+        for t in toks[1:]:
+            if t in ("&&", "||", ";", "|"):
+                break
+            seg.append(t)
+        args = [t for t in seg if not t.startswith("-")]
+        if len(args) >= 2 and "My Drive" in args[-1]:
+            paths.extend(s for s in args[:-1] if s.lower().endswith(GATED))
 elif tool == "SendUserFile":
     paths.extend(f for f in (inp.get("files") or []) if str(f).lower().endswith(GATED))
 elif tool == "Artifact":

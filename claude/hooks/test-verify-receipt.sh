@@ -33,6 +33,11 @@ check relative-wrong-base  deny  "$API --input review.md"
 check cd-unreceipted       deny  "cd $TMP/drafts && $API --input other.md"
 check body-file-receipted  allow "$REVIEW --body-file $TMP/drafts/review.md"
 check inline-body          deny  "$REVIEW --body text"
+DRIVE="'$TMP/home/My Drive/Work'"
+check copy-into-drive      deny  "cp $TMP/drafts/other.md $DRIVE/"
+check copy-receipted-drive allow "cp $TMP/drafts/review.md $DRIVE/"
+# 26 Oct 2026: a copy out of Drive was refused as an unreceipted deliverable.
+check copy-out-of-drive    allow "cp -n $DRIVE/policy.pdf $TMP/elsewhere/ && ls -l $TMP/elsewhere/policy.pdf"
 echo "Changed" >> "$TMP/drafts/review.md"
 check stale-receipt        deny  "$API --input $TMP/drafts/review.md"
 
