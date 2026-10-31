@@ -52,7 +52,9 @@ BASH_RULES = [
     (r"\bgh\s+(pr|issue)\s+(comment|review|edit|close|merge|create|reopen|lock|ready)\b", "a GitHub PR/issue write"),
     (r"\bgh\s+(release|repo)\s+(create|edit|delete|archive|rename)\b", "a GitHub repo/release write"),
     (r"\bgit\s+(-C\s+\S+\s+)?push\b", "a git push"),
-    (r"\bcurl\b(?![^\n|;&]*(localhost|127\.0\.0\.1|192\.168\.|minipc))[^\n|;&]*(\s-X\s*(POST|PUT|PATCH|DELETE)|\s--request\s*(POST|PUT|PATCH|DELETE)|\s-d\s|\s--data|\s--json\b|\s-F\s|\s--form\b)", "an HTTP mutation to a remote host"),
+    (r"\bcurl\b(?![^\n|;&]*(localhost|127\.0\.0\.1|192\.168\.|minipc))[^\n|;&]*(\s-X\s*(POST|PUT|PATCH|DELETE)|\s--request\s*(POST|PUT|PATCH|DELETE)|\s--json\b|\s-F\s|\s--form\b)", "an HTTP mutation to a remote host"),
+    # -d/--data is a body unless -G/--get turns it into the query string of a GET.
+    (r"\bcurl\b(?![^\n|;&]*(localhost|127\.0\.0\.1|192\.168\.|minipc))(?![^\n|;&]*\s(-[A-Za-z]*G[A-Za-z]*|--get)(\s|$))[^\n|;&]*(\s-d\s|\s--data)", "an HTTP mutation to a remote host"),
 ]
 
 MCP_LOCAL = re.compile(r"^mcp__(rag|ccd_[a-z_]+|scheduled-tasks|computer-use|Claude_Browser|claude-in-chrome|visualize|terminal|mcp-registry|Claude_Code_iOS_Simulator)__")
@@ -223,6 +225,21 @@ CIRCLE_RERUN = re.compile(
 )
 if (tool == "Bash" and not any(re.search(NEG, t) for t in turns)
         and CIRCLE_RERUN.fullmatch((inp.get("command", "") or "").strip())):
+    sys.exit(0)
+
+# Standing go for posting pull request reviews from the Jira "PR review" workflow, in any session.
+# 20 Oct 2026: "review the tickets in PR review ... You decided what to publish, just make sure they
+# follow writing-guides.md". Later turns ask only for "same procedure as before", which carries no
+# go-word, so the window lost the go once that message was nine turns back (21 Oct, #3472). Only one
+# review payload posted to ncu-ad-manager, ncu-commercial-assets or nuk-cdn (added 28 Oct) passes, only while a recent turn
+# asks for a review, and never past a veto. verify-receipt.sh still requires a clean receipt for it.
+REVIEW_POST = re.compile(
+    r"gh api repos/newsuk/(?:ncu-ad-manager|ncu-commercial-assets|nuk-cdn)/pulls/\d+/reviews"
+    r" --input /\S+/payload\.json(?: --jq '[^'\n]*')?"
+)
+if (tool == "Bash" and not any(re.search(NEG, t) for t in turns)
+        and any(re.search(r"\breview", t) for t in turns)
+        and REVIEW_POST.fullmatch((inp.get("command", "") or "").strip())):
     sys.exit(0)
 
 # Standing go for the MF tutorial companion's private staging repository, in any session.

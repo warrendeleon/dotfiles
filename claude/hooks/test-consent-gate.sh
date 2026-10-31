@@ -53,6 +53,17 @@ check circle-rerun-all      deny  "${RERUN/from_failed\": true/from_failed\": fa
 check circle-approve        deny  "curl -s -X POST -H \"Circle-Token: \$CIRCLE_TOKEN\" \"https://circleci.com/api/v2/workflow/972c00a3-8b78-4b52-94c2-1069149805b3/approve/3e170d71-f0f1-40db-882f-72f5a2b5d072\"" "status?"
 check circle-rerun-chained  deny  "$RERUN && git push origin main" "status?"
 check circle-rerun-veto     deny  "$RERUN" "don't rerun anything"
+# Standing go: post a receipted review payload in the PR-review workflow (20 Oct, "You decided what to publish").
+RV='gh api repos/newsuk/ncu-ad-manager/pulls/3472/reviews --input /private/tmp/x/payload.json'
+check review-post-standing   allow "$RV" "Review all six, same procedure as before."
+check review-post-jq         allow "$RV --jq '\"\\(.id) \\(.state)\"'" "Review this one: https://github.com/newsuk/ncu-ad-manager/pull/3272"
+check review-post-assets     allow "${RV/ncu-ad-manager/ncu-commercial-assets}" "Peter need a review on 226"
+check review-post-no-ask     deny  "$RV" "what's the status?"
+check review-post-veto       deny  "$RV" "Review all six" "don't post anything yet"
+check review-post-cdn        allow "${RV/ncu-ad-manager/nuk-cdn}" "Review all six"
+check review-post-other-repo deny  "${RV/ncu-ad-manager/ncu-commercial-ads-txt}" "Review all six"
+check review-post-comments   deny  "gh api repos/newsuk/ncu-ad-manager/pulls/3472/comments --input /private/tmp/x/payload.json" "Review all six"
+check review-post-chained    deny  "$RV && git push origin main" "Review all six"
 # "Hit the release" is a go for the production approval (5 Oct, #3413).
 APPROVE='curl -s -X POST -H "Circle-Token: $CIRCLE_TOKEN" "https://circleci.com/api/v2/workflow/x/approve/y"'
 check release-go            allow "$APPROVE" "3413 was merged. When you can, hit the release"
@@ -83,6 +94,16 @@ check can-you-edit-follow  allow "$PUT" "Can you edit them all up with the corre
 check could-you-please-fix allow "$PUT" "could you please fix the table"
 check can-you-explain-fix  deny  "$PUT" "can you explain how to fix this?"
 check fix-as-noun          deny  "$PUT" "how difficult is the fix?"
+
+# curl -G sends -d/--data as the query string of a GET, so it is a read (8 Oct, SCB-6401 JQL search).
+JQL="https://nidigitalsolutions.jira.com/rest/api/3/search/jql"
+check get-data-urlencode    allow "curl -s -u \"\$A\" -G \"$JQL\" --data-urlencode 'jql=parent=SCB-5989' --data-urlencode 'fields=summary'" "Can you check if this is ready for development?"
+check get-long-flag         allow "curl -s --get \"$JQL\" -d 'jql=key=SCB-1'" "status?"
+check get-combined-flag     allow "curl -sG \"$JQL\" --data-urlencode 'jql=key=SCB-1'" "status?"
+check get-with-post         deny  "curl -s -G -X POST \"$JQL\" -d 'x=1'" "status?"
+check get-with-json         deny  "curl -s -G --json '{}' \"$JQL\"" "status?"
+check plain-data            deny  "curl -s -d 'x=1' \"$JQL\"" "status?"
+check get-then-post         deny  "curl -s -G \"$JQL\" -d 'a=1' && curl -s -d 'b=2' \"$JQL\"" "status?"
 
 # Standing go for one scheduled task: the first turn is the <scheduled-task> block.
 SCHED='<scheduled-task name="rebase-scb-6272-triplelift" file="x">Keep the branch rebased.</scheduled-task>'
