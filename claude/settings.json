@@ -33,15 +33,6 @@
             "async": true
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/Developer/dotfiles/claude/hooks/reply-length-gate.sh",
-            "timeout": 15
-          }
-        ]
       }
     ],
     "UserPromptSubmit": [
