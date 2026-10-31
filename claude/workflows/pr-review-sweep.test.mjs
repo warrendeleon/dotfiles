@@ -8,11 +8,15 @@ import { readFileSync } from 'node:fs'
 const source = readFileSync(new URL('./pr-review-sweep.js', import.meta.url), 'utf8').replace('export const meta =', 'const meta =')
 const run = new Function('agent', 'parallel', 'pipeline', 'log', 'phase', 'args', 'budget', 'workflow', `return (async () => {\n${source}\n})()`)
 
-// Each item runs through the stages in order; a stage that throws drops the item to null.
+// As the real pipeline(): each item runs through the stages in order, and a stage that throws
+// or returns null drops the item to null without running the stages after it.
 const pipeline = async (items, ...stages) => Promise.all(items.map(async (item, i) => {
   let v = item
   try {
-    for (const [k, s] of stages.entries()) v = await s(k === 0 ? item : v, item, i)
+    for (const [k, s] of stages.entries()) {
+      v = await s(k === 0 ? item : v, item, i)
+      if (v == null) return null
+    }
     return v
   } catch {
     return null

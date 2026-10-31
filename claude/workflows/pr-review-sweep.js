@@ -227,7 +227,8 @@ const result = (p, extra) => ({ pr: tag(p), repo: p.repo, n: p.n, head: p.head, 
 
 const results = await pipeline(
   lanes,
-  p => p.mode === 'replies' ? null
+  // pipeline() drops an item whose stage returns null, so replies mode passes a placeholder, not null.
+  p => p.mode === 'replies' ? { ran: false, reason: 'not measured in replies mode' }
     : agent(coveragePrompt(p), { label: `coverage ${tag(p)}`, phase: 'Coverage', schema: COVERAGE, effort: 'medium' }),
   async (cov, p) => {
     const draft = await agent(reviewPrompt(p, cov), { label: `draft ${tag(p)}`, phase: 'Draft', schema: DRAFT, effort: 'high' })
