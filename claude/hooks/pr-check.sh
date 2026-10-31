@@ -24,14 +24,30 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ -n "$repo" && -n "$pr" && ${#files[@]} -gt 0 ]] || { echo "usage: pr-check.sh --repo <owner/name> --pr <number> <review-file>..." >&2; exit 1; }
+# A fixer can delete a draft it judged wrong (28 Oct 2026, the PR sweep's gate test); name it
+# rather than fail on a traceback halfway through.
+for f in "${files[@]}"; do
+  [[ -f "$f" ]] || { echo "pr-check: $f does not exist; nothing was checked" >&2; exit 1; }
+done
 
-diff=$(gh pr diff "$pr" --repo "$repo") || { echo "pr-check: gh pr diff failed for $repo#$pr" >&2; exit 1; }
-DIFF="$diff" python3 - "${files[@]}" <<'PY'
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! diff=$(gh pr diff "$pr" --repo "$repo" 2>/dev/null); then
+  # GitHub refuses a whole diff over 20,000 lines (HTTP 406) but still serves each file's
+  # patch, apart from the largest files. A file with no patch counts as outside the diff.
+  diff=$(gh api "repos/$repo/pulls/$pr/files" --paginate --jq '.[] | select(.patch != null) | "+++ b/\(.filename)\n\(.patch)"') \
+    || { echo "pr-check: gh pr diff failed for $repo#$pr" >&2; exit 1; }
+  echo "pr-check: whole diff unavailable for $repo#$pr; checked against per-file patches" >&2
+fi
+# A file, not an environment variable: a diff past about 1 MB exceeds the argument limit.
+diff_file=$(mktemp)
+trap 'rm -f "$diff_file"' EXIT
+printf '%s\n' "$diff" > "$diff_file"
+DIFF_FILE="$diff_file" python3 - "${files[@]}" <<'PY'
 import os, re, sys
 # lines the pull request added or changed, per file, from the unified diff
 changed = {}
 path = None; new = 0
-for ln in os.environ["DIFF"].splitlines():
+for ln in open(os.environ["DIFF_FILE"], encoding="utf-8").read().splitlines():
     if ln.startswith("+++ "):
         path = ln[4:].strip(); path = path[2:] if path.startswith("b/") else path
         changed.setdefault(path, set()); continue
@@ -88,5 +104,5 @@ sys.exit(1 if (unlabelled or unknown) else 0)
 PY
 status=$?
 hist="[{\"round\":1,\"mode\":\"recheck\",\"checked\":1,\"found\":$status,\"fresh\":$status,\"confirmed\":$status,\"lostConfirms\":0,\"incomplete\":false}]"
-"$HOME/Developer/dotfiles/claude/hooks/write-receipt.sh" --profile "pull request review" --clean "$([[ $status -eq 0 ]] && echo true || echo false)" --history "$hist" "${files[@]}"
+"$DIR/write-receipt.sh" --profile "pull request review" --clean "$([[ $status -eq 0 ]] && echo true || echo false)" --history "$hist" "${files[@]}"
 exit $status
