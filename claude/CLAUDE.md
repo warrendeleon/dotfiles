@@ -37,6 +37,9 @@ The wiki (`~/.wiki`) is long-term memory; memory files hold behaviour and pointe
 - Never commit secrets or PII: `/scan-secrets` before every commit, `/sanitise-config` before committing any config file.
 - Never leave a bug unfixed, whatever the severity, and never ask whether to fix it.
 - Every fix ships with a test; run the whole suite after a change and fix every failure, not only mine.
+- **Simplicity first.** The least code that solves the request. No features, abstractions, options or error handling nobody asked for and no real case needs. If 200 lines could be 50, rewrite it.
+- **Surgical changes.** Every changed line traces to the request. Match the existing style; don't reformat, re-comment or refactor working code next to mine. Remove what my change left unused; mention old dead code rather than delete it. A bug is not dead code: the rule above still applies.
+- **Goal-driven.** Turn the task into a check before starting: a failing test to make pass, tests green before and after a refactor. Loop until the check passes.
 
 ## 5. Git
 
