@@ -25,6 +25,6 @@ Target: the file named, or the text in the conversation (write it to a scratchpa
    - `python3 ~/Developer/dotfiles/claude/hooks/writing-lint.py <target>`: read each hit in its sentence. A leftover (a placeholder, a chat reply, a tool artefact, a truncated ending) is fixed; a listed word was there before the cut and is not this skill's job, unless the cut made it.
    Then `wc -w`: the text must not exceed the original plus 2%. If it does, make one more cut over the whole prose, then count again.
 5. **Read original against edit.** Open both and list every claim, qualifier, condition, reason, example or piece of context that is gone or weakened ("may" turned into "will", a lost "only when", a lost "because", two paragraphs run together). Put each back in its shortest exact form. The script cannot see these; this read is the check.
-6. **Report** in under 100 words: words before and after with the % change, the inventory result ("43 of 43 kept"), items restored, the backup path.
+6. **Report**: words before and after with the % change, the inventory result ("43 of 43 kept"), items restored, the backup path.
 
 Never post, send or publish the result; that stays the author's call.

@@ -351,7 +351,7 @@ test('a cheap reader proposes every cut with the words it saves, and the tighten
   const { prompts, logs } = await runWith({ ...short, cuts: cuts([cut('a line the Description repeats', 40), cut('a closing recap', 25)]) })
   assert.match(prompts.cuts, /STAGE: cuts\. Do NOT edit, create or delete any file/)
   assert.match(prompts.cuts, /The target is 1520 words; the original had 1500/)
-  assert.match(prompts.cuts, /15 to 20 per cent longer/)
+  assert.match(prompts.cuts, /another place already carries are cuts too/)
   assert.match(prompts.cuts, /cover the last sentence of each paragraph/)
   assert.ok(logs.some(l => /cuts: 2 proposed, 65 words/.test(l)))
   const t = prompts.tighten
@@ -366,7 +366,7 @@ test('the tightener follows /tighten from step 3, checks the sha, has the ceilin
   const p = prompts.tighten
   assert.match(p, /Read \$HOME\/Developer\/dotfiles\/claude\/commands\/tighten\.md and follow its steps 3 to 5/)
   assert.match(p, /shasum -a 256 on the target\. If it is not bbb/)
-  assert.match(p, /The target is 1520 words, the original had 1500, and the run is not clean above 1530/)
+  assert.match(p, /The target is 1520 words, the original had 1500; keep the target at or under 1530 words/)
   assert.match(p, /The aim is a document shorter than it started/)
   assert.match(p, /content-inventory\.py check '\/h\/\.claude\/edit-doc\/post\.md\.Ab12Cd\/original\.md' '\/tmp\/post\.md'/)
   assert.match(p, /inbound-quotes\.py check '\/h\/\.claude\/edit-doc\/post\.md\.Ab12Cd\/original\.md' '\/tmp\/post\.md' --in '\/tmp'/)

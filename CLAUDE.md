@@ -32,7 +32,7 @@ dotfiles/
 ├── claude/              Claude Code config (global, applies to every project)
 │   ├── CLAUDE.md        Global instructions Claude reads at every session start
 │   ├── commands/        Custom skills (audit, debug, recall, edit-doc, ...)
-│   ├── agents/          Subagent types (edit-doc-stage: four tools, for workflow stages)
+│   ├── agents/          Subagent types for workflow stages (edit-doc-stage, critique-judge, critique-verifier)
 │   ├── output-styles/   Output presets (warren.md)
 │   └── docs/            Shell reference + RAG/wiki explainer
 │
@@ -64,8 +64,8 @@ Two installer-style patterns to recognise:
 
 ### 2. `claude/`: the AI workflow
 
-The dotfiles assume Claude Code is the primary AI tool. Three artefacts:
-- `claude/CLAUDE.md`: global instructions Claude reads every session. Tone, voice, banned phrases, RAG/wiki lookup order, security/testing principles. Long but well-organised.
+The dotfiles assume Claude Code is the primary AI tool. Four artefacts:
+- `claude/CLAUDE.md`: global instructions Claude reads every session: behaviour rules, RAG/wiki lookup order, security/testing principles. Voice lives in `claude/output-styles/warren.md`. Long but well-organised.
 - `claude/settings.json`: Claude Code's global config. Symlinked to `~/.claude/settings.json` by setup. Carries the Stop hook (osascript notification), `outputStyle: "Warren"`, `effortLevel: "high"`, `advisorModel: "opus"`, voice config, and enabled plugins.
 - `claude/commands/*.md`: custom skills callable as `/audit`, `/debug`, `/recall`, `/scan-secrets`, `/check-dep`, `/sanitise-config`, `/edit-doc`, `/tighten`, `/plain-words`. Each is a markdown prompt with frontmatter.
 - `claude/output-styles/warren.md`: Warren's personal voice profile, referenced by `settings.json` as `"outputStyle": "Warren"`. **If you're not Warren, copy this file to `<yourname>.md`, edit the content to your own voice, and change `settings.json` to point at it.** Otherwise Claude will write everything in Warren's voice. Full guide at `claude/docs/output-styles.md`.
@@ -145,7 +145,7 @@ Parts of this repo are personal to the owner and won't work for someone else wit
 | `nas/mount-nas.sh` | Hardcoded NAS IPs + Tailscale hostname | Edit `ADDRESSES`, `USER_NAME`, `SHARES` for your own NAS, or skip step 30 |
 | `ssh/config` | Owner's SSH hosts | Replace with your own entries before running setup |
 | `git/.gitconfig` | Owner's name + email | `.gitconfig.local` overrides if you symlink one in (ignored by git) |
-| `claude/CLAUDE.md` | Owner's writing voice, RAG/wiki conventions, banned phrases | Edit or replace. This is opinionated by design. |
+| `claude/CLAUDE.md` | Owner's behaviour rules and RAG/wiki conventions | Edit or replace. This is opinionated by design. |
 
 Everything else (Brewfile, macOS defaults, iTerm2 profile, fonts, language toolchains, the structure of setup.sh) is portable as-is.
 

@@ -21,7 +21,7 @@ Clean means: both critics ran, every objection was ruled on, every applied edit 
 
 ## Output
 
-Report under 400 words from the result:
+Report from the result:
 
 ```
 **Reader**: the seat the critics sat in

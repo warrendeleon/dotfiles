@@ -19,6 +19,6 @@ Target: the file named, or the text in the conversation (write it to a scratchpa
 5. **British English.** behaviour, colour, organisation, optimise, recognise, licence, analyse, modelled, prioritise, favourite, defence. Leave quoted code, library names and upstream identifiers (`color` in CSS stays `color`).
 6. **Never change** a number, identifier, version, quotation, code block, chart or data table. A doubt about one is reported, not edited.
 7. **Check.** `python3 ~/Developer/dotfiles/claude/hooks/content-inventory.py check <copy> <target>` must exit 0. Then rerun the lint and read the hits left.
-8. **Report** in under 100 words: hits read, edits made, words kept under the judgement clause with the reason (an empty list on a long text means the read was too fast), the inventory result.
+8. **Report**: hits read, edits made, words kept under the judgement clause with the reason (an empty list on a long text means the read was too fast), the inventory result.
 
 Run `/tighten` after this, not before. Never post, send or publish the result.

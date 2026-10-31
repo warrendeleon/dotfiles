@@ -6,7 +6,7 @@ If the user specifies a file, edit that one. Otherwise, prompt for the file. If 
 
 Run the edit-doc workflow on the file, every time, whatever its length: the Workflow tool with `scriptPath: ~/Developer/dotfiles/claude/workflows/edit-doc.js` and `args: {target, surface?, mode?, notes?, decisions?, sources?, related?}`. Pass `sources` whenever the document rests on evidence: its attachments, the drafts it came from, and the code at the commit it cites. Without them the claims are checked against the document alone, which is how a wrong ticket key or an untested case stated as fact gets through. Pass `related` (files or folders) when something outside the document's own folder may quote it; the run already searches that folder. Before launching, run `wc -w` on the file and say the path and the agent count in one line: under 2,500 words, the short path with five agents; from 2,500, the long path with seven, or up to ten from 5,000 words.
 
-The standard every agent reads is `~/.wiki/personal/writing/edit-doc-checklist.md`: the six prose guides condensed one rule per line, with the rules below folded in. It is about 3,000 tokens against about 25,000 for the guides, which is what made a run cost 630,000 tokens and 15 minutes for a 2,000-word ticket. A Jira or email surface adds its surface guide, read in full. Only the per-remit reviewers on a document over 5,000 words read their remit's full guides.
+The standard every agent reads is `~/.wiki/personal/writing/edit-doc-checklist.md`: the six prose guides condensed one rule per line, with the rules below folded in. It is about 3,000 tokens against about 25,000 for the guides, and every agent in a run reads it. A Jira or email surface adds its surface guide, read in full. Only the per-remit reviewers on a document over 5,000 words read their remit's full guides.
 
 **Short path (under 2,500 words).** Prepare (Sonnet) backs up the file to a fresh directory under `~/.claude/edit-doc/`, takes the content inventory, finds text other files quote, counts the words and edits nothing. Edit (Opus) runs every pass of the checklist in place and adds without cutting. Cuts (Sonnet, read-only) lists every cut the document can take with the words each saves. Tighten (Opus) rules on those, cuts beyond them with `/tighten`, and must reach the proposer's total or explain. Check (Sonnet) runs the mechanical checks, reads the original against the edit, lists everything lost, weakened or in breach, repairs it, and re-runs the checks. Five agents, one writer at a time, no stage twice.
 
@@ -14,7 +14,7 @@ The standard every agent reads is `~/.wiki/personal/writing/edit-doc-checklist.m
 
 An item the check may not settle (a figure, a specific no source gives, a flag-only doubt) goes to Warren under `forAuthor` and leaves the run clean; only a fix the reader was allowed to make and could not complete fails it. Every stage checks the file's sha256 before editing and stops the run if something else wrote to it. A run that ends more than 2% longer than it started is not clean: additions such as a named source are paid for by cuts. The inventory script protects values that must survive byte for byte (numbers, code, links, footnotes, publishing fields); claims, qualifiers and reasons are the readers' job. `inbound-quotes.py` protects text other files quote from the document. A fault in another file goes to Warren as a flag; the run edits one file only.
 
-When it returns, write the change log below from its result, in under 500 words. If `clean` is false, say why in one line and give the `original` path, which holds the backup. Flags and structure gaps go to Warren in the change log; nothing else is asked of him.
+When it returns, write the change log below from its result. If `clean` is false, say why in one line and give the `original` path, which holds the backup. Flags and structure gaps go to Warren in the change log; nothing else is asked of him.
 
 Several files: one run per file, one at a time. Run the passes inline only when the Workflow tool is unavailable: read the checklist and the surface guide, back up the file with the command in `/tighten`, take the inventory, run the passes in the checklist's order, then `/tighten`, then the three scripts in `~/Developer/dotfiles/claude/hooks/` (`writing-lint.py`, `content-inventory.py check`, `inbound-quotes.py check`).
 
@@ -38,7 +38,7 @@ When unclear, default to senior expertise.
 
 ## Output: structured change log
 
-After the run, report under 500 words, specific enough for Warren to absorb the pattern and double-check the correctness work.
+After the run, report specific enough for Warren to absorb the pattern and double-check the correctness work.
 
 ```
 **Mode**: senior expertise | learning post

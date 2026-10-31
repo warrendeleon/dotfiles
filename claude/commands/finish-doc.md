@@ -10,4 +10,4 @@ The critique runs first, because a developmental change makes a copy edit stale.
 
 ## Output
 
-The `/critique` report, then the `/edit-doc` change log, under 800 words together. The questions for Warren appear once, in the critique section. If either is not clean, say why in one line at the top with the original paths.
+The `/critique` report, then the `/edit-doc` change log. The questions for Warren appear once, in the critique section. If either is not clean, say why in one line at the top with the original paths.

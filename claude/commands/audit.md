@@ -4,11 +4,8 @@ If the user specifies files, audit those. Otherwise, audit all modified files (`
 
 ## Rules
 
-1. **If a pass finds ANY bug, do another pass automatically.** Don't stop. Don't ask. Just keep going.
-2. **The only valid stopping point is a completely clean pass that finds zero issues.**
-3. **After a clean pass, keep going until you have 5 consecutive clean passes, each from a different angle.**
-4. **Never declare confidence while bugs are still being found.** Finding bugs proves your previous confidence was wrong.
-5. **Each pass must use a different review strategy.** Don't just re-read the same way each time.
+1. A pass that finds a bug is followed by another pass, without asking.
+2. The audit ends after 5 consecutive clean passes, each with a different strategy from the list below. A pass that finds anything resets the count, because it shows the earlier clean passes missed something.
 
 ## Pass strategies (use a different one each time)
 

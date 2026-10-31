@@ -182,7 +182,7 @@ STAGE: verify. You did not make these edits. The only edit you may make is to pu
 3. Diff the two extractions: every protected value in the target that the original does not have is a new value. Each must appear byte for byte in a cited source of one of the confirmed edits, or in the source_quote of one; list every new value with the source that holds it, or "none". A new value with no source is reverted with its edit.
 4. Run the inventory check again after your reverts and report it, with wc -w and the target's sha256.
 
-Report every edit under confirmed or reverted by its A label; one in neither list keeps the run from counting as clean.
+Report every edit under confirmed or reverted by its A label.
 
 APPLIED EDITS (${judge.applied.length})
 ${judge.applied.map((a, i) => `A${i + 1} (${a.ref})\n   before: ${a.before || `(insertion after: ${a.anchor})`}\n   after: ${a.after}\n   source: ${a.source}\n   source_quote: ${a.source_quote}`).join('\n') || '- none'}`

@@ -12,6 +12,6 @@ cat <<EOF
 [Knowledge routing, standing reminder injected by hook]
 Consult proactively, do not wait to be asked. Lookup order for anything substantive: wiki (~/.wiki) -> RAG (mcp__rag__search) -> codebase.
 - Resuming or starting work: first search ~/.wiki/sessions/ and RAG for the prior summary, so you load context instead of guessing.
-- Finishing substantial work: write or update a summary in ~/.wiki/sessions/ and offer it to the user.
+- Finishing substantial work: offer to write or update the wiki page. Session notes in ~/.wiki/sessions/ are auto-generated; never hand-write one.
 - Knowledge goes in the wiki; memory files hold behaviour and pointers only.
 EOF
