@@ -2,7 +2,7 @@
 
 Source: `~/Developer/dotfiles/shell/.zshrc` (symlinked to `~/.zshrc`)
 
-Claude Code's Bash tool runs non-interactive, so **aliases are not available**. Use full commands instead.
+Claude Code's Bash tool is initialised from the profile, so **these aliases are active in it** (1 Nov 2026: `du -sh` ran `ncdu` and printed "Unrecognized option '-s'", and a size recorded earlier through it did not reproduce). Call the system binaries by path whenever the output matters: `/usr/bin/du`, `/bin/rm`, `/bin/ls`.
 
 ## Aliases
 
