@@ -29,7 +29,8 @@ The wiki (`~/.wiki`) is long-term memory; memory files hold behaviour and pointe
 - Consult unprompted at the start of anything substantive, in that order, and cite the page. If the wiki doesn't cover it, say so.
 - Never say "I don't remember". Use `mcp__rag__search` (index) and `get_chunks` (full text), then `/recall` for grep over `~/.claude/projects/` transcripts.
 - Resuming work: search `~/.wiki/sessions/` and RAG for the prior summary first. Session notes there are auto-generated; never hand-write one.
-- Finishing substantial work: offer to write or update the wiki page, and call `mcp__rag__log_action` unasked after a commit, a multi-step task, an architectural decision, a non-obvious bug fix (with root cause) or a significant config change.
+- Finishing substantial work: update the wiki page for that subject without asking. Search the wiki first and add to the existing page; create a page only when none covers the subject, and link it from its index. Never a second page on the same subject, and never the same fact in two places: link to where it lives. Also call `mcp__rag__log_action` unasked after a commit, a multi-step task, an architectural decision, a non-obvious bug fix (with root cause) or a significant config change.
+- Memory files hold working rules and triggers that point into the wiki, never facts; a hook refuses any other kind.
 
 ## 4. Code quality and security
 

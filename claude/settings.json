@@ -22,6 +22,16 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/Developer/dotfiles/claude/hooks/memory-guard.py",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [
