@@ -14,6 +14,15 @@ every node shape are dropped and every arrow type splits an edge, so every node 
 compared (a filter used to drop all lowercase ids); "32-byte" counts like "32 bytes". Broken again
 with five controls (a node id renamed, an edge removed, the command before a trailing comment
 changed, a hyphen-joined number changed, an ==> edge retargeted): each failed in its own class.
+1 Nov 2026 (the CocoaPods to SwiftPM post): accTitle, accDescr (one line or a { block }), sequence
+message, note and alias text, and unquoted node labels and subgraph titles are dropped; "-. text .->"
+and "== text ==>" labels are stripped like "-- text -->", which no longer swallows the middle node of
+"A --> B --> C"; each edge is compared as (source, arrow, target), ~~~ and ->> included. Broken with
+twelve controls in translation-parity.test.py (a node id renamed, an edge removed, an edge
+retargeted, -.-> changed to -->, a chain's middle node removed, a sequence message retargeted, a
+heading removed, an executable token changed, a version swapped, a link changed, a paragraph
+removed, a bold removed): each failed in its own class, and a reworded label, accTitle, accDescr,
+sequence text or comment failed none.
 """
 import re
 import sys
@@ -104,28 +113,43 @@ def strip_comments(lang, lines):
 
 
 def mermaid_structure(lines):
-    """Node ids, edge pairs and edge count; labels are the translated part."""
+    """Node ids and (source, arrow, target) edges; every reader-visible label is the translated part."""
     ids, edges = set(), []
+    seq = descr = False
     for l in lines:
         s = l.strip()
-        if not s or s.startswith('flowchart') or s.startswith('sequenceDiagram') or s.startswith('%%'):
+        if descr:
+            # a multi-line "accDescr {" runs to its closing brace
+            descr = '}' not in s
             continue
-        # drop labels: ["..."], (["..."]), [("...")], (("...")), ("..."), {"..."} and |edge labels|
-        bare = re.sub(r'\(\["[^"]*"\]\)|\[\("[^"]*"\)\]|\(\("[^"]*"\)\)|\("[^"]*"\)|\["[^"]*"\]|\{"[^"]*"\}'
-                      r'|\|"[^"]*"\||\|[^|]*\|', '', s)
-        bare = re.sub(r'--\s*[^-\s][^-]*?\s*-->', '-->', bare)
-        # every arrow: -->, -.->, ==>, <-->, ---
-        parts = re.split(r'\s*<?(?:-\.+-|-{2,}|={2,})>?\s*', bare)
-        parts = [p.strip() for p in parts if p.strip()]
-        # Edge labels ("-- yes -->", |label|) are already gone, so every remaining part is a node id,
-        # a "subgraph id" line or the "end" keyword. Until 4 Oct 2026 a filter dropped every
-        # lowercase word here, which hid most node ids (fetch, refuse, store) from the comparison.
-        parts = [p for p in parts if p not in ('end', 'direction TD', 'direction LR')]
-        for p in parts:
-            ids.add(p)
-        if len(parts) >= 2:
-            for a, b in zip(parts, parts[1:]):
-                edges.append((a, b))
+        if re.match(r'accDescr\s*\{', s) and '}' not in s:
+            descr = True
+            continue
+        seq = seq or s.startswith('sequenceDiagram')
+        # accTitle and accDescr are reader-visible text, translated like a label
+        if not s or s.startswith(('flowchart', 'sequenceDiagram', '%%', 'accTitle', 'accDescr')):
+            continue
+        if seq:
+            # message and note text after ":", and a participant's "as" alias
+            s = re.sub(r'\s+as\s.*$|\s*:.*$', '', s)
+        # drop labels: every quoted string, then |edge labels|, then the brackets of every node shape
+        # with any unquoted label in them: [..], (..), {..}, ([..]), [(..)], ((..)), {{..}}, [/../], >..]
+        bare = re.sub(r'"[^"]*"', '', s)
+        bare = re.sub(r'\|[^|]*\|', '', bare)
+        bare = re.sub(r'\s*@?[\[({][^\])}]*[\])}]+|(?<=\w)>[^\]]*\]', '', bare)
+        # edge text between the two halves of an arrow: "-- yes -->", "-. text .->", "== text ==>"
+        # (the old "--...-->" pattern also swallowed the middle node of "A --> B --> C")
+        bare = re.sub(r'(?<![-.=])--(?=[^->xo]).*?\s*(-{2,}[-xo>])', r'\1', bare)
+        bare = re.sub(r'(?<![-.=])==(?=[^=>xo]).*?\s*(={2,}[=xo>])', r'\1', bare)
+        bare = re.sub(r'(?<![-.=])-\.(?=[^-.]).*?\s*\.(-[xo>]?)', r'-.\1', bare)
+        # every arrow, kept as the edge type: -->, ---, --x, --o, <-->, -.->, -.-, ==>, ===, ~~~, ->>, -->>
+        parts = [p.strip() for p in re.split(r'\s*(<?(?:-{2,}[-xo>]>?|={2,}[=xo>]|-\.+-[xo>]?|~{3,}|->>?))\s*', bare)]
+        nodes, arrows = parts[0::2], parts[1::2]
+        # Every label is gone, so every node is an id, a "subgraph id" line or the "end" keyword.
+        # Until 4 Oct 2026 a filter dropped every lowercase word here, which hid most node ids
+        # (fetch, refuse, store) from the comparison.
+        ids.update(p for p in nodes if p and p not in ('end', 'direction TD', 'direction LR'))
+        edges += zip(nodes, arrows, nodes[1:])
     return ids, edges
 
 
