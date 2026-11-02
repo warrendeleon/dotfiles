@@ -137,6 +137,13 @@ test('a re-review measures only what moved since the last review', async () => {
   assert.match(calls[1].prompt, new RegExp(`compare/${'a'.repeat(40)}\\.\\.\\.${'b'.repeat(40)}`))
 })
 
+test('a re-review treats points he approved with as settled, so they never hold a re-approval', async () => {
+  const last = { state: 'DISMISSED', dismissed_from: 'approved', commit_id: 'a'.repeat(40), submitted_at: '2026-10-29T10:11:18Z', url: 'u' }
+  const { calls } = await runWith([lane({ mode: 'rereview', last_review: last })], { coverage, draft: draft({ proposed_event: 'APPROVE', red: 0 }), tighten: tight, decide: decision() })
+  assert.match(calls[1].prompt, /A point Warren left open in a review where he approved .* is settled: he approved with it open\. Never put it in decisions_pending/)
+  assert.match(calls[3].prompt, /A point Warren approved with open, or an earlier 🟡 of his that is still not done, is already settled: it is never a reason to hold/)
+})
+
 test('no lanes, no agents', async () => {
   const { result, calls } = await runWith([], {})
   assert.deepEqual(result, [])

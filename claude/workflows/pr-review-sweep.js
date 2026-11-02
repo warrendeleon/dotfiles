@@ -132,6 +132,7 @@ After each numbered step append one line to ${p.dir}/progress.log, e.g. echo "$(
 - Everything already said on the PR, by people and bots: \`gh api repos/newsuk/${p.repo}/pulls/${p.n}/reviews --paginate\`, \`.../pulls/${p.n}/comments --paginate\`, \`gh api repos/newsuk/${p.repo}/issues/${p.n}/comments --paginate\`.
 ${p.mode === 'rereview' ? `
 RE-REVIEW. Read all of Warren's earlier reviews and inline comments. For each change he asked for, check at the head whether it is done. Read what changed since his last review: \`gh api repos/newsuk/${p.repo}/compare/${p.last_review.commit_id}...${p.head}\` (ignore what came in from ${p.base}). Never restate an earlier comment of his. New inline findings only on code changed since his last review, or on something his earlier reviews did not cover.
+A point Warren left open in a review where he approved (a 🟡, or a "Carried over" point in the body) is settled: he approved with it open. Never put it in decisions_pending, and never let it stop a re-approval. The same holds for any earlier 🟡 of his that is still not done, because a 🟡 never blocks.
 ` : ''}${p.mode === 'replies' ? `
 REPLIES ONLY. Warren has already reviewed this head. Do not write payload.json and do not review the code afresh: only judge the threads in step 6. proposed_event is NONE.
 ` : ''}
@@ -195,7 +196,7 @@ Read ${p.dir}/payload.json and every ${p.dir}/reply-*.json, the PR diff (\`gh pr
 1. Re-read the code behind every 🔴 and every reply. A 🔴 you cannot confirm from the code is cut or turned into a 🟡; if the review then has no 🔴, the event becomes APPROVE.
 2. Drop any reply that only acknowledges, thanks, agrees or has the last word. Keep one only when a question to Warren needs an answer or a claimed fix is not at the head.
 3. Hold the whole PR when any of these is true:
-   - the drafter left a decision you cannot settle from the code (decisions_pending);
+   - the drafter left a decision you cannot settle from the code (decisions_pending). A point Warren approved with open, or an earlier 🟡 of his that is still not done, is already settled: it is never a reason to hold;
    - a thread verdict is dispute-holds;
    - a 🔴 rests on a product, scope or priority call rather than on what the code does;
    - a gate finding on a file you keep was not fixed (the gate's fixer skipped it, or you cannot correct it from the code). A receipt that failed only because of a file you drop is not a reason to hold: the files you keep are gated again before anything is posted;
