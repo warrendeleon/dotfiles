@@ -134,6 +134,33 @@ class Classify(unittest.TestCase):
         st = {"prs": {"ncu-ad-manager#1": {"head": HEAD, "outcome": "held"}}, "seen": {}}
         self.assertIsNone(self.mode(on_ticket=True, state=st))
 
+    def test_review_asked_again_after_a_hold_brings_it_back(self):
+        st = {"prs": {"ncu-ad-manager#1": {"head": HEAD, "outcome": "held", "at": "2026-11-02T17:11:06+00:00",
+                                           "reason": "waits for product sign-off"}}, "seen": {}}
+        tl = [{"event": "review_requested", "created_at": "2026-11-03T09:34:06Z", "requested_reviewer": user(ME)}]
+        mode, reason, _ = ps.classify(1, ctx(on_ticket=True, state=st, timeline=tl,
+                                             pull={"requested_reviewers": [user(ME)]}))
+        self.assertEqual(mode, "hold")
+        self.assertEqual(reason, "his review was asked for again after the hold: waits for product sign-off")
+        st["prs"]["ncu-ad-manager#1"].update(at="2026-11-03T10:00:00+00:00", reason=reason)
+        tl.append({"event": "review_requested", "created_at": "2026-11-04T09:00:00Z", "requested_reviewer": user(ME)})
+        _, reason, _ = ps.classify(1, ctx(on_ticket=True, state=st, timeline=tl, pull={"requested_reviewers": [user(ME)]}))
+        self.assertEqual(reason, "his review was asked for again after the hold: waits for product sign-off")
+
+    def test_review_asked_before_the_hold_stays_skipped(self):
+        st = {"prs": {"ncu-ad-manager#1": {"head": HEAD, "outcome": "held", "at": "2026-11-03T10:00:00+00:00"}}, "seen": {}}
+        tl = [{"event": "review_requested", "created_at": "2026-11-03T09:34:06Z", "requested_reviewer": user(ME)},
+              {"event": "review_requested", "created_at": "2026-11-04T09:00:00Z", "requested_reviewer": user("peter")}]
+        self.assertIsNone(self.mode(on_ticket=True, state=st, timeline=tl, pull={"requested_reviewers": [user(ME)]}))
+
+    def test_held_drafts_are_found_in_the_run_that_held_them(self):
+        with tempfile.TemporaryDirectory() as runs:
+            for stamp, sha in (("20261102-1701", HEAD), ("20261101-0900", HEAD), ("20261103-0900", OLD)):
+                os.makedirs(os.path.join(runs, stamp, "ncu-ad-manager-1"))
+                write_json(os.path.join(runs, stamp, "ncu-ad-manager-1", "payload.json"), {"commit_id": sha})
+            self.assertEqual(ps.held_drafts(runs, "ncu-ad-manager", 1, HEAD), os.path.join(runs, "20261102-1701", "ncu-ad-manager-1"))
+            self.assertIsNone(ps.held_drafts(runs, "ncu-ad-manager", 2, HEAD))
+
     def test_handled_at_older_head_is_redone(self):
         st = {"prs": {"ncu-ad-manager#1": {"head": OLD, "outcome": "posted"}}, "seen": {}}
         self.assertEqual(self.mode(on_ticket=True, state=st), "new")

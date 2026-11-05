@@ -21,6 +21,7 @@ is re-approved without agents. Nothing here posts to GitHub or writes to Jira.
 import argparse
 import base64
 import datetime as dt
+import glob
 import json
 import os
 import re
@@ -47,6 +48,7 @@ ME = "warrendeleon"
 MY_EMAILS = git_email()
 CAP = 3
 STALE_DAYS = 30
+ASKED_AGAIN = "his review was asked for again after the hold: "
 LOCK_STALE = dt.timedelta(hours=3)
 HOME = os.path.expanduser(os.environ.get("PR_SWEEP_HOME", "~/.claude/pr-review-sweep"))
 CLONES = os.path.expanduser("~/Developer/news.co.uk")
@@ -371,6 +373,11 @@ def classify(pr, ctx):
             if changed is not False:
                 mode, reason = "rereview", "new changes since his last review"
     if mode in ("new", "rereview", "reapprove", "hold") and handled:
+        asked = [parse_time(e.get("created_at")) for e in ctx["timeline"] if e.get("event") == "review_requested"
+                 and (e.get("requested_reviewer") or {}).get("login") == ME and e.get("created_at")]
+        if st.get("outcome") == "held" and requested and asked and st.get("at") and max(asked) > parse_time(st["at"]):
+            held_for = (st.get("reason") or "").removeprefix(ASKED_AGAIN)
+            return "hold", ASKED_AGAIN + held_for, extra
         mode, reason = None, f"already {st.get('outcome')} at this head"
     if mode is None and threads:
         mode, reason = "replies", "new comments in his threads"
@@ -379,7 +386,7 @@ def classify(pr, ctx):
 
 # ---------- discover ----------
 
-def fetch_pr(repo, n):
+def fetch_pr(repo, n, held_head=None):
     base = f"repos/{OWNER}/{repo}"
     pull = gh_api(f"{base}/pulls/{n}")
     with ThreadPoolExecutor(4) as ex:
@@ -387,9 +394,21 @@ def fetch_pr(repo, n):
             f"{base}/pulls/{n}/commits?per_page=100", f"{base}/pulls/{n}/reviews?per_page=100",
             f"{base}/pulls/{n}/comments?per_page=100", f"{base}/issues/{n}/comments?per_page=100"])
     last = last_decisive(reviews)
-    timeline = gh_api(f"{base}/issues/{n}/timeline?per_page=100", paginate=True) if last and last["state"] == "DISMISSED" else []
+    held = held_head == pull["head"]["sha"]  # a hold at this head comes back if his review is asked for again
+    timeline = gh_api(f"{base}/issues/{n}/timeline?per_page=100", paginate=True) if held or (last and last["state"] == "DISMISSED") else []
     return {"pull": pull, "commits": commits, "reviews": reviews, "review_comments": rc,
             "issue_comments": ic, "timeline": timeline}
+
+
+def held_drafts(runs, repo, n, head):
+    """The newest run folder whose drafts for this PR were written at this head, or None."""
+    for d in sorted(glob.glob(os.path.join(runs, "*", f"{repo}-{n}")), reverse=True):
+        try:
+            if read_json(os.path.join(d, "payload.json")).get("commit_id") == head:
+                return d
+        except (OSError, ValueError):
+            continue
+    return None
 
 
 def jira_key(pull):
@@ -445,8 +464,9 @@ def cmd_discover(a):
 
     def one(c):
         repo, n = c
+        st = state["prs"].get(f"{repo}#{n}") or {}
         try:
-            return c, fetch_pr(repo, n), None
+            return c, fetch_pr(repo, n, st.get("head") if st.get("outcome") == "held" else None), None
         except Exception as e:
             return c, None, str(e)
 
@@ -492,6 +512,7 @@ def cmd_discover(a):
             item["payload"] = os.path.join(item["dir"], "payload.json")
             reapprove.append(item)
         elif mode == "hold":
+            item["dir"] = held_drafts(os.path.dirname(run), repo, n, item["head"]) or item["dir"]
             holds.append(item)
         elif mode in ("new", "rereview", "replies"):
             lanes.append(item)
