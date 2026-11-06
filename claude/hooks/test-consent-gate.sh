@@ -95,6 +95,13 @@ check could-you-please-fix allow "$PUT" "could you please fix the table"
 check can-you-explain-fix  deny  "$PUT" "can you explain how to fix this?"
 check fix-as-noun          deny  "$PUT" "how difficult is the fix?"
 
+# "Delete the rule on all 5 repos" was refused on 6 Nov for lack of this; a question or a veto is not a go.
+DEL='gh api -X DELETE repos/newsuk/x/rulesets/1'
+check delete-go            allow "$DEL" "Delete the rule on all 5 repos"
+check delete-then-question allow "$DEL" "Delete the rule on all 5 repos" "what is this?"
+check delete-as-question   deny  "$DEL" "how do I delete a ruleset?"
+check delete-negated       deny  "$DEL" "don't delete the rule"
+
 # curl -G sends -d/--data as the query string of a GET, so it is a read (8 Oct, SCB-6401 JQL search).
 JQL="https://nidigitalsolutions.jira.com/rest/api/3/search/jql"
 check get-data-urlencode    allow "curl -s -u \"\$A\" -G \"$JQL\" --data-urlencode 'jql=parent=SCB-5989' --data-urlencode 'fields=summary'" "Can you check if this is ready for development?"

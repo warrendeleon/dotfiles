@@ -195,7 +195,7 @@ NEG = r"\b(don'?t|do not|never|stop|without|no)\s+(?!forget\b)(\w+\s+){0,2}" + G
 # A polite request is the same imperative: "Can you edit them all up with the
 # corrected values?" was refused on 2 Oct (SCB-6314/6319/6321) for lack of this.
 IMPERATIVE = (r"(?:^|[.!?;,:]\s*|\b(?:and|then|now|please|so)\s+|\b(?:can|could|would|will)\s+you\s+(?:please\s+)?)"
-              r"(fix|change|update|edit|set|add|remove|reopen|assign|rename|retitle|amend)\b")
+              r"(fix|change|update|edit|set|add|remove|delete|reopen|assign|rename|retitle|amend)\b")
 
 # "No need just approve it" (5 Oct, PR #3423) declines one thing and asks for another; the
 # "no need" belongs to the declined part, so drop it before "just". "No need to push" stays a veto.
