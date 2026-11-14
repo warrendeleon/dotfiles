@@ -59,10 +59,14 @@ The wiki (`~/.wiki`) is long-term memory; memory files hold behaviour and pointe
 | `/recall` | Grep over past transcripts when RAG search isn't enough. |
 | `/check-dep` | Before adding any dependency. |
 | `/debug` | When something fails and the cause isn't obvious. |
-| `/edit-doc` | Every document before it is delivered (blog post, wiki page, ADR, README, email, deck notes, PR description; not commit messages, chat replies or code). Runs the edit-doc workflow. |
+| `/finish-doc` | A long document many readers will study, before it is delivered: a blog post, report, wiki page, ADR, deck notes or new ticket body of about 1,000 words or more. Runs `/critique`, then `/edit-doc`. Say the agent count in one line first. |
+| `/edit-doc` | The same kind of document when its substance is already settled (a re-edit after a critique, a translation), or when Warren names it. Never short or routine text. |
+| `/critique` | On its own only when Warren names it. |
 | `/tighten` | Shorten any text without losing content (Jira comment, email, PR text, wiki page). edit-doc runs it as its tighten stage. |
 | `/plain-words` | Word and sentence pass for any text, long or short. |
 | `/graphify` | Any input to a knowledge graph; invoke the Skill tool first when Warren types it. |
+
+**Short or routine text never runs a document workflow.** A comment, PR description, README, email, Slack message, evidence note, or anything under about 1,000 words gets `writing-lint.py` and one inline pass with `/plain-words` and `/tighten`. The workflows cost five to fourteen agents a run, so weigh length, audience and cost before launching one. A hook that asks for one is not a go.
 
 ## 7. No repetition
 

@@ -1,4 +1,4 @@
-Finish one document in one go: `/critique` (does it work on its reader?) and then `/edit-doc` (does it read to the house standard?), one report at the end. Each can still be run on its own.
+Finish one document in one go: `/critique` (does it work on its reader?) and then `/edit-doc` (does it read to the house standard?), one report at the end. Each can still be run on its own. This is the default for a long document many readers will study (about 1,000 words or more); short or routine text never runs it (section 6 of `~/.claude/CLAUDE.md`).
 
 If the user specifies a file, finish that one. Otherwise, prompt for the file.
 
