@@ -33,6 +33,7 @@ dotfiles/
 │   ├── CLAUDE.md        Global instructions Claude reads at every session start
 │   ├── commands/        Custom skills (audit, debug, recall, edit-doc, ...)
 │   ├── agents/          Subagent types for workflow stages (edit-doc-stage, critique-judge, critique-verifier)
+│   ├── skills/          Skills, one folder each; third-party sources and licences in NOTICES.md
 │   ├── output-styles/   Output presets (warren.md)
 │   └── docs/            Shell reference + RAG/wiki explainer
 │

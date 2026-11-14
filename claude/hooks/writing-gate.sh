@@ -68,7 +68,7 @@ PROSE_EXT = (".md", ".mdx", ".txt", ".rst", ".adoc")
 TAGS = re.compile(r"(?is)<(script|style)\b.*?</\1\s*>|<[^>]+>")
 # Files that are instructions or state for the assistant, never text for a reader.
 SKIP_PATH = re.compile(
-    r"(/\.claude/|/node_modules/|/\.git/|/\.taste-skill/|/(CLAUDE|AGENTS|MEMORY)\.md$|/LICEN[CS]E|/CHANGELOG\.md$|/requirements[^/]*\.txt$|/robots\.txt$)"
+    r"(/\.claude/|/claude/skills/[^/]+/|/node_modules/|/\.git/|/\.taste-skill/|/(CLAUDE|AGENTS|MEMORY)\.md$|/LICEN[CS]E|/CHANGELOG\.md$|/requirements[^/]*\.txt$|/robots\.txt$)"
 )
 
 

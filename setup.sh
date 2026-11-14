@@ -983,6 +983,19 @@ if command -v claude &>/dev/null || [[ "${CLAUDE_CODE_INSTALLED:-}" == "true" ]]
       [[ -f "$ag" ]] && symlink "$ag" "$HOME/.claude/agents/$(basename "$ag")"
     done
   fi
+  # Symlink skills, one folder each (third-party sources and licences: claude/skills/NOTICES.md)
+  if [[ -d "${DOTFILES_DIR}/claude/skills" ]]; then
+    mkdir -p "$HOME/.claude/skills"
+    for skill in "${DOTFILES_DIR}/claude/skills/"*/; do
+      skill="${skill%/}"
+      skill_dest="$HOME/.claude/skills/$(basename "$skill")"
+      if [[ -d "$skill_dest" && ! -L "$skill_dest" ]]; then
+        warn "Skill folder already exists, left alone: $skill_dest"
+        continue
+      fi
+      symlink "$skill" "$skill_dest"
+    done
+  fi
   # Receipts written by the review-loop workflow; read by the verify-receipt hook
   mkdir -p "$HOME/.claude/receipts"
   success "Claude Code configured"

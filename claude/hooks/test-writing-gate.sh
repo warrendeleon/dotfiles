@@ -56,6 +56,7 @@ check md-reread-after     allow Write "$MD" $PROSE COMPACT $PROSE
 check edit-md             block Edit  '{"file_path":"/tmp/x/post.mdx","old_string":"a","new_string":"b"}'
 check code-file           allow Write '{"file_path":"/tmp/x/app.ts","content":"const a = 1"}'
 check claude-md           allow Write '{"file_path":"/tmp/x/CLAUDE.md","content":"rules"}'
+check skill-in-dotfiles   allow Write '{"file_path":"/Users/x/Developer/dotfiles/claude/skills/a/SKILL.md","content":"x"}'
 check skill-file          allow Write '{"file_path":"/Users/x/.claude/skills/a/SKILL.md","content":"x"}'
 check html-app            allow Write '{"file_path":"/tmp/x/app.html","content":"<script>let a=1</script><div id=app></div>"}'
 check html-document       block Write "$(python3 -c 'import json;print(json.dumps({"file_path":"/tmp/x/report.html","content":"<p>"+"word "*600+"</p>"}))')"
