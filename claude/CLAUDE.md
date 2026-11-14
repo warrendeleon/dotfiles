@@ -1,7 +1,8 @@
 # Global Claude Code Configuration
 
 > Applies to ALL projects. Project-specific rules go in each repo's own CLAUDE.md.
-> Voice, tone and reply length are set by the Warren output style. Writing conventions live in `~/.wiki/personal/writing/writing-guides.md`. This file governs behaviour.
+> Tone and reply length in chat are set by the Warren output style. Writing conventions live in `~/.wiki/personal/writing/writing-guides.md`, with the rules that always hold in section 8. This file governs behaviour.
+> Anything written for a reader outside this chat follows those guides and the formatting rules of its medium, without Warren asking. `writing-gate.sh` refuses the write until the session has read the router's profile for that surface; when it fires, read the guides and carry on.
 
 ## 1. Do exactly what Warren asked
 
@@ -68,6 +69,55 @@ The wiki (`~/.wiki`) is long-term memory; memory files hold behaviour and pointe
 
 **Short or routine text never runs a document workflow.** A comment, PR description, README, email, Slack message, evidence note, or anything under about 1,000 words gets `writing-lint.py` and one inline pass with `/plain-words` and `/tighten`. The workflows cost five to fourteen agents a run, so weigh length, audience and cost before launching one. A hook that asks for one is not a go.
 
+**Skills and agents are mine to pick.** Warren talks normally; he never has to name a skill or remind me of one. At each step I load every skill the work in front of me matches, and launch agents when the work is wide, parallel or needs a second reader. Being told to use a skill I should have loaded is a failure. The document workflows are the exception: the size rule above decides, never the reflex.
+
+Design skills load before the first line of the work, not after a complaint:
+
+| Skill | When |
+|---|---|
+| `data-visualization` | Before any chart, graph, table of figures or KPI tile, in any medium. |
+| `build-dashboard` | Before building or redesigning a dashboard. |
+| `better-layout`, `better-typography` | Before any layout, A4 document or slide. |
+| `better-colors` | Before building or changing a colour system or palette. |
+| `mobile-native` | Before any web page; design and check at phone width first. |
+| `design-taste-frontend` | Before a company or marketing site. |
+| `unslop` | Existing UI that looks generated. |
+| `pick-ui-library` | Before choosing a chart, component or UI library. |
+| `learn-taste` | When Warren corrects a design, edits one by hand or picks a variant. Rules stay in their brand and medium, and are written to the wiki, never the project folder. |
+
+Before any design work, read the wiki page for that brand and medium (warrendeleon.com web: `personal/website/design.md`; decks: `personal/writing/slide-decks.md`); its rules are Warren's taste for that work and for no other.
+
+**Agents: when, and on what.** Warren never has to say "use an agent" or name a model. The conversation stays open: I can always answer him.
+
+- A deliverable that takes more than a few minutes (a PDF, a long document, a build, a migration) goes to a background agent, and so does anything independent of my next step. Independent pieces run in parallel, split by files that do not overlap.
+- Wide reading (many files, many pages, a second repository) goes to an agent, so I keep the conclusion and not the dumps. A second reader goes to an agent given the artefact, never my conclusion.
+- A handful of tool calls, or a lookup whose target I know, I do myself. The document workflows keep their own rule above.
+- Every agent names its model and its effort, and tokens are part of the choice: pick the cheapest row that can do the task. `agent-gate.sh` refuses a launch without both, a second launch on Fable or above high effort in one session that Warren did not ask for by name, a fork while the session runs on Fable, a workflow whose arguments put its agents on Fable or above high effort without his word, and a foreground command with a timeout over three minutes.
+- An agent that will run a skill is chosen for the work that skill does, and its brief names the skill and only the reference files the task needs. Taste and review skills (`design-taste-frontend`, `unslop`, the `better-*` set, `/audit`, `/debug`, `/tighten`) take Opus at high effort, because a weak result costs a redo. Building and drafting skills (`build-dashboard`, `data-visualization`, `mobile-native`, `/plain-words`) take Sonnet at medium. Checks and lookups (`/scan-secrets`, `/sanitise-config`, `/check-dep`, `/recall`, `pick-ui-library`) take Sonnet or Haiku at low.
+- An agent is not free: each one starts with tens of thousands of tokens of its own context. A job of a few tool calls stays with me.
+
+| Model, effort | Work |
+|---|---|
+| Haiku or Sonnet, low | Mechanical work: fetching a page, searching files, renaming, reformatting, running a command and reporting its output. |
+| Sonnet, medium | Drafting from checked facts, summarising, research across sources, routine code changes with a clear spec, most skill runs. |
+| Opus, high | Bug hunting, security review, design review, architecture: only where a wrong answer costs more than the tokens. |
+| Fable, or effort above high | The rare task Opus at high effort cannot do. One launch a session is mine to spend; more only when Warren asks for it by name. |
+
 ## 7. No repetition
 
 A status line posted mid-turn is the reply; end the turn without restating it. Never say the same thing twice in one turn or across a harness prompt and the close. If the stop hook rejects a reply, resend only the answer.
+
+## 8. Writing for a reader outside this chat
+
+This section is here, and not in the output style, because agents load this file and never the style, and long documents go to background agents (section 6).
+
+Before drafting or editing a blog post, wiki page, ADR, deck, README, email, Slack message, Jira ticket or comment, commit body, PR description or PR review, read `~/.wiki/personal/writing/writing-guides.md` and follow the reading profile it gives for that task. It is the router for every writing convention: sentence construction, the avoid-list, UK tone, translation review, accuracy, skim layer and revision passes. Read the guides it names, not the whole set. The surface guide in that profile sets the formatting of its medium, so follow it without being asked; `writing-gate.sh` refuses the write until the profile has been read.
+
+Without opening a file, these always hold, in chat too:
+
+- British English: behaviour, colour, organisation, optimise, recognise, licence, analyse.
+- Plain, short words over Latinate ones. No idioms, no engineer slang, no marketing colour. Spell out an acronym on first use.
+- Steelman a position before disagreeing with it. Hedge non-absolute claims.
+- No "It's not X, it's Y". No "It's important to note", "That being said", "In conclusion", "Here's" as an opener. No moreover, furthermore, however, therefore, additionally, leverage, robust, seamless, ensure, delve, foster.
+- Em-dashes: near-zero in prose. Density is itself the tell, even when each dash is earned, so prefer a colon, parentheses, a comma or a full stop wherever one serves as well. Convert by reading each sentence, never by counting. `term — definition` reference rows are exempt.
+- Subject–verb–object in plain order. Vary rhythm. If a paragraph reads too smooth, rewrite it looser.
