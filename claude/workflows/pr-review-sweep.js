@@ -230,15 +230,15 @@ const results = await pipeline(
   lanes,
   // pipeline() drops an item whose stage returns null, so replies mode passes a placeholder, not null.
   p => p.mode === 'replies' ? { ran: false, reason: 'not measured in replies mode' }
-    : agent(coveragePrompt(p), { label: `coverage ${tag(p)}`, phase: 'Coverage', schema: COVERAGE, effort: 'medium' }),
+    : agent(coveragePrompt(p), { label: `coverage ${tag(p)}`, phase: 'Coverage', schema: COVERAGE, model: 'opus', effort: 'medium' }),
   async (cov, p) => {
-    const draft = await agent(reviewPrompt(p, cov), { label: `draft ${tag(p)}`, phase: 'Draft', schema: DRAFT, effort: 'high' })
+    const draft = await agent(reviewPrompt(p, cov), { label: `draft ${tag(p)}`, phase: 'Draft', schema: DRAFT, model: 'opus', effort: 'high' })
     if (!draft) throw new Error(`no draft for ${tag(p)}`)
     return { cov, draft }
   },
   async (r, p) => {
     if (!files(r.draft).length) return { ...r, tight: null }
-    const tight = await agent(tightenPrompt(p), { label: `tighten ${tag(p)}`, phase: 'Tighten', schema: TIGHT, effort: 'high' })
+    const tight = await agent(tightenPrompt(p), { label: `tighten ${tag(p)}`, phase: 'Tighten', schema: TIGHT, model: 'opus', effort: 'high' })
     return { ...r, tight }
   },
   async (r, p) => {
@@ -251,7 +251,7 @@ const results = await pipeline(
       log(`${tag(p)}: nothing to post (${r.draft.replies.length} thread replies judged, none needed)`)
       return result(p, { action: 'nothing', note: `${r.draft.replies.length} thread replies need no answer` })
     }
-    const d = await agent(decidePrompt(p, r.cov, r.draft, r.gate, r.tight), { label: `decide ${tag(p)}`, phase: 'Decide', schema: DECISION, effort: 'high' })
+    const d = await agent(decidePrompt(p, r.cov, r.draft, r.gate, r.tight), { label: `decide ${tag(p)}`, phase: 'Decide', schema: DECISION, model: 'opus', effort: 'high' })
     if (!d) return result(p, { action: 'hold', hold_reason: 'the decider did not return', draft: r.draft })
     // The receipt must cover exactly what is posted: gate again after an edit, a dropped file or an unclean first pass.
     let gate = r.gate
